@@ -11,11 +11,13 @@ A Vedic astrology web app that runs entirely in the browser — no backend, no A
 ## Features
 
 - **Birth Chart** — North Indian (diamond/triangle layout) and South Indian (fixed sign grid) SVG charts rendered directly in the browser
-- **Planetary Positions** — all 9 Vedic grahas (Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Rahu, Ketu) with sign, degree, house, nakshatra, pada, and retrograde status
+- **Divisional Charts** — full D1–D12 suite plus Chalit, selectable from a dropdown on the Chart tab; SVG and planet table both update instantly
+  - D1 Rashi, D2 Hora, D3 Drekkana, D4 Chaturthamsha, D5 Panchamsha, D6 Shashthamsha, D7 Saptamsha, D8 Ashtamsha, D9 Navamsa, D10 Dashamsha, D11 Rudramsha, D12 Dwadashamsha, Chalit
+- **Planetary Positions** — all 9 Vedic grahas with sign, degree, D1 house, nakshatra, pada; retrograde marked **(R)**, combusted planets marked **(C)**
 - **Vimshottari Dasha** — 3-level expandable tree: Mahadasha → Antardasha → Pratyantar dasha with start/end dates; current period highlighted
 - **Panchang** — Tithi, Vara, Nakshatra, Yoga, Karana, sunrise/sunset, Rahu Kalam, Gulika Kalam for the birth date and location
-- **Location autocomplete** — type any city name, powered by OpenStreetMap Nominatim (no API key)
-- **Saved Profiles** — save multiple birth details to browser localStorage, load from dropdown, delete individually or clear all
+- **Location autocomplete** — type any city name, powered by OpenStreetMap Nominatim; manual entry supported with auto-detect timezone button
+- **Saved Profiles** — save multiple birth charts to browser localStorage; ▶ load & calculate instantly, ✎ edit in form, 🗑 delete with confirmation
 - **Smart defaults** — pre-filled with today's date, current time, and New Delhi as default location
 
 ---
@@ -45,6 +47,8 @@ All astronomical calculations use the **Swiss Ephemeris** compiled to WebAssembl
 - **Ayanamsa:** Lahiri (SE_SIDM_LAHIRI) — the standard for Vedic/Jyotish astrology
 - **House system:** Placidus (via `houses_ex` with sidereal flag)
 - **Ketu:** computed as Rahu longitude + 180° (no separate ephemeris body)
+- **Divisional charts:** standard Parashari formula — `sign = ((rasi−1)×n + floor(degInSign×n/30)) mod 12 + 1`; D2 uses traditional Hora rule; Chalit places planets by Placidus house
+- **Combustion:** Parashari orbs — Moon 12°, Mars 17°, Mercury 14°, Jupiter 11°, Venus 10°, Saturn 15°; Sun/Rahu/Ketu are immune
 - **Vimshottari Dasha:** 120-year cycle seeded from Moon's nakshatra at birth; balance computed from fraction of nakshatra elapsed at birth time
 - **Panchang:** Tithi and Yoga use tropical Sun+Moon longitudes; Nakshatra uses sidereal Moon; sunrise/sunset via `rise_trans`
 
@@ -76,7 +80,7 @@ All astronomical calculations use the **Swiss Ephemeris** compiled to WebAssembl
 
 ```
 src/
-  core/          # astronomical calculations (swisseph wrapper, dasha, panchang)
+  core/          # astronomical calculations (swisseph wrapper, dasha, panchang, divisional)
   tabs/          # UI panels: input form, chart, dasha, panchang
   ui/            # chart SVG renderer, tab navigation
   utils/         # geocoding API, time/Julian Day conversion

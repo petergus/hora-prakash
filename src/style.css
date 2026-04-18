@@ -335,6 +335,23 @@ h3 {
   box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
 }
 
+.div-select {
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: var(--text);
+  background: #f8fafc;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.div-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+}
+
 .btn-load {
   padding: 0.3rem 0.8rem;
   background: var(--primary);

@@ -116,30 +116,51 @@ function renderSavedProfiles() {
         <h3 style="margin:0">Saved Profiles</h3>
         <button type="button" id="btn-clear-all" class="btn-danger-sm">Clear All</button>
       </div>
-      <div style="display:flex;gap:0.5rem;align-items:center">
+      <div class="profile-row">
         <select id="profile-select" class="profile-select">
           <option value="">— Select a profile —</option>
-          ${profiles.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)} · ${p.dob} · ${escapeHtml(p.location || p.lat + '°, ' + p.lon + '°')}</option>`).join('')}
+          ${profiles.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('')}
         </select>
         <button type="button" id="btn-load-profile" class="btn-load">Load</button>
         <button type="button" id="btn-delete-profile" class="btn-delete" title="Delete selected">✕</button>
       </div>
+      <div id="profile-preview" class="profile-preview" style="display:none"></div>
     </div>
   `
+
+  const sel = section.querySelector('#profile-select')
+
+  sel.addEventListener('change', () => {
+    const id = sel.value
+    const preview = section.querySelector('#profile-preview')
+    if (!id) { preview.style.display = 'none'; return }
+    const p = profiles.find(q => q.id === id)
+    if (!p) { preview.style.display = 'none'; return }
+    preview.style.display = 'flex'
+    preview.innerHTML = `
+      <span class="pp-name">${escapeHtml(p.name)}</span>
+      <span class="pp-sep">·</span>
+      <span class="pp-item">${p.dob}</span>
+      <span class="pp-sep">·</span>
+      <span class="pp-item">${p.tob}</span>
+      <span class="pp-sep">·</span>
+      <span class="pp-item pp-loc">${escapeHtml(p.location || p.lat + '°, ' + p.lon + '°')}</span>
+    `
+  })
 
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
     if (confirm('Delete all saved profiles?')) { saveProfiles([]); renderSavedProfiles() }
   })
 
   section.querySelector('#btn-load-profile').addEventListener('click', () => {
-    const id = section.querySelector('#profile-select').value
+    const id = sel.value
     if (!id) return
-    const profile = loadProfiles().find(p => p.id === id)
+    const profile = profiles.find(p => p.id === id)
     if (profile) fillForm(profile)
   })
 
   section.querySelector('#btn-delete-profile').addEventListener('click', () => {
-    const id = section.querySelector('#profile-select').value
+    const id = sel.value
     if (!id) return
     if (confirm('Delete this profile?')) { deleteProfile(id); renderSavedProfiles() }
   })

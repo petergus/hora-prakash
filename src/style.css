@@ -364,6 +364,33 @@ h3 {
 
 .label-hint { font-size: 0.75rem; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
 
+/* ── Profile row & preview ── */
+.profile-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.profile-row .profile-select { flex: 1; min-width: 0; }
+
+.profile-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: #f1f5f9;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.pp-name { font-weight: 700; color: var(--primary); }
+.pp-sep  { color: var(--border); }
+.pp-item { color: var(--muted); }
+.pp-loc  { font-style: italic; }
+
 .btn-tz {
   padding: 0 0.6rem;
   background: #f1f5f9;

@@ -65,7 +65,7 @@ export function renderInputTab() {
           <input type="time" id="inp-tob" required value="${nowTimeStr()}" />
         </div>
         <div class="form-group">
-          <label>Birth Location <span class="label-hint">— type to search, or enter manually below</span></label>
+          <label>Birth Location <span class="label-hint">— search or enter manually</span></label>
           <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${DELHI.displayName}" />
           <ul id="location-suggestions"></ul>
         </div>
@@ -121,8 +121,9 @@ function renderSavedProfiles() {
           <option value="">— Select a profile —</option>
           ${profiles.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('')}
         </select>
-        <button type="button" id="btn-load-profile" class="btn-load">Load</button>
-        <button type="button" id="btn-delete-profile" class="btn-delete" title="Delete selected">✕</button>
+        <button type="button" id="btn-load-profile" class="btn-icon btn-icon-primary" title="Load &amp; calculate chart">&#9654;</button>
+        <button type="button" id="btn-edit-profile" class="btn-icon btn-icon-muted" title="Load into form for editing">&#9998;</button>
+        <button type="button" id="btn-delete-profile" class="btn-icon btn-icon-danger" title="Delete profile">&#128465;</button>
       </div>
       <div id="profile-preview" class="profile-preview" style="display:none"></div>
     </div>
@@ -156,13 +157,22 @@ function renderSavedProfiles() {
     const id = sel.value
     if (!id) return
     const profile = profiles.find(p => p.id === id)
+    if (profile) { fillForm(profile); document.getElementById('birth-form').requestSubmit() }
+  })
+
+  section.querySelector('#btn-edit-profile').addEventListener('click', () => {
+    const id = sel.value
+    if (!id) return
+    const profile = profiles.find(p => p.id === id)
     if (profile) fillForm(profile)
   })
 
   section.querySelector('#btn-delete-profile').addEventListener('click', () => {
     const id = sel.value
     if (!id) return
-    if (confirm('Delete this profile?')) { deleteProfile(id); renderSavedProfiles() }
+    const profile = profiles.find(p => p.id === id)
+    const label = profile ? `"${profile.name}" (${profile.dob})` : 'this profile'
+    if (confirm(`Remove ${label}? This cannot be undone.`)) { deleteProfile(id); renderSavedProfiles() }
   })
 }
 

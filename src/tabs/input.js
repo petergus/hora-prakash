@@ -65,8 +65,8 @@ export function renderInputTab() {
           <input type="time" id="inp-tob" required value="${nowTimeStr()}" />
         </div>
         <div class="form-group">
-          <label>Birth Location</label>
-          <input type="text" id="inp-location" required placeholder="Type city name…" autocomplete="off" value="${DELHI.displayName}" />
+          <label>Birth Location <span class="label-hint">— type to search, or enter manually below</span></label>
+          <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${DELHI.displayName}" />
           <ul id="location-suggestions"></ul>
         </div>
         <div class="form-group coords-row">
@@ -80,7 +80,10 @@ export function renderInputTab() {
           </div>
           <div>
             <label>Timezone</label>
-            <input type="text" id="inp-tz" value="${DELHI.timezone}" readonly />
+            <div style="display:flex;gap:0.4rem">
+              <input type="text" id="inp-tz" value="${DELHI.timezone}" placeholder="e.g. Asia/Kolkata" style="flex:1" />
+              <button type="button" id="btn-fetch-tz" class="btn-tz" title="Auto-detect timezone from coordinates">⟳</button>
+            </div>
           </div>
         </div>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
@@ -99,6 +102,7 @@ export function renderInputTab() {
   document.getElementById('birth-form').addEventListener('submit', onFormSubmit)
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
+  document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
 }
 
 function renderSavedProfiles() {
@@ -176,6 +180,28 @@ function onSaveProfile() {
   setTimeout(() => { btn.textContent = 'Save Profile' }, 1500)
 }
 
+async function onFetchTz() {
+  const lat = parseFloat(document.getElementById('inp-lat').value)
+  const lon = parseFloat(document.getElementById('inp-lon').value)
+  const btn = document.getElementById('btn-fetch-tz')
+  if (isNaN(lat) || isNaN(lon)) {
+    document.getElementById('calc-error').textContent = 'Enter valid coordinates first.'
+    return
+  }
+  btn.disabled = true
+  btn.textContent = '…'
+  try {
+    const tz = await getTimezone(lat, lon)
+    document.getElementById('inp-tz').value = tz
+    document.getElementById('calc-error').textContent = ''
+  } catch {
+    document.getElementById('calc-error').textContent = 'Could not fetch timezone. Enter it manually.'
+  } finally {
+    btn.disabled = false
+    btn.textContent = '⟳'
+  }
+}
+
 // ── Location autocomplete ─────────────────────────────────────────────────────
 
 async function onLocationInput(e) {
@@ -249,7 +275,8 @@ async function onFormSubmit(e) {
     const dasha   = calcDasha(moon, dob)
     const panchang = calcPanchang(jd, lat, lon)
 
-    state.birth    = { name, dob, tob, lat, lon, timezone: tz, location: selectedLocation?.displayName ?? '' }
+    const location = document.getElementById('inp-location').value.trim()
+    state.birth    = { name, dob, tob, lat, lon, timezone: tz, location }
     state.planets  = planets
     state.lagna    = lagna
     state.houses   = houses

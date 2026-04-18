@@ -361,3 +361,20 @@ h3 {
   transition: color 0.15s, border-color 0.15s;
 }
 .btn-delete:hover { color: var(--danger); border-color: var(--danger); }
+
+.label-hint { font-size: 0.75rem; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+.btn-tz {
+  padding: 0 0.6rem;
+  background: #f1f5f9;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn-tz:hover:not(:disabled) { background: #e0e7ff; color: var(--primary); border-color: var(--primary); }
+.btn-tz:disabled { opacity: 0.5; cursor: not-allowed; }

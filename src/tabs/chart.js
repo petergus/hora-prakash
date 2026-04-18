@@ -6,6 +6,8 @@ import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
 let chartStyle  = 'north'
 let divisional  = 'D1'
 
@@ -16,18 +18,19 @@ function divLabel() {
 export function renderChart() {
   const panel = document.getElementById('tab-chart')
   const { planets, lagna, birth } = state
+  if (!planets || !lagna || !birth) return
 
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, divisional)
   const signLabels = divisional === 'Chalit' ? CHALIT_LABELS : undefined
 
   const heading = divisional === 'D1'
-    ? `${birth.name} — Birth Chart`
-    : `${birth.name} — ${divLabel()}`
+    ? `${esc(birth.name)} — Birth Chart`
+    : `${esc(birth.name)} — ${divLabel()}`
 
   panel.innerHTML = `
     <div class="card">
       <h2>${heading}</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${birth.location || birth.lat + '°, ' + birth.lon + '°'}</p>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || birth.lat + '°, ' + birth.lon + '°'}</p>
       <div style="margin-bottom:0.75rem">
         <select id="div-select" class="div-select">
           ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === divisional ? ' selected' : ''}>${o.label}</option>`).join('')}
@@ -43,24 +46,28 @@ export function renderChart() {
       <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel() : ''}</h3>
       <div class="table-scroll"><table class="planet-table">
         <thead>
-          <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>House</th><th>Nakshatra</th><th>Pada</th><th>R</th></tr>
+          <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>D1 House</th><th>Nakshatra</th><th>Pada</th><th>R</th></tr>
         </thead>
         <tbody>
-          ${dPlanets.map((p, i) => {
-            const signLabel = divisional === 'Chalit'
-              ? `H${p.sign}`
-              : SIGN_NAMES[p.sign - 1]
-            const origHouse = planets[i].house
-            return `<tr>
-              <td>${p.name}</td>
+          ${(() => {
+            const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
+            return dPlanets.map(p => {
+              const signLabel = divisional === 'Chalit'
+                ? `H${p.sign}`
+                : SIGN_NAMES[p.sign - 1]
+              const orig = origByName[p.name]
+              const origHouse = orig?.house ?? '—'
+              return `<tr>
+              <td>${esc(p.name)}</td>
               <td>${signLabel}</td>
               <td>${p.degree.toFixed(2)}°</td>
               <td>${origHouse}</td>
-              <td>${planets[i].nakshatra}</td>
-              <td>${planets[i].pada}</td>
+              <td>${orig?.nakshatra ?? '—'}</td>
+              <td>${orig?.pada ?? '—'}</td>
               <td style="color:#c00">${p.retrograde ? '℞' : ''}</td>
             </tr>`
-          }).join('')}
+            }).join('')
+          })()}
           <tr style="background:#fef3ff">
             <td><strong>Lagna</strong></td>
             <td>${divisional === 'Chalit' ? 'H1' : SIGN_NAMES[dLagna.sign - 1]}</td>

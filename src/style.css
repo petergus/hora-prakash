@@ -317,26 +317,23 @@ h3 {
 }
 .btn-danger-sm:hover { background: #fef2f2; }
 
-.profiles-list { display: flex; flex-direction: column; gap: 0.5rem; }
-
-.profile-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.75rem;
+.profile-select {
+  flex: 1;
+  padding: 0.5rem 0.7rem;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text);
   background: #f8fafc;
-  gap: 0.75rem;
-  transition: border-color 0.15s;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.profile-item:hover { border-color: var(--primary); background: #eef2ff; }
-
-.profile-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.profile-name { font-weight: 600; font-size: 0.95rem; color: var(--text); }
-.profile-meta { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.profile-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.profile-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+}
 
 .btn-load {
   padding: 0.3rem 0.8rem;

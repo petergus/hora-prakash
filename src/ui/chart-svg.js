@@ -35,6 +35,7 @@ const SI_CELLS = [
 ]
 
 const SIGN_ABBR = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
+export const CHALIT_LABELS = ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12']
 
 function toPts(poly) {
   return poly.map(([x, y]) => `${(x * S).toFixed(1)},${(y * S).toFixed(1)}`).join(' ')
@@ -78,7 +79,7 @@ function placePlanets(ps, cx, areaTop, areaBottom) {
   }).join('\n')
 }
 
-export function renderNorthIndianSVG(planets, lagna) {
+export function renderNorthIndianSVG(planets, lagna, signLabels) {
   const lagnaSign = lagna.sign
 
   const cellToSign = {}, signToCell = {}
@@ -114,7 +115,7 @@ export function renderNorthIndianSVG(planets, lagna) {
     const signFontSize = 14
     const signY = minY + cellH * 0.22 + signFontSize
     const sign = cellToSign[cell]
-    parts.push(`<text x="${cx.toFixed(1)}" y="${signY.toFixed(1)}" text-anchor="middle" font-size="${signFontSize}" font-weight="600" fill="#64748b" ${FONT}>${SIGN_ABBR[sign - 1]}</text>`)
+    parts.push(`<text x="${cx.toFixed(1)}" y="${signY.toFixed(1)}" text-anchor="middle" font-size="${signFontSize}" font-weight="600" fill="#64748b" ${FONT}>${signLabels[sign - 1]}</text>`)
 
     // Planets fill remaining area below sign label
     parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6))
@@ -124,7 +125,7 @@ export function renderNorthIndianSVG(planets, lagna) {
   return parts.join('\n')
 }
 
-export function renderSouthIndianSVG(planets, lagna) {
+export function renderSouthIndianSVG(planets, lagna, signLabels) {
   const lagnaSign = lagna.sign
   const cs = S / 4  // 120px per cell
 
@@ -150,7 +151,7 @@ export function renderSouthIndianSVG(planets, lagna) {
 
     // Sign abbr top-left, house number top-right — fixed header row height = 24px
     const headerH = 24
-    parts.push(`<text x="${x + 5}" y="${y + headerH - 4}" font-size="14" font-weight="600" fill="#475569" ${FONT}>${SIGN_ABBR[sign - 1]}</text>`)
+    parts.push(`<text x="${x + 5}" y="${y + headerH - 4}" font-size="14" font-weight="600" fill="#475569" ${FONT}>${signLabels[sign - 1]}</text>`)
     parts.push(`<text x="${x + cs - 5}" y="${y + headerH - 4}" text-anchor="end" font-size="14" font-weight="600" fill="${isLagnaCell ? '#c2410c' : '#94a3b8'}" ${FONT}>${house}</text>`)
 
     // Separator line below header
@@ -165,8 +166,8 @@ export function renderSouthIndianSVG(planets, lagna) {
   return parts.join('\n')
 }
 
-export function renderChartSVG(planets, lagna, style = 'north') {
+export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR) {
   return style === 'south'
-    ? renderSouthIndianSVG(planets, lagna)
-    : renderNorthIndianSVG(planets, lagna)
+    ? renderSouthIndianSVG(planets, lagna, signLabels)
+    : renderNorthIndianSVG(planets, lagna, signLabels)
 }

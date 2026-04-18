@@ -21,7 +21,9 @@ export function renderChart() {
   if (!planets || !lagna || !birth) return
 
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, divisional)
-  const signLabels = divisional === 'Chalit' ? CHALIT_LABELS : undefined
+  const signLabels  = divisional === 'Chalit' ? CHALIT_LABELS : undefined
+  const centerLabel = divisional === 'D1' ? 'Rashi\nChart'
+    : divLabel().replace(' – ', '\n')
 
   const heading = divisional === 'D1'
     ? `${esc(birth.name)} — Birth Chart`
@@ -31,17 +33,17 @@ export function renderChart() {
     <div class="card">
       <h2>${heading}</h2>
       <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || birth.lat + '°, ' + birth.lon + '°'}</p>
-      <div style="margin-bottom:0.75rem">
+      <div class="chart-controls">
         <select id="div-select" class="div-select">
           ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === divisional ? ' selected' : ''}>${o.label}</option>`).join('')}
         </select>
-      </div>
-      <div style="margin-bottom:1rem">
-        <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North Indian</button>
-        <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South Indian</button>
+        <div class="chart-style-group">
+          <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>
+          <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South</button>
+        </div>
       </div>
       <div id="chart-container">
-        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels)}
+        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, centerLabel)}
       </div>
       <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel() : ''}</h3>
       <div class="table-scroll"><table class="planet-table">

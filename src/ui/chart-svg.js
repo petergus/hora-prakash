@@ -125,7 +125,7 @@ export function renderNorthIndianSVG(planets, lagna, signLabels) {
   return parts.join('\n')
 }
 
-export function renderSouthIndianSVG(planets, lagna, signLabels) {
+export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart') {
   const lagnaSign = lagna.sign
   const cs = S / 4  // 120px per cell
 
@@ -138,8 +138,11 @@ export function renderSouthIndianSVG(planets, lagna, signLabels) {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
     `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
     `<rect x="${cs}" y="${cs}" width="${cs * 2}" height="${cs * 2}" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.5"/>`,
-    `<text x="${S/2}" y="${S/2 - 10}" text-anchor="middle" font-size="22" font-weight="700" fill="#c2410c" ${FONT}>Rashi</text>`,
-    `<text x="${S/2}" y="${S/2 + 18}" text-anchor="middle" font-size="22" font-weight="700" fill="#c2410c" ${FONT}>Chart</text>`,
+    ...centerLabel.split('\n').map((line, i, arr) => {
+      const totalH = arr.length * 28
+      const y = S / 2 - totalH / 2 + i * 28 + 20
+      return `<text x="${S/2}" y="${y}" text-anchor="middle" font-size="20" font-weight="700" fill="#c2410c" ${FONT}>${line}</text>`
+    }),
   ]
 
   for (const { sign, col, row } of SI_CELLS) {
@@ -166,8 +169,8 @@ export function renderSouthIndianSVG(planets, lagna, signLabels) {
   return parts.join('\n')
 }
 
-export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR) {
+export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR, centerLabel) {
   return style === 'south'
-    ? renderSouthIndianSVG(planets, lagna, signLabels)
+    ? renderSouthIndianSVG(planets, lagna, signLabels, centerLabel)
     : renderNorthIndianSVG(planets, lagna, signLabels)
 }

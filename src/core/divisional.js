@@ -21,9 +21,9 @@ export const DIVISIONAL_OPTIONS = [
 function parashari(lon, n) {
   const sign        = Math.floor(lon / 30) + 1          // 1–12
   const degInSign   = lon % 30
-  const part        = Math.floor(degInSign / (30 / n))  // 0..n-1
+  const part        = Math.floor((degInSign * n) / 30)  // 0..n-1
   const dSign       = ((sign - 1) * n + part) % 12 + 1
-  const dDegree     = degInSign % (30 / n)
+  const dDegree     = (degInSign * n) % 30 / n
   return { sign: dSign, degree: dDegree }
 }
 
@@ -43,6 +43,7 @@ function transformLon(lon, key) {
   if (key === 'D1')  return { sign: Math.floor(lon / 30) + 1, degree: lon % 30 }
   if (key === 'D2')  return hora(lon)
   const n = parseInt(key.slice(1), 10)
+  if (isNaN(n) || n < 1 || n > 12) throw new Error(`Unknown divisional key: ${key}`)
   return parashari(lon, n)
 }
 

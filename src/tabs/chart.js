@@ -60,7 +60,7 @@ export function renderChart() {
               const orig = origByName[p.name]
               const origHouse = orig?.house ?? '—'
               return `<tr>
-              <td>${esc(p.name)}${p.retrograde ? ' <span style="color:#c00;font-size:0.8em">(R)</span>' : ''}</td>
+              <td>${esc(p.name)}${p.retrograde ? ' <span style="color:#c00;font-size:0.8em">(R)</span>' : ''}${p.combust ? ' <span style="color:#b45309;font-size:0.8em">(C)</span>' : ''}</td>
               <td>${signLabel}</td>
               <td>${p.degree.toFixed(2)}°</td>
               <td>${origHouse}</td>

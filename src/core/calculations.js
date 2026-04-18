@@ -36,6 +36,16 @@ export function getNakshatraInfo(lon) {
  * @param {number} lon Longitude
  * @returns {{ planets: object[], lagna: object, houses: number[] }}
  */
+// Parashari combustion orbs in degrees (planets not listed are immune: Sun, Rahu, Ketu)
+const COMBUST_ORBS = {
+  Moon: 12, Mars: 17, Mercury: 14, Jupiter: 11, Venus: 10, Saturn: 15,
+}
+
+function angularDist(a, b) {
+  const d = Math.abs(((a - b + 540) % 360) - 180)
+  return d
+}
+
 export function calcBirthChart(jd, lat, lon) {
   const swe = getSwe()
 
@@ -45,7 +55,7 @@ export function calcBirthChart(jd, lat, lon) {
   const lagnaLon = housesResult.ascmc[0]
   const houseCusps = Array.from(housesResult.cusps).slice(1, 13)  // [cusp1..cusp12]
 
-  const planets = PLANETS.map(p => {
+  const rawPlanets = PLANETS.map(p => {
     const result = swe.calc_ut(jd, p.id, SIDEREAL_SPEED_FLAG)
     let pLon = result[0]
     if (p.isKetu) pLon = (pLon + 180) % 360  // Ketu = Rahu + 180°
@@ -66,6 +76,13 @@ export function calcBirthChart(jd, lat, lon) {
       pada: nak.pada,
       retrograde: speed < 0,
     }
+  })
+
+  const sunLon = rawPlanets.find(p => p.name === 'Sun')?.lon ?? 0
+  const planets = rawPlanets.map(p => {
+    const orb = COMBUST_ORBS[p.name]
+    const combust = orb !== undefined && angularDist(p.lon, sunLon) <= orb
+    return { ...p, combust }
   })
 
   const lagnaLonNorm = ((lagnaLon % 360) + 360) % 360

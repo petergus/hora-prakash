@@ -48,7 +48,7 @@ export function renderChart() {
       <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel() : ''}</h3>
       <div class="table-scroll"><table class="planet-table">
         <thead>
-          <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>D1 House</th><th>Nakshatra</th><th>Pada</th><th>R</th></tr>
+          <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>D1 House</th><th>Nakshatra</th><th>Pada</th></tr>
         </thead>
         <tbody>
           ${(() => {
@@ -60,13 +60,12 @@ export function renderChart() {
               const orig = origByName[p.name]
               const origHouse = orig?.house ?? '—'
               return `<tr>
-              <td>${esc(p.name)}</td>
+              <td>${esc(p.name)}${p.retrograde ? ' <span style="color:#c00;font-size:0.8em">(R)</span>' : ''}</td>
               <td>${signLabel}</td>
               <td>${p.degree.toFixed(2)}°</td>
               <td>${origHouse}</td>
               <td>${orig?.nakshatra ?? '—'}</td>
               <td>${orig?.pada ?? '—'}</td>
-              <td style="color:#c00">${p.retrograde ? '℞' : ''}</td>
             </tr>`
             }).join('')
           })()}
@@ -77,7 +76,6 @@ export function renderChart() {
             <td>1</td>
             <td>${lagna.nakshatra}</td>
             <td>${lagna.pada}</td>
-            <td></td>
           </tr>
         </tbody>
       </table></div>

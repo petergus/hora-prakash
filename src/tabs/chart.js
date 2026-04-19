@@ -67,7 +67,10 @@ export function renderChart() {
         </div>
       </div>
       <div id="chart-container">
-        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, centerLabel, [], {})}
+        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, centerLabel,
+          dPlanets.filter(p => activePlanets.has(p.abbr)).map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] })),
+          Object.fromEntries(dPlanets.filter(p => activePlanets.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]]))
+        )}
       </div>
       <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel() : ''}</h3>
       <div class="table-scroll"><table class="planet-table">
@@ -115,7 +118,7 @@ export function renderChart() {
   panel.querySelector('#btn-south').addEventListener('click', () => { chartStyle = 'south'; renderChart() })
 
   panel.querySelector('#btn-show-all').addEventListener('click', () => {
-    dPlanets.forEach(p => activePlanets.add(p.abbr))
+    _dPlanets.forEach(p => activePlanets.add(p.abbr))
     renderSVGOnly()
   })
   panel.querySelector('#btn-hide-all').addEventListener('click', () => {

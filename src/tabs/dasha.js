@@ -17,29 +17,26 @@ export function renderDasha() {
 
   const rows = dasha.map(maha => {
     const isMahaCurrent = isCurrentPeriod(maha.start, maha.end)
-    const mahaColor = PLANET_COLORS[PLANET_ABBR[maha.planet]] ?? '#94a3b8'
     const antarRows = maha.antars.map(antar => {
       const isAntarCurrent = isCurrentPeriod(antar.start, antar.end)
-      const antarColor = PLANET_COLORS[PLANET_ABBR[antar.planet]] ?? '#94a3b8'
       const pratRows = antar.pratyantars.map(prat => {
         const isPratCurrent = isCurrentPeriod(prat.start, prat.end)
-        const pratColor = PLANET_COLORS[PLANET_ABBR[prat.planet]] ?? '#94a3b8'
         return `<tr class="${isPratCurrent ? 'current-period' : ''}" style="display:none" data-prat>
-          <td style="padding-left:3rem"><span class="planet-dot" style="background:${pratColor}"></span>↳ ${prat.planet}</td>
+          <td style="padding-left:3rem">↳ ${prat.planet}</td>
           <td>${fmt(prat.start)}</td>
           <td>${fmt(prat.end)}</td>
         </tr>`
       }).join('')
 
       return `<tr class="${isAntarCurrent ? 'current-period' : ''}" style="display:none" data-antar data-toggle-prat>
-          <td style="padding-left:1.5rem; cursor:pointer"><span class="planet-dot" style="background:${antarColor}"></span>▶ ${antar.planet}</td>
+          <td style="padding-left:1.5rem; cursor:pointer">▶ ${antar.planet}</td>
           <td>${fmt(antar.start)}</td>
           <td>${fmt(antar.end)}</td>
         </tr>${pratRows}`
     }).join('')
 
     return `<tr class="${isMahaCurrent ? 'current-period' : ''}" data-toggle-antar style="cursor:pointer">
-        <td><span class="planet-dot" style="background:${mahaColor}"></span><strong>▶ ${maha.planet}</strong></td>
+        <td><strong>▶ ${maha.planet}</strong></td>
         <td>${fmt(maha.start)}</td>
         <td>${fmt(maha.end)}</td>
       </tr>${antarRows}`
@@ -125,23 +122,27 @@ export function renderDasha() {
 }
 
 function toggleSiblings(row, attr) {
-  // Find first matching sibling (may be preceded by interleaved rows of other types)
+  const isPrat = attr === 'data-prat'
+
+  // Find first matching sibling; for prat, don't cross an antar boundary
   let probe = row.nextElementSibling
-  while (probe && !probe.hasAttribute(attr)) probe = probe.nextElementSibling
+  while (probe && !probe.hasAttribute(attr)) {
+    if (isPrat && probe.hasAttribute('data-antar')) return false
+    probe = probe.nextElementSibling
+  }
   if (!probe) return false
 
   const willShow = probe.style.display === 'none'
 
-  // Walk all siblings until we hit a row that belongs to neither antar nor prat level
   let cur = row.nextElementSibling
   while (cur) {
+    if (isPrat && cur.hasAttribute('data-antar')) break  // stop at next antar sibling
     if (cur.hasAttribute(attr)) {
       cur.style.display = willShow ? '' : 'none'
     } else if (cur.hasAttribute('data-prat') || cur.hasAttribute('data-antar')) {
-      // interleaved child rows — hide when collapsing, leave hidden when expanding
       if (!willShow) cur.style.display = 'none'
     } else {
-      break // reached the next maha row
+      break
     }
     cur = cur.nextElementSibling
   }

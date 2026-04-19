@@ -17,34 +17,90 @@ export const DIVISIONAL_OPTIONS = [
   { value: 'Chalit', label: 'Chalit' },
 ]
 
-// Standard Parashari formula for D3–D12
-function parashari(lon, n) {
-  const sign        = Math.floor(lon / 30) + 1          // 1–12
-  const degInSign   = lon % 30
-  const part        = Math.floor((degInSign * n) / 30)  // 0..n-1
-  const dSign       = ((sign - 1) * n + part) % 12 + 1
-  const dDegree     = (degInSign * n) % 30 / n
-  return { sign: dSign, degree: dDegree }
-}
-
-// D2 Hora — traditional rule
+// D2 Hora — traditional Parashari rule
 function hora(lon) {
   const sign      = Math.floor(lon / 30) + 1
   const degInSign = lon % 30
   const isOdd     = sign % 2 === 1
   const firstHalf = degInSign < 15
-  // Odd sign: 0–15 → Leo(5), 15–30 → Cancer(4)
-  // Even sign: 0–15 → Cancer(4), 15–30 → Leo(5)
+  // Odd sign 0-15° → Leo(5), 15-30° → Cancer(4)
+  // Even sign 0-15° → Cancer(4), 15-30° → Leo(5)
   const dSign = (isOdd === firstHalf) ? 5 : 4
   return { sign: dSign, degree: degInSign % 15 }
+}
+
+function part(lon, n) {
+  return Math.floor((lon % 30) * n / 30)   // 0..n-1
+}
+function deg(lon, n) {
+  return ((lon % 30) * n) % 30 / n
+}
+
+// D3 Drekkana: each sign maps to its trikona; advance +4 signs per part
+function d3(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 3)
+  return { sign: ((sign - 1) + l * 4) % 12 + 1, degree: deg(lon, 3) }
+}
+
+// D4 Chaturthamsa: advance +3 signs per part (kendra sequence)
+function d4(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 4)
+  return { sign: ((sign - 1) + l * 3) % 12 + 1, degree: deg(lon, 4) }
+}
+
+// D7 Saptamsa: odd signs start from self, even signs start from 7th (self+6)
+function d7(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 7)
+  const offset = sign % 2 === 0 ? 6 : 0
+  return { sign: ((sign - 1) + offset + l) % 12 + 1, degree: deg(lon, 7) }
+}
+
+// D9 Navamsa: element group seeds — Fire→Aries(0), Earth→Cap(9), Air→Lib(6), Water→Can(3)
+function d9(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 9)
+  const SEEDS = [0,9,6,3, 0,9,6,3, 0,9,6,3]  // index = sign-1
+  return { sign: (SEEDS[sign - 1] + l) % 12 + 1, degree: deg(lon, 9) }
+}
+
+// D10 Dasamsa: odd signs start from self, even signs start from 9th (self+8)
+function d10(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 10)
+  const offset = sign % 2 === 0 ? 8 : 0
+  return { sign: ((sign - 1) + offset + l) % 12 + 1, degree: deg(lon, 10) }
+}
+
+// D12 Dwadasamsa: starts from the sign itself, advances +1 per part
+function d12(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l = part(lon, 12)
+  return { sign: ((sign - 1) + l) % 12 + 1, degree: deg(lon, 12) }
+}
+
+// D5/D6/D8/D11 use Parivritti Cyclic (sequential) — non-standardised across traditions
+function parivritti(lon, n) {
+  const sign      = Math.floor(lon / 30) + 1
+  const l         = part(lon, n)
+  const dSign     = ((sign - 1) * n + l) % 12 + 1
+  return { sign: dSign, degree: deg(lon, n) }
 }
 
 function transformLon(lon, key) {
   if (key === 'D1')  return { sign: Math.floor(lon / 30) + 1, degree: lon % 30 }
   if (key === 'D2')  return hora(lon)
+  if (key === 'D3')  return d3(lon)
+  if (key === 'D4')  return d4(lon)
+  if (key === 'D7')  return d7(lon)
+  if (key === 'D9')  return d9(lon)
+  if (key === 'D10') return d10(lon)
+  if (key === 'D12') return d12(lon)
   const n = parseInt(key.slice(1), 10)
-  if (isNaN(n) || n < 1 || n > 12) throw new Error(`Unknown divisional key: ${key}`)
-  return parashari(lon, n)
+  if (isNaN(n) || n < 1) throw new Error(`Unknown divisional key: ${key}`)
+  return parivritti(lon, n)
 }
 
 /**

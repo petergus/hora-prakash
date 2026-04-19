@@ -101,19 +101,44 @@ export function isCurrentPeriod(start, end) {
 export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
 
 /**
+ * Age broken into whole years, remaining months, remaining days (DATEDIF equivalent).
+ * Source: Dasha Progression-V3-personal.xlsx cells L5/M5/N5
+ *   L5=DATEDIF(DOB,refDate,"Y")  M5=DATEDIF(DOB,refDate,"YM")  N5=DATEDIF(DOB,refDate,"MD")
+ *
+ * @param {string} dobStr   "YYYY-MM-DD"
+ * @param {Date}   [asOf]   Reference date (defaults to today)
+ */
+export function calcAgeComponents(dobStr, asOf = new Date()) {
+  const dob = new Date(dobStr + 'T00:00:00Z')
+  const ref = new Date(Date.UTC(asOf.getFullYear(), asOf.getMonth(), asOf.getDate()))
+
+  let years  = ref.getUTCFullYear() - dob.getUTCFullYear()
+  let months = ref.getUTCMonth()    - dob.getUTCMonth()
+  let days   = ref.getUTCDate()     - dob.getUTCDate()
+
+  if (days < 0) {
+    months--
+    const prevMonth = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0))
+    days += prevMonth.getUTCDate()
+  }
+  if (months < 0) { years--; months += 12 }
+
+  return { years, months, days }
+}
+
+/**
  * House active from age (DOB-based house cycle).
  * Every 12 years the cycle repeats from House 1.
  * Formula: ageWholeYears % 12  (0 maps to 12)
  *
  * Source: Dasha Progression-V3-personal.xlsx, cell L6
  *   =IF(MOD(ageYears, 12) = 0, 12, MOD(ageYears, 12))
+ *
+ * @param {string} dobStr   "YYYY-MM-DD"
+ * @param {Date}   [asOf]   Reference date (defaults to today)
  */
-export function calcHouseActiveFromAge(dobStr) {
-  const dob = new Date(dobStr + 'T00:00:00Z')
-  const today = new Date()
-  let years = today.getUTCFullYear() - dob.getUTCFullYear()
-  const dm = today.getUTCMonth() - dob.getUTCMonth()
-  if (dm < 0 || (dm === 0 && today.getUTCDate() < dob.getUTCDate())) years--
+export function calcHouseActiveFromAge(dobStr, asOf = new Date()) {
+  const { years } = calcAgeComponents(dobStr, asOf)
   return years % 12 === 0 ? 12 : years % 12
 }
 

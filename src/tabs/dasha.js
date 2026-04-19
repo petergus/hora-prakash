@@ -4,6 +4,8 @@ import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeC
 
 let selectedProgLord = null   // persists across re-renders; null = use current MD lord
 let ageAsOf = null            // null = today; set to Date when user picks a date
+let ageCollapsed = false
+let progCollapsed = false
 
 export function renderDasha() {
   const panel = document.getElementById('tab-dasha')
@@ -57,8 +59,10 @@ export function renderDasha() {
         <tbody>${rows}</tbody>
       </table></div>
     </div>
-    ${ageHtml}
-    ${progressionHtml}
+    <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
+      ${ageHtml}
+      ${progressionHtml}
+    </div>
   `
 
   panel.addEventListener('change', e => {
@@ -72,6 +76,20 @@ export function renderDasha() {
       document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, pb)
     }
   })
+
+  panel.addEventListener('click', e => {
+    if (e.target.closest('#age-toggle-btn')) {
+      ageCollapsed = !ageCollapsed
+      document.getElementById('age-prog-body').style.display = ageCollapsed ? 'none' : ''
+      document.getElementById('age-toggle-btn').textContent = ageCollapsed ? '▶' : '▼'
+    } else if (e.target.closest('#prog-toggle-btn')) {
+      progCollapsed = !progCollapsed
+      document.getElementById('prog-body').style.display = progCollapsed ? 'none' : ''
+      document.getElementById('prog-toggle-btn').textContent = progCollapsed ? '▶' : '▼'
+    }
+  })
+
+  initDragReorder(document.getElementById('prog-drag-container'))
 
   panel.querySelector('.dasha-table tbody').addEventListener('click', (e) => {
     const row = e.target.closest('tr')
@@ -156,9 +174,13 @@ function renderAgeProgression(dobStr, asOf) {
   }).join('')
 
   return `
-    <div class="card" id="age-prog-section">
+    <div class="card prog-draggable" id="age-prog-section" draggable="true">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
-        <h3 style="margin:0">Age Progression</h3>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span class="drag-handle" title="Drag to reorder" style="cursor:grab;color:var(--muted);font-size:1rem;line-height:1;padding:0 2px;user-select:none">⠿</span>
+          <button id="age-toggle-btn" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--muted);padding:0;line-height:1">${ageCollapsed ? '▶' : '▼'}</button>
+          <h3 style="margin:0">Age Progression</h3>
+        </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
           <span style="font-size:0.82rem;color:var(--muted)">As of:</span>
           <input type="date" id="age-asof-input" value="${asOfStr}"
@@ -166,20 +188,22 @@ function renderAgeProgression(dobStr, asOf) {
           ${!isToday ? `<button id="age-reset-today" style="font-size:0.78rem;padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none;color:var(--muted)">Today</button>` : ''}
         </div>
       </div>
-      <div style="display:flex;align-items:baseline;gap:1.2rem;margin-bottom:0.9rem;flex-wrap:wrap">
-        <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${years}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">yrs</span></span>
-        <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${months}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">mo</span></span>
-        <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${days}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">days</span></span>
-        <span style="font-size:0.88rem;color:var(--muted);margin-left:0.3rem">→ Cycle ${cycleNum + 1} &nbsp;·&nbsp; <strong style="color:var(--text)">House ${houseActive} active</strong></span>
+      <div id="age-prog-body" style="display:${ageCollapsed ? 'none' : ''}">
+        <div style="display:flex;align-items:baseline;gap:1.2rem;margin-bottom:0.9rem;flex-wrap:wrap">
+          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${years}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">yrs</span></span>
+          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${months}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">mo</span></span>
+          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${days}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">days</span></span>
+          <span style="font-size:0.88rem;color:var(--muted);margin-left:0.3rem">→ Cycle ${cycleNum + 1} &nbsp;·&nbsp; <strong style="color:var(--text)">House ${houseActive} active</strong></span>
+        </div>
+        <div class="table-scroll"><table class="dasha-table">
+          <thead><tr>
+            <th style="text-align:center">House</th>
+            <th style="text-align:center">Age Range (yrs)</th>
+            <th style="text-align:center">Status</th>
+          </tr></thead>
+          <tbody>${houseRows}</tbody>
+        </table></div>
       </div>
-      <div class="table-scroll"><table class="dasha-table">
-        <thead><tr>
-          <th style="text-align:center">House</th>
-          <th style="text-align:center">Age Range (yrs)</th>
-          <th style="text-align:center">Status</th>
-        </tr></thead>
-        <tbody>${houseRows}</tbody>
-      </table></div>
     </div>`
 }
 
@@ -190,7 +214,6 @@ function renderProgression(dobStr, planetByName) {
   const mdEntry   = (state.dasha ?? []).find(m => m.planet === selectedProgLord)
   const mdStart   = mdEntry?.start ?? new Date()
 
-  const houseActive = calcHouseActiveFromAge(dobStr)
   const periods     = calcDashaProgression(lordHouse, mdStart, mdYears)
 
   const lordOptions = lordNames.map(name => {
@@ -209,27 +232,79 @@ function renderProgression(dobStr, planetByName) {
     </tr>`).join('')
 
   return `
-    <div class="card" id="prog-section">
+    <div class="card prog-draggable" id="prog-section" draggable="true">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-        <h3 style="margin:0">Dasha Progression</h3>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span class="drag-handle" title="Drag to reorder" style="cursor:grab;color:var(--muted);font-size:1rem;line-height:1;padding:0 2px;user-select:none">⠿</span>
+          <button id="prog-toggle-btn" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--muted);padding:0;line-height:1">${progCollapsed ? '▶' : '▼'}</button>
+          <h3 style="margin:0">Dasha Progression</h3>
+        </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
           <span style="font-size:0.82rem;color:var(--muted)">MD Lord:</span>
           <select id="prog-lord-select" class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem">${lordOptions}</select>
         </div>
       </div>
-      <p style="font-size:0.82rem;color:var(--muted);margin:0 0 0.9rem">
-        ${selectedProgLord} in H${lordHouse} &nbsp;·&nbsp; ${mdYears} months per house
-        &nbsp;·&nbsp; MD starts ${fmt(mdStart)}
-        &nbsp;·&nbsp; <strong style="color:var(--text)">House active from age: H${houseActive}</strong>
-      </p>
-      <div class="table-scroll"><table class="dasha-table">
-        <thead><tr>
-          <th style="text-align:center">#</th>
-          <th style="text-align:center">Prog. House →</th>
-          <th style="text-align:center">Regr. House ←</th>
-          <th>From</th><th>To</th><th></th>
-        </tr></thead>
-        <tbody>${periodRows}</tbody>
-      </table></div>
+      <div id="prog-body" style="display:${progCollapsed ? 'none' : ''}">
+        <p style="font-size:0.82rem;color:var(--muted);margin:0 0 0.9rem">
+          ${selectedProgLord} in H${lordHouse} &nbsp;·&nbsp; ${mdYears} months per house
+          &nbsp;·&nbsp; MD starts ${fmt(mdStart)}
+        </p>
+        <div class="table-scroll"><table class="dasha-table">
+          <thead><tr>
+            <th style="text-align:center">#</th>
+            <th style="text-align:center">Prog. House →</th>
+            <th style="text-align:center">Regr. House ←</th>
+            <th>From</th><th>To</th><th></th>
+          </tr></thead>
+          <tbody>${periodRows}</tbody>
+        </table></div>
+      </div>
     </div>`
+}
+
+function initDragReorder(container) {
+  if (!container) return
+  let dragged = null
+
+  container.addEventListener('dragstart', e => {
+    dragged = e.target.closest('.prog-draggable')
+    if (!dragged) return
+    e.dataTransfer.effectAllowed = 'move'
+    setTimeout(() => { if (dragged) dragged.style.opacity = '0.4' }, 0)
+  })
+
+  container.addEventListener('dragend', () => {
+    if (dragged) dragged.style.opacity = ''
+    container.querySelectorAll('.prog-draggable').forEach(el => el.style.boxShadow = '')
+    dragged = null
+  })
+
+  container.addEventListener('dragover', e => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const target = e.target.closest('.prog-draggable')
+    if (!target || target === dragged) return
+    const rect = target.getBoundingClientRect()
+    const after = e.clientY > rect.top + rect.height / 2
+    container.querySelectorAll('.prog-draggable').forEach(el => el.style.boxShadow = '')
+    target.style.boxShadow = after
+      ? '0 4px 0 0 var(--accent, #6366f1)'
+      : '0 -4px 0 0 var(--accent, #6366f1)'
+  })
+
+  container.addEventListener('dragleave', e => {
+    const target = e.target.closest('.prog-draggable')
+    if (target) target.style.boxShadow = ''
+  })
+
+  container.addEventListener('drop', e => {
+    e.preventDefault()
+    const target = e.target.closest('.prog-draggable')
+    if (!target || target === dragged || !dragged) return
+    target.style.boxShadow = ''
+    const rect = target.getBoundingClientRect()
+    const after = e.clientY > rect.top + rect.height / 2
+    if (after) container.insertBefore(dragged, target.nextSibling)
+    else container.insertBefore(dragged, target)
+  })
 }

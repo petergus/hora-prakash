@@ -49,10 +49,10 @@ function angularDist(a, b) {
 export function calcBirthChart(jd, lat, lon) {
   const swe = getSwe()
 
-  // Use houses_ex with SEFLG_SIDEREAL (65536) to get sidereal cusps
+  // Use houses_ex with SEFLG_SIDEREAL (65536) to get sidereal ascendant
   const housesResult = swe.houses_ex(jd, 65536, lat, lon, 'P')
-  // cusps is 1-indexed: cusps[1]..cusps[12]
-  const lagnaLon = housesResult.ascmc[0]
+  const lagnaLon = ((housesResult.ascmc[0] % 360) + 360) % 360
+  const lagnaSign = Math.floor(lagnaLon / 30) + 1
   const houseCusps = Array.from(housesResult.cusps).slice(1, 13)  // [cusp1..cusp12]
 
   const rawPlanets = PLANETS.map(p => {
@@ -60,14 +60,16 @@ export function calcBirthChart(jd, lat, lon) {
     let pLon = result[0]
     if (p.isKetu) pLon = (pLon + 180) % 360  // Ketu = Rahu + 180°
     const speed = result[3]
-    const house = getLongitudeHouse(pLon, houseCusps)
+    const planetSign = Math.floor(pLon / 30) + 1
+    // Whole-sign houses: same formula the chart SVG uses (signToCell)
+    const house = ((planetSign - lagnaSign + 12) % 12) + 1
     const nak = getNakshatraInfo(pLon)
     return {
       id: p.id,
       name: p.name,
       abbr: p.abbr,
       lon: pLon,
-      sign: Math.floor(pLon / 30) + 1,
+      sign: planetSign,
       degree: pLon % 30,
       house,
       nakshatra: nak.name,
@@ -100,16 +102,3 @@ export function calcBirthChart(jd, lat, lon) {
   return { planets, lagna, houses: houseCusps }
 }
 
-function getLongitudeHouse(lon, cusps) {
-  // cusps: array of 12 cusp longitudes (index 0 = house 1 cusp)
-  for (let i = 0; i < 12; i++) {
-    const start = cusps[i]
-    const end = cusps[(i + 1) % 12]
-    if (end > start) {
-      if (lon >= start && lon < end) return i + 1
-    } else {
-      if (lon >= start || lon < end) return i + 1
-    }
-  }
-  return 1
-}

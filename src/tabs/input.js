@@ -51,6 +51,16 @@ export function renderInputTab() {
   panel.innerHTML = `
     <div id="saved-profiles-section"></div>
     <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem">
+        <h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--muted);letter-spacing:0.03em;text-transform:uppercase">Birth Details</h3>
+        <button type="button" id="btn-new-entry" class="btn-secondary" title="New entry — clear all fields" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 1.5H2.5A1 1 0 0 0 1.5 2.5v8A1 1 0 0 0 2.5 11.5h8A1 1 0 0 0 11.5 10.5V7"/>
+            <path d="M10 1.2a1.1 1.1 0 0 1 1.6 1.6L7 7.5 5 8l.5-2 4.5-4.8z"/>
+          </svg>
+          New
+        </button>
+      </div>
       <form id="birth-form">
         <div class="form-group">
           <label>Name</label>
@@ -89,13 +99,6 @@ export function renderInputTab() {
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
           <button type="submit" id="btn-calculate">Calculate Chart</button>
           <button type="button" id="btn-save-profile" class="btn-secondary">Save Profile</button>
-          <button type="button" id="btn-new-entry" class="btn-icon btn-icon-muted" title="New entry — clear all fields">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="1" width="9" height="12" rx="1.2"/>
-              <line x1="7.5" y1="10" x2="7.5" y2="6.2"/>
-              <line x1="5.6" y1="8.1" x2="9.4" y2="8.1"/>
-            </svg>
-          </button>
         </div>
         <p id="calc-error" class="error"></p>
       </form>

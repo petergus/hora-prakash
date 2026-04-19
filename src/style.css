@@ -244,7 +244,132 @@ h3 {
   border-bottom: 1px solid var(--border);
 }
 .dasha-table tbody tr:last-child td { border-bottom: none; }
-.current-period { background: var(--highlight); font-weight: 600; }
+.dasha-table tbody tr:nth-child(even) { background: #fafbfc; }
+.dasha-table tbody tr:hover { background: #f1f5f9; }
+.current-period {
+  background: #fffbeb !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+/* ── Planet badge dot ── */
+.planet-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* ── Progression card header ── */
+.prog-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+}
+.prog-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.prog-card-title h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--border);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+  transition: color 0.15s;
+}
+.drag-handle:hover { color: var(--muted); }
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0;
+  line-height: 1;
+  width: 1.2rem;
+  text-align: center;
+  transition: color 0.15s;
+}
+.toggle-btn:hover { color: var(--text); }
+
+/* ── Age stat chips ── */
+.age-stats {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.age-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  min-width: 64px;
+}
+.age-chip-num {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.age-chip-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1px;
+}
+.age-cycle-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #eef2ff;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  color: #4338ca;
+  font-weight: 500;
+  align-self: center;
+}
+.age-active-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  align-self: center;
+}
+
+/* ── Prog section meta line ── */
+.prog-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0 0 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  align-items: center;
+}
+.prog-meta-sep { color: var(--border); }
 
 /* ── Panchang table ── */
 .panchang-table {

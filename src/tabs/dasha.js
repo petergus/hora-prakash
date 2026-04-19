@@ -1,6 +1,9 @@
 // src/tabs/dasha.js
 import { state } from '../state.js'
 import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS } from '../core/dasha.js'
+import { PLANET_COLORS } from '../core/aspects.js'
+
+const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }
 
 let selectedProgLord = null   // persists across re-renders; null = use current MD lord
 let ageAsOf = null            // null = today; set to Date when user picks a date
@@ -14,26 +17,29 @@ export function renderDasha() {
 
   const rows = dasha.map(maha => {
     const isMahaCurrent = isCurrentPeriod(maha.start, maha.end)
+    const mahaColor = PLANET_COLORS[PLANET_ABBR[maha.planet]] ?? '#94a3b8'
     const antarRows = maha.antars.map(antar => {
       const isAntarCurrent = isCurrentPeriod(antar.start, antar.end)
+      const antarColor = PLANET_COLORS[PLANET_ABBR[antar.planet]] ?? '#94a3b8'
       const pratRows = antar.pratyantars.map(prat => {
         const isPratCurrent = isCurrentPeriod(prat.start, prat.end)
+        const pratColor = PLANET_COLORS[PLANET_ABBR[prat.planet]] ?? '#94a3b8'
         return `<tr class="${isPratCurrent ? 'current-period' : ''}" style="display:none" data-prat>
-          <td style="padding-left:3rem">↳ ${prat.planet}</td>
+          <td style="padding-left:3rem"><span class="planet-dot" style="background:${pratColor}"></span>↳ ${prat.planet}</td>
           <td>${fmt(prat.start)}</td>
           <td>${fmt(prat.end)}</td>
         </tr>`
       }).join('')
 
       return `<tr class="${isAntarCurrent ? 'current-period' : ''}" style="display:none" data-antar data-toggle-prat>
-          <td style="padding-left:1.5rem; cursor:pointer">▶ ${antar.planet}</td>
+          <td style="padding-left:1.5rem; cursor:pointer"><span class="planet-dot" style="background:${antarColor}"></span>▶ ${antar.planet}</td>
           <td>${fmt(antar.start)}</td>
           <td>${fmt(antar.end)}</td>
         </tr>${pratRows}`
     }).join('')
 
     return `<tr class="${isMahaCurrent ? 'current-period' : ''}" data-toggle-antar style="cursor:pointer">
-        <td><strong>▶ ${maha.planet}</strong></td>
+        <td><span class="planet-dot" style="background:${mahaColor}"></span><strong>▶ ${maha.planet}</strong></td>
         <td>${fmt(maha.start)}</td>
         <td>${fmt(maha.end)}</td>
       </tr>${antarRows}`
@@ -78,14 +84,14 @@ export function renderDasha() {
   })
 
   panel.addEventListener('click', e => {
-    if (e.target.closest('#age-toggle-btn')) {
+    if (e.target.id === 'age-toggle-btn') {
       ageCollapsed = !ageCollapsed
       document.getElementById('age-prog-body').style.display = ageCollapsed ? 'none' : ''
-      document.getElementById('age-toggle-btn').textContent = ageCollapsed ? '▶' : '▼'
-    } else if (e.target.closest('#prog-toggle-btn')) {
+      e.target.textContent = ageCollapsed ? '▶' : '▼'
+    } else if (e.target.id === 'prog-toggle-btn') {
       progCollapsed = !progCollapsed
       document.getElementById('prog-body').style.display = progCollapsed ? 'none' : ''
-      document.getElementById('prog-toggle-btn').textContent = progCollapsed ? '▶' : '▼'
+      e.target.textContent = progCollapsed ? '▶' : '▼'
     }
   })
 
@@ -175,25 +181,26 @@ function renderAgeProgression(dobStr, asOf) {
 
   return `
     <div class="card prog-draggable" id="age-prog-section" draggable="true">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
-        <div style="display:flex;align-items:center;gap:0.5rem">
-          <span class="drag-handle" title="Drag to reorder" style="cursor:grab;color:var(--muted);font-size:1rem;line-height:1;padding:0 2px;user-select:none">⠿</span>
-          <button id="age-toggle-btn" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--muted);padding:0;line-height:1">${ageCollapsed ? '▶' : '▼'}</button>
-          <h3 style="margin:0">Age Progression</h3>
+      <div class="prog-card-header">
+        <div class="prog-card-title">
+          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <button id="age-toggle-btn" class="toggle-btn">${ageCollapsed ? '▶' : '▼'}</button>
+          <h3>Age Progression</h3>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
-          <span style="font-size:0.82rem;color:var(--muted)">As of:</span>
+          <span style="font-size:0.78rem;color:var(--muted)">As of:</span>
           <input type="date" id="age-asof-input" value="${asOfStr}"
             style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)" />
-          ${!isToday ? `<button id="age-reset-today" style="font-size:0.78rem;padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none;color:var(--muted)">Today</button>` : ''}
+          ${!isToday ? `<button id="age-reset-today" style="font-size:0.75rem;padding:0.15rem 0.45rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none;color:var(--muted)">Today</button>` : ''}
         </div>
       </div>
       <div id="age-prog-body" style="display:${ageCollapsed ? 'none' : ''}">
-        <div style="display:flex;align-items:baseline;gap:1.2rem;margin-bottom:0.9rem;flex-wrap:wrap">
-          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${years}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">yrs</span></span>
-          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${months}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">mo</span></span>
-          <span style="font-size:1.5rem;font-weight:700;color:var(--text)">${days}<span style="font-size:0.85rem;font-weight:400;color:var(--muted);margin-left:0.2rem">days</span></span>
-          <span style="font-size:0.88rem;color:var(--muted);margin-left:0.3rem">→ Cycle ${cycleNum + 1} &nbsp;·&nbsp; <strong style="color:var(--text)">House ${houseActive} active</strong></span>
+        <div class="age-stats">
+          <div class="age-chip"><span class="age-chip-num">${years}</span><span class="age-chip-label">Years</span></div>
+          <div class="age-chip"><span class="age-chip-num">${months}</span><span class="age-chip-label">Months</span></div>
+          <div class="age-chip"><span class="age-chip-num">${days}</span><span class="age-chip-label">Days</span></div>
+          <div class="age-cycle-badge">Cycle ${cycleNum + 1}</div>
+          <div class="age-active-badge">★ House ${houseActive} active</div>
         </div>
         <div class="table-scroll"><table class="dasha-table">
           <thead><tr>
@@ -231,24 +238,29 @@ function renderProgression(dobStr, planetByName) {
       <td style="text-align:center">${p.isActive ? '★ Active' : ''}</td>
     </tr>`).join('')
 
+  const lordColor = PLANET_COLORS[PLANET_ABBR[selectedProgLord]] ?? '#94a3b8'
   return `
     <div class="card prog-draggable" id="prog-section" draggable="true">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-        <div style="display:flex;align-items:center;gap:0.5rem">
-          <span class="drag-handle" title="Drag to reorder" style="cursor:grab;color:var(--muted);font-size:1rem;line-height:1;padding:0 2px;user-select:none">⠿</span>
-          <button id="prog-toggle-btn" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--muted);padding:0;line-height:1">${progCollapsed ? '▶' : '▼'}</button>
-          <h3 style="margin:0">Dasha Progression</h3>
+      <div class="prog-card-header">
+        <div class="prog-card-title">
+          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <button id="prog-toggle-btn" class="toggle-btn">${progCollapsed ? '▶' : '▼'}</button>
+          <h3>Dasha Progression</h3>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
-          <span style="font-size:0.82rem;color:var(--muted)">MD Lord:</span>
+          <span style="font-size:0.78rem;color:var(--muted)">MD Lord:</span>
           <select id="prog-lord-select" class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem">${lordOptions}</select>
         </div>
       </div>
       <div id="prog-body" style="display:${progCollapsed ? 'none' : ''}">
-        <p style="font-size:0.82rem;color:var(--muted);margin:0 0 0.9rem">
-          ${selectedProgLord} in H${lordHouse} &nbsp;·&nbsp; ${mdYears} months per house
-          &nbsp;·&nbsp; MD starts ${fmt(mdStart)}
-        </p>
+        <div class="prog-meta">
+          <span class="planet-dot" style="background:${lordColor}"></span>
+          <span>${selectedProgLord} in H${lordHouse}</span>
+          <span class="prog-meta-sep">·</span>
+          <span>${mdYears} months per house</span>
+          <span class="prog-meta-sep">·</span>
+          <span>MD starts ${fmt(mdStart)}</span>
+        </div>
         <div class="table-scroll"><table class="dasha-table">
           <thead><tr>
             <th style="text-align:center">#</th>

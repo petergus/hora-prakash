@@ -128,18 +128,16 @@ export function calcAgeComponents(dobStr, asOf = new Date()) {
 
 /**
  * House active from age (DOB-based house cycle).
- * Every 12 years the cycle repeats from House 1.
- * Formula: ageWholeYears % 12  (0 maps to 12)
- *
- * Source: Dasha Progression-V3-personal.xlsx, cell L6
- *   =IF(MOD(ageYears, 12) = 0, 12, MOD(ageYears, 12))
+ * Year 1 (age 0) → H1, Year 2 (age 1) → H2, … Year 12 (age 11) → H12,
+ * Year 13 (age 12) → H1 again.
+ * Formula: (ageWholeYears % 12) + 1
  *
  * @param {string} dobStr   "YYYY-MM-DD"
  * @param {Date}   [asOf]   Reference date (defaults to today)
  */
 export function calcHouseActiveFromAge(dobStr, asOf = new Date()) {
   const { years } = calcAgeComponents(dobStr, asOf)
-  return years % 12 === 0 ? 12 : years % 12
+  return (years % 12) + 1
 }
 
 /**

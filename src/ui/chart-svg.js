@@ -174,7 +174,7 @@ export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects =
   return parts.join('\n')
 }
 
-export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart') {
+export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart', activeAspects = [], activePlanetColors = {}) {
   const lagnaSign = lagna.sign
   const cs = S / 4  // 120px per cell
 
@@ -186,6 +186,7 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
     `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
+    buildArrowDefs(activeAspects),
     `<rect x="${cs}" y="${cs}" width="${cs * 2}" height="${cs * 2}" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.5"/>`,
     ...centerLabel.split('\n').map((line, i, arr) => {
       const totalH = arr.length * 28
@@ -211,15 +212,33 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
 
     // Planets fill the area below the header
     const cx = x + cs / 2
-    parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4))
+    parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4, activePlanetColors))
+  }
+
+  const siCentroid = {}
+  for (const { sign, col, row } of SI_CELLS) {
+    siCentroid[sign] = [col * cs + cs / 2, row * cs + cs / 2]
+  }
+
+  for (const { fromSign, toSigns, color } of activeAspects) {
+    const from = siCentroid[fromSign]
+    if (!from) continue
+    for (const toSign of toSigns) {
+      if (toSign === fromSign) continue
+      const to = siCentroid[toSign]
+      if (!to) continue
+      const [x1, y1, x2, y2] = shortenLine(from[0], from[1], to[0], to[1], 18)
+      const markerId = `arrow-${color.replace('#', '')}`
+      parts.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.8" stroke-dasharray="8 5" marker-end="url(#${markerId})" opacity="0.85" style="animation:flowAspect 1.2s linear infinite"/>`)
+    }
   }
 
   parts.push('</svg>')
   return parts.join('\n')
 }
 
-export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR, centerLabel) {
+export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR, centerLabel, activeAspects = [], activePlanetColors = {}) {
   return style === 'south'
-    ? renderSouthIndianSVG(planets, lagna, signLabels, centerLabel)
-    : renderNorthIndianSVG(planets, lagna, signLabels)
+    ? renderSouthIndianSVG(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors)
+    : renderNorthIndianSVG(planets, lagna, signLabels, activeAspects, activePlanetColors)
 }

@@ -89,6 +89,13 @@ export function renderInputTab() {
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
           <button type="submit" id="btn-calculate">Calculate Chart</button>
           <button type="button" id="btn-save-profile" class="btn-secondary">Save Profile</button>
+          <button type="button" id="btn-new-entry" class="btn-icon btn-icon-muted" title="New entry — clear all fields">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="1" width="9" height="12" rx="1.2"/>
+              <line x1="7.5" y1="10" x2="7.5" y2="6.2"/>
+              <line x1="5.6" y1="8.1" x2="9.4" y2="8.1"/>
+            </svg>
+          </button>
         </div>
         <p id="calc-error" class="error"></p>
       </form>
@@ -103,6 +110,17 @@ export function renderInputTab() {
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
+  document.getElementById('btn-new-entry').addEventListener('click', () => {
+    document.getElementById('inp-name').value = ''
+    document.getElementById('inp-dob').value = todayStr()
+    document.getElementById('inp-tob').value = nowTimeStr()
+    document.getElementById('inp-location').value = ''
+    document.getElementById('inp-lat').value = ''
+    document.getElementById('inp-lon').value = ''
+    document.getElementById('inp-tz').value = ''
+    selectedLocation = {}
+    document.getElementById('inp-name').focus()
+  })
 }
 
 function renderSavedProfiles() {

@@ -9,10 +9,15 @@ const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
-let chartStyle  = 'north'
-let divisional  = 'D1'
+let chartStyle    = 'north'
+let divisional    = 'D1'
 let activePlanets = new Set()
+let privacyOn     = false
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
+
+const MASK = '••••••••'
+const EYE_OPEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>`
+const EYE_SHUT = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14"/></svg>`
 
 function divLabel() {
   return DIVISIONAL_OPTIONS.find(o => o.value === divisional)?.label ?? divisional
@@ -49,10 +54,18 @@ export function renderChart() {
     ? `${esc(birth.name)} — Birth Chart`
     : `${esc(birth.name)} — ${divLabel()}`
 
+  const maskedName    = privacyOn ? MASK : heading
+  const maskedDetails = privacyOn
+    ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
+    : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || birth.lat + '°, ' + birth.lon + '°'}`
+
   panel.innerHTML = `
     <div class="card">
-      <h2>${heading}</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || birth.lat + '°, ' + birth.lon + '°'}</p>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
+        <h2 style="margin:0">${maskedName}</h2>
+        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2rem;margin-top:0.1rem;border-radius:4px;line-height:1;display:flex;align-items:center" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
+      </div>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${maskedDetails}</p>
       <div class="chart-controls">
         <select id="div-select" class="div-select">
           ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === divisional ? ' selected' : ''}>${o.label}</option>`).join('')}
@@ -133,6 +146,11 @@ export function renderChart() {
       </table></div>
     </div>
   `
+
+  panel.querySelector('#btn-privacy').addEventListener('click', () => {
+    privacyOn = !privacyOn
+    renderChart()
+  })
 
   panel.querySelector('#div-select').addEventListener('change', e => {
     divisional = e.target.value

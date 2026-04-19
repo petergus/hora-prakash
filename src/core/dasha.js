@@ -86,7 +86,72 @@ function addYears(date, years) {
   return new Date(date.getTime() + ms)
 }
 
+function addMonths(date, months) {
+  const d = new Date(date)
+  d.setUTCMonth(d.getUTCMonth() + months)
+  return d
+}
+
 export function isCurrentPeriod(start, end) {
   const now = Date.now()
   return start.getTime() <= now && end.getTime() > now
+}
+
+// Standard Vimshottari durations keyed by planet name
+export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
+
+/**
+ * House active from age (DOB-based house cycle).
+ * Every 12 years the cycle repeats from House 1.
+ * Formula: ageWholeYears % 12  (0 maps to 12)
+ *
+ * Source: Dasha Progression-V3-personal.xlsx, cell L6
+ *   =IF(MOD(ageYears, 12) = 0, 12, MOD(ageYears, 12))
+ */
+export function calcHouseActiveFromAge(dobStr) {
+  const dob = new Date(dobStr + 'T00:00:00Z')
+  const today = new Date()
+  let years = today.getUTCFullYear() - dob.getUTCFullYear()
+  const dm = today.getUTCMonth() - dob.getUTCMonth()
+  if (dm < 0 || (dm === 0 && today.getUTCDate() < dob.getUTCDate())) years--
+  return years % 12 === 0 ? 12 : years % 12
+}
+
+/**
+ * Dasha Progression — 12 sub-periods within a Mahadasha.
+ *
+ * The Mahadasha is divided equally into 12 house-periods.
+ * Each house gets `mdDurationYears` calendar months (same number, different unit).
+ * Total = 12 × mdDurationYears months = mdDurationYears years — equals the full Mahadasha.
+ *
+ * Progression house moves forward from the MD lord's natal house:
+ *   period i → house ((mdLordHouse − 1 + i) % 12) + 1
+ *
+ * Regression house moves backward from the MD lord's natal house:
+ *   period i → house ((mdLordHouse − 1 − i + 120) % 12) + 1
+ *
+ * Source: Dasha Progression-V3-personal.xlsx, columns D–I rows 7–18
+ *   E7: =MOD(SEQUENCE(12,1,G3)−1, 12)+1   (progression, forward)
+ *   D7: =MOD(G3−SEQUENCE(12,1,0)−1, 12)+1 (regression, backward)
+ *   G7: =EDATE(dashaStart, mdYears * SEQUENCE(12,1))
+ *
+ * @param {number} mdLordHouse  Natal house (1–12) of the Mahadasha lord
+ * @param {Date}   mdStart      Start date of the Mahadasha
+ * @param {number} mdDurationYears  Standard Vimshottari duration (e.g. 20 for Venus)
+ * @returns {Array<{houseFromMDL, progressionHouse, regressionHouse, start, end, isActive}>}
+ */
+export function calcDashaProgression(mdLordHouse, mdStart, mdDurationYears) {
+  const today = new Date()
+  return Array.from({ length: 12 }, (_, i) => {
+    const start = addMonths(mdStart, i * mdDurationYears)
+    const end   = addMonths(mdStart, (i + 1) * mdDurationYears)
+    return {
+      houseFromMDL:     i + 1,
+      progressionHouse: ((mdLordHouse - 1 + i) % 12) + 1,
+      regressionHouse:  ((mdLordHouse - 1 - i + 120) % 12) + 1,
+      start,
+      end,
+      isActive: start <= today && today < end,
+    }
+  })
 }

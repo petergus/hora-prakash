@@ -56,6 +56,29 @@ function bbox(poly) {
   }
 }
 
+function shortenLine(x1, y1, x2, y2, by) {
+  const dx = x2 - x1, dy = y2 - y1
+  const len = Math.sqrt(dx * dx + dy * dy)
+  if (len < by * 2) return [x1, y1, x2, y2]
+  const r = (len - by) / len
+  return [x1, y1, x1 + dx * r, y1 + dy * r]
+}
+
+function buildArrowDefs(activeAspects) {
+  if (!activeAspects || activeAspects.length === 0) return '<defs/>'
+  const colors = [...new Set(activeAspects.map(a => a.color))]
+  const markers = colors.map(color => {
+    const id = `arrow-${color.replace('#', '')}`
+    return `<marker id="${id}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="${color}" opacity="0.85"/>
+    </marker>`
+  })
+  return `<defs>
+    <style>@keyframes flowAspect { from { stroke-dashoffset: 26; } to { stroke-dashoffset: 0; } }</style>
+    ${markers.join('\n    ')}
+  </defs>`
+}
+
 // Place planets in available area, scaling font to avoid overflow
 function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
   if (ps.length === 0) return ''
@@ -86,7 +109,7 @@ function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
   }).join('\n')
 }
 
-export function renderNorthIndianSVG(planets, lagna, signLabels) {
+export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects = [], activePlanetColors = {}) {
   const lagnaSign = lagna.sign
 
   const cellToSign = {}, signToCell = {}
@@ -94,6 +117,11 @@ export function renderNorthIndianSVG(planets, lagna, signLabels) {
     const sign = ((lagnaSign - 1 + cell - 1) % 12) + 1
     cellToSign[cell] = sign
     signToCell[sign] = cell
+  }
+
+  const signCentroid = {}
+  for (let cell = 1; cell <= 12; cell++) {
+    signCentroid[cellToSign[cell]] = centroid(NI_POLYS[cell])
   }
 
   const cellPlanets = {}
@@ -107,6 +135,7 @@ export function renderNorthIndianSVG(planets, lagna, signLabels) {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
     `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
+    buildArrowDefs(activeAspects),
   ]
 
   for (let cell = 1; cell <= 12; cell++) {
@@ -125,7 +154,20 @@ export function renderNorthIndianSVG(planets, lagna, signLabels) {
     parts.push(`<text x="${cx.toFixed(1)}" y="${signY.toFixed(1)}" text-anchor="middle" font-size="${signFontSize}" font-weight="600" fill="#64748b" ${FONT}><tspan>${signLabels[sign - 1]}</tspan><tspan font-size="10" fill="#94a3b8" dy="-1"> ${sign}</tspan></text>`)
 
     // Planets fill remaining area below sign label
-    parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6))
+    parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6, activePlanetColors))
+  }
+
+  for (const { fromSign, toSigns, color } of activeAspects) {
+    const from = signCentroid[fromSign]
+    if (!from) continue
+    for (const toSign of toSigns) {
+      if (toSign === fromSign) continue
+      const to = signCentroid[toSign]
+      if (!to) continue
+      const [x1, y1, x2, y2] = shortenLine(from[0], from[1], to[0], to[1], 18)
+      const markerId = `arrow-${color.replace('#', '')}`
+      parts.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.8" stroke-dasharray="8 5" marker-end="url(#${markerId})" opacity="0.85" style="animation:flowAspect 1.2s linear infinite"/>`)
+    }
   }
 
   parts.push('</svg>')

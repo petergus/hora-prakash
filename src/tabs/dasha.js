@@ -7,8 +7,9 @@ const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rah
 
 let selectedProgLord = null   // persists across re-renders; null = use current MD lord
 let ageAsOf = null            // null = today; set to Date when user picks a date
-let ageCollapsed = false
-let progCollapsed = false
+let dashaCollapsed = false
+let ageCollapsed = true
+let progCollapsed = true
 
 export function renderDasha() {
   const panel = document.getElementById('tab-dasha')
@@ -54,15 +55,23 @@ export function renderDasha() {
   const ageHtml = renderAgeProgression(birth.dob, ageRef)
 
   panel.innerHTML = `
-    <div class="card">
-      <h2>Vimshottari Dasha — ${birth.name}</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">Click a Mahadasha row to expand Antardashas</p>
-      <div class="table-scroll"><table class="dasha-table">
-        <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>
     <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
+      <div class="card prog-draggable" id="dasha-section" draggable="true">
+        <div class="prog-card-header">
+          <div class="prog-card-title">
+            <span class="drag-handle" title="Drag to reorder">⠿</span>
+            <button id="dasha-toggle-btn" class="toggle-btn">${dashaCollapsed ? '▶' : '▼'}</button>
+            <h3>Vimshottari Dasha — ${birth.name}</h3>
+          </div>
+        </div>
+        <div id="dasha-body" style="display:${dashaCollapsed ? 'none' : ''}">
+          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">Click a Mahadasha row to expand Antardashas</p>
+          <div class="table-scroll"><table class="dasha-table">
+            <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table></div>
+        </div>
+      </div>
       ${ageHtml}
       ${progressionHtml}
     </div>
@@ -81,7 +90,11 @@ export function renderDasha() {
   })
 
   panel.addEventListener('click', e => {
-    if (e.target.id === 'age-toggle-btn') {
+    if (e.target.id === 'dasha-toggle-btn') {
+      dashaCollapsed = !dashaCollapsed
+      document.getElementById('dasha-body').style.display = dashaCollapsed ? 'none' : ''
+      e.target.textContent = dashaCollapsed ? '▶' : '▼'
+    } else if (e.target.id === 'age-toggle-btn') {
       ageCollapsed = !ageCollapsed
       document.getElementById('age-prog-body').style.display = ageCollapsed ? 'none' : ''
       e.target.textContent = ageCollapsed ? '▶' : '▼'

@@ -2,6 +2,7 @@
 import { state } from '../state.js'
 import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
+import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -10,9 +11,23 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 
 let chartStyle  = 'north'
 let divisional  = 'D1'
+let activePlanets = new Set()
+let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
 
 function divLabel() {
   return DIVISIONAL_OPTIONS.find(o => o.value === divisional)?.label ?? divisional
+}
+
+function renderSVGOnly() {
+  if (!_dPlanets) return
+  const activeAspects = _dPlanets
+    .filter(p => activePlanets.has(p.abbr))
+    .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
+  const activePlanetColors = Object.fromEntries(
+    _dPlanets.filter(p => activePlanets.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
+  )
+  document.getElementById('chart-container').innerHTML =
+    renderChartSVG(_dPlanets, _dLagna, chartStyle, _signLabels, _centerLabel, activeAspects, activePlanetColors)
 }
 
 export function renderChart() {
@@ -24,6 +39,11 @@ export function renderChart() {
   const signLabels  = divisional === 'Chalit' ? CHALIT_LABELS : undefined
   const centerLabel = divisional === 'D1' ? 'Rashi\nChart'
     : divLabel().replace(' – ', '\n')
+
+  _dPlanets = dPlanets
+  _dLagna = dLagna
+  _signLabels = signLabels
+  _centerLabel = centerLabel
 
   const heading = divisional === 'D1'
     ? `${esc(birth.name)} — Birth Chart`
@@ -41,9 +61,13 @@ export function renderChart() {
           <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>
           <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South</button>
         </div>
+        <div class="chart-style-group">
+          <button id="btn-show-all" class="chart-style-btn">Show All</button>
+          <button id="btn-hide-all" class="chart-style-btn">Hide All</button>
+        </div>
       </div>
       <div id="chart-container">
-        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, centerLabel)}
+        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, centerLabel, [], {})}
       </div>
       <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel() : ''}</h3>
       <div class="table-scroll"><table class="planet-table">
@@ -84,8 +108,27 @@ export function renderChart() {
 
   panel.querySelector('#div-select').addEventListener('change', e => {
     divisional = e.target.value
+    activePlanets = new Set()
     renderChart()
   })
   panel.querySelector('#btn-north').addEventListener('click', () => { chartStyle = 'north'; renderChart() })
   panel.querySelector('#btn-south').addEventListener('click', () => { chartStyle = 'south'; renderChart() })
+
+  panel.querySelector('#btn-show-all').addEventListener('click', () => {
+    dPlanets.forEach(p => activePlanets.add(p.abbr))
+    renderSVGOnly()
+  })
+  panel.querySelector('#btn-hide-all').addEventListener('click', () => {
+    activePlanets = new Set()
+    renderSVGOnly()
+  })
+
+  document.getElementById('chart-container').addEventListener('click', e => {
+    const el = e.target.closest('[data-planet]')
+    if (!el) return
+    const abbr = el.dataset.planet
+    if (activePlanets.has(abbr)) activePlanets.delete(abbr)
+    else activePlanets.add(abbr)
+    renderSVGOnly()
+  })
 }

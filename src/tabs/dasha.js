@@ -48,8 +48,7 @@ export function renderDasha() {
   if (!selectedProgLord) selectedProgLord = currentMaha.planet
 
   // Build progression section
-  const planetByName = Object.fromEntries((state.planets ?? []).map(p => [p.name, p]))
-  const progressionHtml = renderProgression(birth.dob, planetByName)
+  const progressionHtml = renderProgression(birth.dob)
 
   const ageRef = ageAsOf ?? new Date()
   const ageHtml = renderAgeProgression(birth.dob, ageRef)
@@ -84,8 +83,7 @@ export function renderDasha() {
       document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref)
     } else if (e.target.id === 'prog-lord-select') {
       selectedProgLord = e.target.value
-      const pb = Object.fromEntries((state.planets ?? []).map(p => [p.name, p]))
-      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, pb)
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob)
     }
   })
 
@@ -228,9 +226,11 @@ function renderAgeProgression(dobStr, asOf) {
     </div>`
 }
 
-function renderProgression(dobStr, planetByName) {
+function renderProgression(dobStr) {
+  // Always use Rashi (D1) house placements from state.planets
+  const rashiByName = Object.fromEntries((state.planets ?? []).map(p => [p.name, p]))
   const lordNames = Object.keys(DASHA_YEARS)
-  const lordHouse = planetByName[selectedProgLord]?.house ?? 1
+  const lordHouse = rashiByName[selectedProgLord]?.house ?? 1
   const mdYears   = DASHA_YEARS[selectedProgLord] ?? 1
   const mdEntry   = (state.dasha ?? []).find(m => m.planet === selectedProgLord)
   const mdStart   = mdEntry?.start ?? new Date()
@@ -238,7 +238,7 @@ function renderProgression(dobStr, planetByName) {
   const periods     = calcDashaProgression(lordHouse, mdStart, mdYears)
 
   const lordOptions = lordNames.map(name => {
-    const h = planetByName[name]?.house ?? '?'
+    const h = rashiByName[name]?.house ?? '?'
     return `<option value="${name}"${name === selectedProgLord ? ' selected' : ''}>${name} — H${h}</option>`
   }).join('')
 

@@ -81,7 +81,8 @@ function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
       ? `<rect x="${(cx - 24).toFixed(1)}" y="${(y - fontSize + 1).toFixed(1)}" width="48" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2"/>`
       : ''
     const dataPlanet = !p.isLagna ? `data-planet="${p.abbr}"` : ''
-    return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} style="cursor:pointer">${label}</text>`
+    const cursorStyle = !p.isLagna ? 'style="cursor:pointer"' : ''
+    return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} ${cursorStyle}>${label}</text>`
   }).join('\n')
 }
 

@@ -57,7 +57,7 @@ function bbox(poly) {
 }
 
 // Place planets in available area, scaling font to avoid overflow
-function placePlanets(ps, cx, areaTop, areaBottom) {
+function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
   if (ps.length === 0) return ''
   const areaH = areaBottom - areaTop
   const maxFont = 17
@@ -75,7 +75,13 @@ function placePlanets(ps, cx, areaTop, areaBottom) {
     const label = `${p.abbr}${r} ${deg}`
     const color  = p.isLagna ? '#c2410c' : '#1e293b'
     const weight = p.isLagna ? '700' : '500'
-    return `<text x="${cx.toFixed(1)}" y="${(firstY + i * lineH).toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT}>${label}</text>`
+    const y = firstY + i * lineH
+    const activeColor = !p.isLagna && activePlanetColors[p.abbr]
+    const highlight = activeColor
+      ? `<rect x="${(cx - 24).toFixed(1)}" y="${(y - fontSize + 1).toFixed(1)}" width="48" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2"/>`
+      : ''
+    const dataPlanet = !p.isLagna ? `data-planet="${p.abbr}"` : ''
+    return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} style="cursor:pointer">${label}</text>`
   }).join('\n')
 }
 

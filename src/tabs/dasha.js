@@ -251,13 +251,13 @@ function renderAgeProgression(dobStr, asOf) {
           <button id="age-toggle-btn" class="toggle-btn">${ageCollapsed ? '▶' : '▼'}</button>
           <h3>Age Progression</h3>
         </div>
-        <div style="display:flex;align-items:center;gap:0.5rem">
+        <div class="prog-card-controls">
           <button id="age-prev-btn" class="prog-nav-btn" ${atMin ? 'disabled' : ''}>←</button>
           <span style="font-size:0.78rem;color:var(--muted);min-width:4rem;text-align:center">Cycle ${shownCycle + 1}</span>
           <button id="age-next-btn" class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
           <span style="font-size:0.78rem;color:var(--muted)">As of:</span>
           <input type="date" id="age-asof-input" value="${asOfStr}"
-            style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)" />
+            style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);min-width:0;flex:1 1 auto;max-width:160px" />
           ${!isToday ? `<button id="age-reset-today" class="prog-nav-btn">Today</button>` : ''}
         </div>
       </div>
@@ -330,11 +330,11 @@ function renderProgression(dobStr, dashaSeq) {
           <button id="prog-toggle-btn" class="toggle-btn">${progCollapsed ? '▶' : '▼'}</button>
           <h3>Dasha Progression</h3>
         </div>
-        <div style="display:flex;align-items:center;gap:0.5rem">
+        <div class="prog-card-controls">
           <button id="prog-prev-btn" class="prog-nav-btn" ${atMin ? 'disabled' : ''}>←</button>
           <button id="prog-next-btn" class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
           <span style="font-size:0.78rem;color:var(--muted)">MD Lord:</span>
-          <select id="prog-lord-select" class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem">${lordOptions}</select>
+          <select id="prog-lord-select" class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem;flex:1 1 auto;min-width:0;max-width:200px">${lordOptions}</select>
         </div>
       </div>
       <div id="prog-body" style="display:${progCollapsed ? 'none' : ''}">

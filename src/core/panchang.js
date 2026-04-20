@@ -92,11 +92,13 @@ export function calcPanchang(jd, lat, lon) {
   }
 
   // Sunrise and Sunset via rise_trans
-  // Search from start of the JD day (midnight UT of that day)
+  // Known swisseph-wasm v0.0.5 bug: wrapper may throw WebAssembly.RuntimeError
+  // (memory access out of bounds) for some locations, especially western longitudes.
+  // Wrap in try-catch; guard also handles the "returns JD ≈ 0" failure mode.
   const dayStart = Math.floor(jd - 0.5) + 0.5  // midnight UT
-  const riseResult = swe.rise_trans(dayStart, 0, lon, lat, 0, 1)  // body=0 (Sun), flags=1 (rise)
-  const setResult  = swe.rise_trans(dayStart, 0, lon, lat, 0, 2)  // flags=2 (set)
-  // rise_trans returns JD ~2,400,000 for valid results; 0 or small values = wrapper failure
+  let riseResult = null, setResult = null
+  try { riseResult = swe.rise_trans(dayStart, 0, lon, lat, 0, 1) } catch { /* wrapper bug */ }
+  try { setResult  = swe.rise_trans(dayStart, 0, lon, lat, 0, 2) } catch { /* wrapper bug */ }
   const isValidJd = (r) => r && r[0] > 1000000
   const sunrise = isValidJd(riseResult) ? jdToDate(riseResult[0]) : null
   const sunset  = isValidJd(setResult)  ? jdToDate(setResult[0])  : null

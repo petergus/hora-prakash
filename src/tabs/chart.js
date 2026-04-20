@@ -38,7 +38,7 @@ function buildSingleChart(planets, lagna, key) {
 }
 
 function buildPlanetTable(key, planets, lagna) {
-  const { dPlanets, dLagna } = calcDivisional(planets, lagna, key)
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key)
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
   const isChalit = key === 'Chalit'

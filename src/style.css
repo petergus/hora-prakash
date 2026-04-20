@@ -422,6 +422,7 @@ h3 {
 .multi-tab-btn.active { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
 /* Mobile single-chart view inside multi — hidden on desktop */
 .multi-chart-mobile-view { display: none; }
+.multi-mobile-controls { display: none; }
 
 /* Planet table section visibility */
 .multi-planet-desktop { display: block; }
@@ -774,6 +775,16 @@ h3 {
     margin: 0 auto;
   }
   .multi-chart-mobile-view svg { width: 100%; height: auto; }
+
+  .multi-mobile-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .multi-mobile-div-select { flex: 1 1 auto; min-width: 0; }
+  .multi-mobile-div-active { font-weight: 600; border-color: var(--primary); }
 
   /* Swap planet table sections on mobile */
   .multi-planet-desktop { display: none; }

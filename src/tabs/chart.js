@@ -205,12 +205,25 @@ export function renderChart() {
       </div>
     </div>`
 
+    const mobileControls = `<div class="multi-mobile-controls">
+      ${keys.map((key, i) =>
+        `<select class="div-select multi-mobile-div-select${i === ui.activeMultiTab ? ' multi-mobile-div-active' : ''}" data-slot="${i}" style="font-size:0.78rem;padding:0.2rem 0.4rem">
+          ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === key ? ' selected' : ''}>${o.value}</option>`).join('')}
+        </select>`
+      ).join('')}
+      <div class="chart-style-group" style="margin-left:auto">
+        <button id="btn-mobile-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">N</button>
+        <button id="btn-mobile-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">S</button>
+      </div>
+    </div>`
+
     chartArea = `
       ${renderMultiTabNav(keys, ui.activeMultiTab)}
       <div class="multi-chart-grid multi-chart-grid-${slots}">
         ${gridCells}
       </div>
       <div class="multi-chart-mobile-view">
+        ${mobileControls}
         ${renderChartSVG(activeDP, activeDL, chartStyle, activeLabels, activeLabel, [], {})}
       </div>
       <div class="multi-planet-desktop">
@@ -315,6 +328,21 @@ export function renderChart() {
         renderChart()
       })
     })
+
+    // Mobile division selects
+    panel.querySelectorAll('.multi-mobile-div-select').forEach(sel => {
+      sel.addEventListener('change', e => {
+        const ui = c()
+        const i = parseInt(e.target.dataset.slot, 10)
+        ui.multiDivs[i] = e.target.value
+        if (i === 0) ui.tableDiv = e.target.value
+        renderChart()
+      })
+    })
+
+    // Mobile chart style buttons
+    panel.querySelector('#btn-mobile-north')?.addEventListener('click', () => { c().chartStyle = 'north'; renderChart() })
+    panel.querySelector('#btn-mobile-south')?.addEventListener('click', () => { c().chartStyle = 'south'; renderChart() })
 
     // Gear icon toggle
     const gearBtn = panel.querySelector('#btn-table-gear')

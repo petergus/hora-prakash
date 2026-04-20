@@ -27,6 +27,12 @@ function localToUTC(localISO, timezone) {
 }
 
 function getTZOffsetMinutes(date, timezone) {
+  // Handle numeric offset strings like "+05:30" or "-04:00"
+  const offsetMatch = timezone.match(/^([+-])(\d{1,2}):(\d{2})$/)
+  if (offsetMatch) {
+    const sign = offsetMatch[1] === '+' ? 1 : -1
+    return sign * (parseInt(offsetMatch[2]) * 60 + parseInt(offsetMatch[3]))
+  }
   const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
   const tzStr  = date.toLocaleString('en-US', { timeZone: timezone })
   return (new Date(tzStr) - new Date(utcStr)) / 60000

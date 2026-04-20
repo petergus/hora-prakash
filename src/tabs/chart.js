@@ -4,6 +4,7 @@ import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI } from '../sessions.js'
+import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -135,7 +136,7 @@ export function renderChart() {
   const maskedName    = privacyOn ? MASK : heading
   const maskedDetails = privacyOn
     ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
-    : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || birth.lat + '°, ' + birth.lon + '°'}`
+    : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || fmtLat(birth.lat) + ' ' + fmtLon(birth.lon)} &nbsp;·&nbsp; ${ianaToOffset(birth.timezone)}`
 
   const singleDivSelect = viewMode === '1' ? `
     <select id="div-select" class="div-select">

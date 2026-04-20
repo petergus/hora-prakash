@@ -6,6 +6,7 @@ import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
+import { fmtLat, fmtLon, ianaToOffset, parseDMSLat, parseDMSLon } from '../utils/format.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
 const STORAGE_KEY = 'hora-prakash-profiles'
@@ -56,9 +57,9 @@ export function renderInputTab() {
     dob:      b?.dob       ?? todayStr(),
     tob:      b?.tob       ?? nowTimeStr(),
     location: b?.location  ?? DELHI.displayName,
-    lat:      b?.lat       ?? DELHI.lat,
-    lon:      b?.lon       ?? DELHI.lon,
-    tz:       b?.timezone  ?? DELHI.timezone,
+    lat:      fmtLat(b?.lat  ?? DELHI.lat),
+    lon:      fmtLon(b?.lon  ?? DELHI.lon),
+    tz:       ianaToOffset(b?.timezone ?? DELHI.timezone),
   }
 
   panel.innerHTML = `
@@ -95,16 +96,16 @@ export function renderInputTab() {
         <div class="form-group coords-row">
           <div>
             <label>Latitude</label>
-            <input type="number" id="inp-lat" step="any" value="${fill.lat}" />
+            <input type="text" id="inp-lat" value="${escapeAttr(fill.lat)}" placeholder="e.g. 28°36'N" />
           </div>
           <div>
             <label>Longitude</label>
-            <input type="number" id="inp-lon" step="any" value="${fill.lon}" />
+            <input type="text" id="inp-lon" value="${escapeAttr(fill.lon)}" placeholder="e.g. 77°12'E" />
           </div>
           <div>
             <label>Timezone</label>
             <div style="display:flex;gap:0.4rem">
-              <input type="text" id="inp-tz" value="${escapeAttr(fill.tz)}" placeholder="e.g. Asia/Kolkata" style="flex:1" />
+              <input type="text" id="inp-tz" value="${escapeAttr(fill.tz)}" placeholder="e.g. +05:30" style="flex:1" />
               <button type="button" id="btn-fetch-tz" class="btn-tz" title="Auto-detect timezone from coordinates">⟳</button>
             </div>
           </div>
@@ -218,9 +219,9 @@ function fillForm(p) {
   document.getElementById('inp-dob').value      = p.dob
   document.getElementById('inp-tob').value      = p.tob
   document.getElementById('inp-location').value = p.location || ''
-  document.getElementById('inp-lat').value      = p.lat
-  document.getElementById('inp-lon').value      = p.lon
-  document.getElementById('inp-tz').value       = p.timezone
+  document.getElementById('inp-lat').value      = fmtLat(p.lat)
+  document.getElementById('inp-lon').value      = fmtLon(p.lon)
+  document.getElementById('inp-tz').value       = ianaToOffset(p.timezone)
   selectedLocation = { displayName: p.location, lat: p.lat, lon: p.lon, timezone: p.timezone }
 }
 
@@ -228,8 +229,8 @@ function onSaveProfile() {
   const name     = document.getElementById('inp-name').value.trim()
   const dob      = document.getElementById('inp-dob').value
   const tob      = document.getElementById('inp-tob').value
-  const lat      = Math.round(parseFloat(document.getElementById('inp-lat').value) * 10000) / 10000
-  const lon      = Math.round(parseFloat(document.getElementById('inp-lon').value) * 10000) / 10000
+  const lat      = Math.round(parseDMSLat(document.getElementById('inp-lat').value) * 10000) / 10000
+  const lon      = Math.round(parseDMSLon(document.getElementById('inp-lon').value) * 10000) / 10000
   const timezone = document.getElementById('inp-tz').value.trim()
   const location = document.getElementById('inp-location').value.trim()
 
@@ -249,8 +250,8 @@ function onSaveProfile() {
 }
 
 async function onFetchTz() {
-  const lat = parseFloat(document.getElementById('inp-lat').value)
-  const lon = parseFloat(document.getElementById('inp-lon').value)
+  const lat = parseDMSLat(document.getElementById('inp-lat').value)
+  const lon = parseDMSLon(document.getElementById('inp-lon').value)
   const btn = document.getElementById('btn-fetch-tz')
   if (isNaN(lat) || isNaN(lon)) {
     document.getElementById('calc-error').textContent = 'Enter valid coordinates first.'
@@ -260,7 +261,7 @@ async function onFetchTz() {
   btn.textContent = '…'
   try {
     const tz = await getTimezone(lat, lon)
-    document.getElementById('inp-tz').value = tz
+    document.getElementById('inp-tz').value = ianaToOffset(tz)
     document.getElementById('calc-error').textContent = ''
   } catch {
     document.getElementById('calc-error').textContent = 'Could not fetch timezone. Enter it manually.'
@@ -302,9 +303,9 @@ async function onSuggestionClick(e) {
     const tz = await getTimezone(lat, lon)
     selectedLocation = { displayName: li.dataset.name, lat, lon, timezone: tz }
     document.getElementById('inp-location').value = li.dataset.name
-    document.getElementById('inp-lat').value = Math.round(lat * 10000) / 10000
-    document.getElementById('inp-lon').value = Math.round(lon * 10000) / 10000
-    document.getElementById('inp-tz').value = tz
+    document.getElementById('inp-lat').value = fmtLat(lat)
+    document.getElementById('inp-lon').value = fmtLon(lon)
+    document.getElementById('inp-tz').value = ianaToOffset(tz)
     clearSuggestions()
   } catch {
     document.getElementById('calc-error').textContent = 'Could not fetch timezone. Please try again.'
@@ -320,8 +321,8 @@ async function onFormSubmit(e) {
   const name = document.getElementById('inp-name').value.trim()
   const dob  = document.getElementById('inp-dob').value
   const tob  = document.getElementById('inp-tob').value
-  const lat  = Math.round(parseFloat(document.getElementById('inp-lat').value) * 10000) / 10000
-  const lon  = Math.round(parseFloat(document.getElementById('inp-lon').value) * 10000) / 10000
+  const lat  = Math.round(parseDMSLat(document.getElementById('inp-lat').value) * 10000) / 10000
+  const lon  = Math.round(parseDMSLon(document.getElementById('inp-lon').value) * 10000) / 10000
   const tz   = document.getElementById('inp-tz').value.trim()
 
   if (!name || !dob || !tob || !tz) {

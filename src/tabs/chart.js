@@ -205,13 +205,12 @@ export function renderChart() {
       </div>
     </div>`
 
+    const activeSlotKey = keys[ui.activeMultiTab] ?? keys[0]
     const mobileControls = `<div class="multi-mobile-controls">
-      ${keys.map((key, i) =>
-        `<select class="div-select multi-mobile-div-select${i === ui.activeMultiTab ? ' multi-mobile-div-active' : ''}" data-slot="${i}" style="font-size:0.78rem;padding:0.2rem 0.4rem">
-          ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === key ? ' selected' : ''}>${o.value}</option>`).join('')}
-        </select>`
-      ).join('')}
-      <div class="chart-style-group" style="margin-left:auto">
+      <select id="multi-mobile-div-select" class="div-select" style="font-size:0.78rem;padding:0.2rem 0.4rem;flex:1 1 auto;min-width:0">
+        ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+      <div class="chart-style-group">
         <button id="btn-mobile-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">N</button>
         <button id="btn-mobile-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">S</button>
       </div>
@@ -329,15 +328,13 @@ export function renderChart() {
       })
     })
 
-    // Mobile division selects
-    panel.querySelectorAll('.multi-mobile-div-select').forEach(sel => {
-      sel.addEventListener('change', e => {
-        const ui = c()
-        const i = parseInt(e.target.dataset.slot, 10)
-        ui.multiDivs[i] = e.target.value
-        if (i === 0) ui.tableDiv = e.target.value
-        renderChart()
-      })
+    // Mobile division select — changes active slot
+    panel.querySelector('#multi-mobile-div-select')?.addEventListener('change', e => {
+      const ui = c()
+      const i = ui.activeMultiTab
+      ui.multiDivs[i] = e.target.value
+      if (i === 0) ui.tableDiv = e.target.value
+      renderChart()
     })
 
     // Mobile chart style buttons

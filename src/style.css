@@ -783,8 +783,7 @@ h3 {
     flex-wrap: wrap;
     margin-bottom: 0.6rem;
   }
-  .multi-mobile-div-select { flex: 1 1 auto; min-width: 0; }
-  .multi-mobile-div-active { font-weight: 600; border-color: var(--primary); }
+
 
   /* Swap planet table sections on mobile */
   .multi-planet-desktop { display: none; }

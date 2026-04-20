@@ -1,5 +1,5 @@
 // src/sessions.js
-// Manages multiple open profile sessions, each with isolated state snapshots.
+// Per-session state: chart data snapshot + UI state for each tab.
 
 import { state } from './state.js'
 
@@ -11,6 +11,32 @@ function emptySnap() {
   return { birth: null, planets: null, lagna: null, houses: null, dasha: null, panchang: null }
 }
 
+export function defaultDashaUI() {
+  return {
+    dashaCollapsed:  false,
+    ageCollapsed:    true,
+    progCollapsed:   true,
+    selectedProgLord: null,
+    ageNavCycle:     null,
+    ageAsOf:         null,
+    progNavIndex:    null,
+    expandedMahas:   new Set(),          // Set<mahaName>
+    expandedAntars:  new Map(),          // Map<mahaName, Set<antarName>>
+  }
+}
+
+export function defaultChartUI() {
+  return {
+    chartStyle:    'north',
+    viewMode:      '1',
+    divisional:    'D1',
+    multiDivs:     ['D1','D9','D3','D10'],
+    activeMultiTab: 0,
+    tableDiv:      'D1',
+    activePlanets: new Set(),
+  }
+}
+
 function currentInnerTab() {
   return document.querySelector('#tab-nav .tab-btn.active')?.dataset.tab ?? 'input'
 }
@@ -20,16 +46,19 @@ let activeId  = null
 
 export function createSession(label = 'New Profile') {
   const id = genId()
-  sessions.push({ id, label, snap: emptySnap(), innerTab: 'input' })
+  sessions.push({
+    id,
+    label,
+    snap:    emptySnap(),
+    innerTab: 'input',
+    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI() },
+  })
   return id
 }
 
-export function getSessions() { return sessions }
-export function getActiveId() { return activeId }
-
-export function getActiveSession() {
-  return sessions.find(s => s.id === activeId) ?? null
-}
+export function getSessions()      { return sessions }
+export function getActiveId()      { return activeId }
+export function getActiveSession() { return sessions.find(s => s.id === activeId) ?? null }
 
 function saveActiveSnapshot() {
   const cur = sessions.find(s => s.id === activeId)
@@ -41,7 +70,7 @@ function saveActiveSnapshot() {
 
 export function switchSession(id) {
   if (id === activeId) return
-  saveActiveSnapshot()        // persist current session's state + inner tab
+  saveActiveSnapshot()
   activeId = id
   const next = sessions.find(s => s.id === id)
   if (!next) return
@@ -51,7 +80,6 @@ export function switchSession(id) {
 export function closeSession(id) {
   const idx = sessions.findIndex(s => s.id === id)
   if (idx < 0) return
-  // If closing the active session, save its snapshot first
   if (activeId === id) saveActiveSnapshot()
   sessions.splice(idx, 1)
   if (activeId === id) {

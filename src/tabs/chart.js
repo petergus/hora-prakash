@@ -103,7 +103,7 @@ function divSelectHtml(id, selected) {
 }
 
 function renderMultiTabNav(keys, activeIdx) {
-  return `<div class="multi-tab-nav">
+  return `<div class="multi-tab-nav" data-count="${keys.length}">
     ${keys.map((key, i) => `<button class="multi-tab-btn${activeIdx === i ? ' active' : ''}" data-tab="${i}">${key}</button>`).join('')}
   </div>`
 }
@@ -148,7 +148,16 @@ export function renderChart() {
     ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
   </select>`
 
-  const CLEAR_ASPECTS_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+  const SHOW_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="8.5" cy="8.5" r="2"/>
+    <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5">
+      <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
+      <line x1="6.5" y1="8.5" x2="1" y2="8.5"/><line x1="10.5" y1="8.5" x2="16" y2="8.5"/>
+      <line x1="7.1" y1="7.1" x2="2.5" y2="2.5"/><line x1="9.9" y1="9.9" x2="14.5" y2="14.5"/>
+      <line x1="9.9" y1="7.1" x2="14.5" y2="2.5"/><line x1="7.1" y1="9.9" x2="2.5" y2="14.5"/>
+    </g>
+  </svg>`
+  const CLEAR_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="8.5" cy="8.5" r="2" fill="currentColor" opacity="0.35"/>
     <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5" opacity="0.35">
       <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
@@ -157,7 +166,11 @@ export function renderChart() {
     <line x1="2" y1="2" x2="15" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
   </svg>`
 
-  const aspectBtns = `<button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>`
+  // aspect buttons: always in DOM; hidden on desktop when multi-chart via CSS
+  const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
+    <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">${SHOW_SVG}</button>
+    <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_SVG}</button>
+  </div>`
 
   // ── Chart area ──
   let chartArea = ''
@@ -173,22 +186,12 @@ export function renderChart() {
     const { dPlanets: activeDP, dLagna: activeDL, signLabels: activeLabels, label: activeLabel } = buildSingleChart(planets, lagna, activeKey)
     _dPlanets = activeDP; _dLagna = activeDL; _signLabels = activeLabels; _centerLabel = activeLabel
 
-    // Desktop: grid of charts with per-slot div selects + per-cell aspect clear
+    // Desktop: plain grid — no aspects (aspects only in single view on desktop)
     const gridCells = keys.map((key, i) => {
       const { dPlanets, dLagna, signLabels, label } = buildSingleChart(planets, lagna, key)
-      const slotSet = multiActivePlanets[i] ?? new Set()
-      const aspects = dPlanets
-        .filter(p => slotSet.has(p.abbr))
-        .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
-      const colors = Object.fromEntries(
-        dPlanets.filter(p => slotSet.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
-      )
-      return `<div class="multi-chart-cell" data-slot="${i}">
-        <div class="multi-chart-label">
-          ${divSelectHtml('multi-div-' + i, key)}
-          <button class="chart-style-btn chart-icon-btn multi-clear-aspects" data-slot="${i}" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
-        </div>
-        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, label, aspects, colors)}
+      return `<div class="multi-chart-cell">
+        <div class="multi-chart-label">${divSelectHtml('multi-div-' + i, key)}</div>
+        ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, label, [], {})}
       </div>`
     }).join('')
 
@@ -207,11 +210,12 @@ export function renderChart() {
       </div>
     </div>`
 
+    const mobileAP = multiActivePlanets[ui.activeMultiTab] ?? new Set()
     const activeAspects = activeDP
-      .filter(p => activePlanets.has(p.abbr))
+      .filter(p => mobileAP.has(p.abbr))
       .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
     const activePlanetColors = Object.fromEntries(
-      activeDP.filter(p => activePlanets.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
+      activeDP.filter(p => mobileAP.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
     )
 
     chartArea = `
@@ -299,23 +303,30 @@ export function renderChart() {
     renderChart()
   })
 
-  // Clear aspects — single view or mobile multi: clears active slot
-  panel.querySelector('#btn-hide-all').addEventListener('click', () => {
+  // Aspect helpers — for single view use activePlanets; mobile multi uses multiActivePlanets[activeTab]
+  function getActiveAP() {
     const ui = c()
-    if (ui.viewMode === '1') {
-      ui.activePlanets = new Set()
-    } else {
-      ui.multiActivePlanets[ui.activeMultiTab] = new Set()
-    }
+    return ui.viewMode === '1' ? ui.activePlanets : (ui.multiActivePlanets[ui.activeMultiTab] ?? new Set())
+  }
+  function setActiveAP(set) {
+    const ui = c()
+    if (ui.viewMode === '1') ui.activePlanets = set
+    else ui.multiActivePlanets[ui.activeMultiTab] = set
+  }
+
+  panel.querySelector('#btn-show-all').addEventListener('click', () => {
+    if (_dPlanets) _dPlanets.forEach(p => getActiveAP().add(p.abbr))
     renderSVGOnly()
+  })
+  panel.querySelector('#btn-hide-all').addEventListener('click', () => {
+    setActiveAP(new Set()); renderSVGOnly()
   })
 
   // Planet click — single view and mobile multi (chart-container)
   document.getElementById('chart-container')?.addEventListener('click', e => {
     const el = e.target.closest('[data-planet]')
     if (!el) return
-    const ui = c()
-    const ap = ui.viewMode === '1' ? ui.activePlanets : ui.multiActivePlanets[ui.activeMultiTab]
+    const ap = getActiveAP()
     const abbr = el.dataset.planet
     if (ap.has(abbr)) { ap.delete(abbr) } else { ap.add(abbr) }
     renderSVGOnly()
@@ -337,37 +348,6 @@ export function renderChart() {
     panel.querySelectorAll('.multi-tab-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         c().activeMultiTab = parseInt(e.currentTarget.dataset.tab, 10)
-        renderChart()
-      })
-    })
-
-    // Desktop grid: planet click per cell → toggle that cell's aspects inline
-    panel.querySelector('.multi-chart-grid')?.addEventListener('click', e => {
-      const el = e.target.closest('[data-planet]')
-      if (!el) return
-      const cell = e.target.closest('.multi-chart-cell[data-slot]')
-      if (!cell) return
-      const ui   = c()
-      const i    = parseInt(cell.dataset.slot, 10)
-      const ap   = ui.multiActivePlanets[i] ?? (ui.multiActivePlanets[i] = new Set())
-      const abbr = el.dataset.planet
-      if (ap.has(abbr)) { ap.delete(abbr) } else { ap.add(abbr) }
-      // Re-render just this cell's SVG
-      const key  = ui.multiDivs[i]
-      const { dPlanets, dLagna, signLabels, label } = buildSingleChart(planets, lagna, key)
-      const aspects = dPlanets.filter(p => ap.has(p.abbr))
-        .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
-      const colors = Object.fromEntries(dPlanets.filter(p => ap.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]]))
-      cell.querySelector('svg')?.replaceWith(
-        (() => { const tmp = document.createElement('div'); tmp.innerHTML = renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, label, aspects, colors); return tmp.firstElementChild })()
-      )
-    })
-
-    // Desktop grid: clear aspects per cell
-    panel.querySelectorAll('.multi-clear-aspects').forEach(btn => {
-      btn.addEventListener('click', e => {
-        const i = parseInt(e.currentTarget.dataset.slot, 10)
-        c().multiActivePlanets[i] = new Set()
         renderChart()
       })
     })

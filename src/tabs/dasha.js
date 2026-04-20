@@ -10,11 +10,18 @@ let ageAsOf = null            // null = today; set to Date when user picks a dat
 let dashaCollapsed = false
 let ageCollapsed = true
 let progCollapsed = true
+let ageNavOffset = 0          // years added to DOB for Age Progression navigation
+let progNavIndex = null       // index into state.dasha; null = use current MD lord
 
 export function renderDasha() {
   const panel = document.getElementById('tab-dasha')
   if (!state.dasha || !state.birth) return
   const { dasha, birth } = state
+  // Reset nav state on new chart load
+  ageNavOffset = 0
+  ageAsOf = null
+  selectedProgLord = null
+  progNavIndex = null
 
   const rows = dasha.map(maha => {
     const isMahaCurrent = isCurrentPeriod(maha.start, maha.end)
@@ -46,12 +53,14 @@ export function renderDasha() {
   // Determine current MD lord for default selection
   const currentMaha = dasha.find(m => isCurrentPeriod(m.start, m.end)) ?? dasha[0]
   if (!selectedProgLord) selectedProgLord = currentMaha.planet
+  if (progNavIndex === null) progNavIndex = dasha.findIndex(m => m.planet === selectedProgLord)
 
   // Build progression section
-  const progressionHtml = renderProgression(birth.dob)
+  const progressionHtml = renderProgression(birth.dob, dasha)
 
-  const ageRef = ageAsOf ?? new Date()
-  const ageHtml = renderAgeProgression(birth.dob, ageRef)
+  // Age nav: offset years from DOB (clamped 0–120)
+  const ageRef = ageAsOf ?? offsetYearsFromDob(birth.dob, ageNavOffset)
+  const ageHtml = renderAgeProgression(birth.dob, ageRef, ageNavOffset)
 
   panel.innerHTML = `
     <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
@@ -79,11 +88,12 @@ export function renderDasha() {
   panel.addEventListener('change', e => {
     if (e.target.id === 'age-asof-input') {
       ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
-      const ref = ageAsOf ?? new Date()
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref)
+      const ref = ageAsOf ?? offsetYearsFromDob(birth.dob, ageNavOffset)
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
     } else if (e.target.id === 'prog-lord-select') {
       selectedProgLord = e.target.value
-      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob)
+      progNavIndex = dasha.findIndex(m => m.planet === selectedProgLord)
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
     }
   })
 
@@ -100,6 +110,24 @@ export function renderDasha() {
       progCollapsed = !progCollapsed
       document.getElementById('prog-body').style.display = progCollapsed ? 'none' : ''
       e.target.textContent = progCollapsed ? '▶' : '▼'
+    } else if (e.target.id === 'age-prev-btn') {
+      ageNavOffset = Math.max(0, ageNavOffset - 1)
+      ageAsOf = null
+      const ref = offsetYearsFromDob(birth.dob, ageNavOffset)
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
+    } else if (e.target.id === 'age-next-btn') {
+      ageNavOffset = Math.min(120, ageNavOffset + 1)
+      ageAsOf = null
+      const ref = offsetYearsFromDob(birth.dob, ageNavOffset)
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
+    } else if (e.target.id === 'prog-prev-btn') {
+      progNavIndex = Math.max(0, (progNavIndex ?? 0) - 1)
+      selectedProgLord = dasha[progNavIndex].planet
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
+    } else if (e.target.id === 'prog-next-btn') {
+      progNavIndex = Math.min(dasha.length - 1, (progNavIndex ?? 0) + 1)
+      selectedProgLord = dasha[progNavIndex].planet
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
     }
   })
 
@@ -170,12 +198,20 @@ function fmt(date) {
   return date.toISOString().slice(0, 10)
 }
 
-function renderAgeProgression(dobStr, asOf) {
+function offsetYearsFromDob(dobStr, years) {
+  const d = new Date(dobStr + 'T00:00:00')
+  d.setFullYear(d.getFullYear() + years)
+  return d
+}
+
+function renderAgeProgression(dobStr, asOf, navOffset = 0) {
   const { years, months, days } = calcAgeComponents(dobStr, asOf)
   const houseActive = calcHouseActiveFromAge(dobStr, asOf)
   const todayStr = new Date().toISOString().slice(0, 10)
   const asOfStr  = asOf.toISOString ? asOf.toISOString().slice(0, 10) : todayStr
   const isToday  = asOfStr === todayStr
+  const atMin = navOffset <= 0
+  const atMax = navOffset >= 120
 
   // 12 house cycles — mark which one contains the current age
   const cycleNum   = Math.floor(years / 12)        // 0-based cycle (0 = first 12 years)
@@ -200,6 +236,8 @@ function renderAgeProgression(dobStr, asOf) {
           <h3>Age Progression</h3>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
+          <button id="age-prev-btn" class="prog-nav-btn" ${atMin ? 'disabled' : ''}>←</button>
+          <button id="age-next-btn" class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
           <span style="font-size:0.78rem;color:var(--muted)">As of:</span>
           <input type="date" id="age-asof-input" value="${asOfStr}"
             style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)" />
@@ -226,20 +264,24 @@ function renderAgeProgression(dobStr, asOf) {
     </div>`
 }
 
-function renderProgression(dobStr) {
+function renderProgression(dobStr, dashaSeq) {
   // Always use Rashi (D1) house placements from state.planets
   const rashiByName = Object.fromEntries((state.planets ?? []).map(p => [p.name, p]))
-  const lordNames = Object.keys(DASHA_YEARS)
   const lordHouse = rashiByName[selectedProgLord]?.house ?? 1
   const mdYears   = DASHA_YEARS[selectedProgLord] ?? 1
-  const mdEntry   = (state.dasha ?? []).find(m => m.planet === selectedProgLord)
+  const mdEntry   = (dashaSeq ?? state.dasha ?? []).find(m => m.planet === selectedProgLord)
   const mdStart   = mdEntry?.start ?? new Date()
 
-  const periods     = calcDashaProgression(lordHouse, mdStart, mdYears)
+  const periods = calcDashaProgression(lordHouse, mdStart, mdYears)
 
-  const lordOptions = lordNames.map(name => {
-    const h = rashiByName[name]?.house ?? '?'
-    return `<option value="${name}"${name === selectedProgLord ? ' selected' : ''}>${name} — H${h}</option>`
+  const houseActiveAtMDStart = calcHouseActiveFromAge(dobStr, mdStart)
+
+  const atMin = (progNavIndex ?? 0) <= 0
+  const atMax = (progNavIndex ?? 0) >= (dashaSeq ?? state.dasha ?? []).length - 1
+
+  const lordOptions = (dashaSeq ?? state.dasha ?? []).map(m => {
+    const h = rashiByName[m.planet]?.house ?? '?'
+    return `<option value="${m.planet}"${m.planet === selectedProgLord ? ' selected' : ''}>${m.planet} — H${h}</option>`
   }).join('')
 
   const periodRows = periods.map(p => `
@@ -262,6 +304,8 @@ function renderProgression(dobStr) {
           <h3>Dasha Progression</h3>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
+          <button id="prog-prev-btn" class="prog-nav-btn" ${atMin ? 'disabled' : ''}>←</button>
+          <button id="prog-next-btn" class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
           <span style="font-size:0.78rem;color:var(--muted)">MD Lord:</span>
           <select id="prog-lord-select" class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem">${lordOptions}</select>
         </div>
@@ -274,6 +318,8 @@ function renderProgression(dobStr) {
           <span>${mdYears} months per house</span>
           <span class="prog-meta-sep">·</span>
           <span>MD starts ${fmt(mdStart)}</span>
+          <span class="prog-meta-sep">·</span>
+          <span class="age-active-badge" style="font-size:0.78rem">★ H${houseActiveAtMDStart} active at MD start</span>
         </div>
         <div class="table-scroll"><table class="dasha-table">
           <thead><tr>

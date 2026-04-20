@@ -371,6 +371,22 @@ h3 {
 }
 .prog-meta-sep { color: var(--border); }
 
+/* ── Progression nav buttons ── */
+.prog-nav-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0.15rem 0.45rem;
+  line-height: 1.4;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.prog-nav-btn:hover:not(:disabled) { background: #f1f5f9; color: var(--text); border-color: var(--text); }
+.prog-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
 /* ── Panchang table ── */
 .panchang-table {
   border-collapse: collapse;

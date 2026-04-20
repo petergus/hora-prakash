@@ -85,7 +85,7 @@ export function renderDasha() {
     </div>
   `
 
-  panel.addEventListener('change', e => {
+  panel.onchange = e => {
     if (e.target.id === 'age-asof-input') {
       ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
       ageNavCycle = null
@@ -95,9 +95,9 @@ export function renderDasha() {
       progNavIndex = dasha.findIndex(m => m.planet === selectedProgLord)
       document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
     }
-  })
+  }
 
-  panel.addEventListener('click', e => {
+  panel.onclick = e => {
     if (e.target.id === 'dasha-toggle-btn') {
       dashaCollapsed = !dashaCollapsed
       document.getElementById('dasha-body').style.display = dashaCollapsed ? 'none' : ''
@@ -135,7 +135,7 @@ export function renderDasha() {
       selectedProgLord = dasha[progNavIndex].planet
       document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
     }
-  })
+  }
 
   initDragReorder(document.getElementById('prog-drag-container'))
 

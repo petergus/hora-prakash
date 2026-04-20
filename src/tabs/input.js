@@ -335,6 +335,12 @@ async function onFormSubmit(e) {
     state.dasha    = dasha
     state.panchang = panchang
 
+    // Update session label and profile tab bar
+    const { updateActiveLabel } = await import('../sessions.js')
+    const { renderProfileTabs } = await import('../ui/profile-tabs.js')
+    updateActiveLabel(name)
+    renderProfileTabs()
+
     const { renderChart }    = await import('./chart.js')
     const { renderDasha }    = await import('./dasha.js')
     const { renderPanchang } = await import('./panchang.js')

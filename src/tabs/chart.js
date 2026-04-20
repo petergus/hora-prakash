@@ -322,8 +322,9 @@ export function renderChart() {
     setActiveAP(new Set()); renderSVGOnly()
   })
 
-  // Planet click — single view and mobile multi (chart-container)
+  // Planet click — single view only
   document.getElementById('chart-container')?.addEventListener('click', e => {
+    if (c().viewMode !== '1') return
     const el = e.target.closest('[data-planet]')
     if (!el) return
     const ap = getActiveAP()

@@ -435,10 +435,8 @@ h3 {
 .multi-tab-btn:last-child { border-right: none; }
 .multi-tab-btn.active { background: var(--primary); color: var(--primary-text); }
 
-/* Hide aspect buttons on desktop in multi-chart view */
-@media (min-width: 601px) {
-  .aspect-btns--multi { display: none; }
-}
+/* Aspects only in single-chart view — hide in multi everywhere */
+.aspect-btns--multi { display: none; }
 /* Mobile single-chart view inside multi — hidden on desktop */
 .multi-chart-mobile-view { display: none; }
 
@@ -782,7 +780,7 @@ h3 {
   /* Chart controls: div-select takes full first row, rest share second row */
   .chart-controls { row-gap: 0.4rem; }
   #div-select { flex: 0 0 100%; max-width: 100% !important; order: -1; }
-  .chart-style-group, #btn-hide-all { order: 0; }
+  .chart-style-group { order: 0; }
 
   /* Multi-chart: on mobile show tab nav + single chart view, hide grid */
   .multi-chart-grid { display: none !important; }

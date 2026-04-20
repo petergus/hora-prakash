@@ -13,6 +13,11 @@ const DASHA_SEQUENCE = [
 ]
 const TOTAL_YEARS = 120
 
+// Standard Vimshottari durations keyed by planet name
+export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
+
+export const LEVEL_NAMES = ['Mahādasha', 'Antardasha', 'Pratyantara', 'Sūkṣma', 'Prāṇa']
+
 // Index in DASHA_SEQUENCE for each nakshatra (0-26)
 const NAKSHATRA_DASHA_INDEX = [
   0,1,2,3,4,5,6,7,8,
@@ -21,69 +26,80 @@ const NAKSHATRA_DASHA_INDEX = [
 ]
 
 /**
- * Compute 3-level Vimshottari dasha tree.
- * @param {object} moon  - planet object for Moon (must have lon, nakshatraIndex)
+ * Recursively compute sub-periods at a given depth.
+ * depth=1 → children only (no recursion deeper)
+ * depth=4 → 4 levels below the caller
+ */
+function calcSubPeriods(startIdx, startDate, parentYears, depth) {
+  if (depth <= 0) return []
+  const result = []
+  let cur = startDate.getTime()
+  for (let i = 0; i < 9; i++) {
+    const idx  = (startIdx + i) % 9
+    const seq  = DASHA_SEQUENCE[idx]
+    const yrs  = parentYears * seq.years / TOTAL_YEARS
+    const ms   = yrs * 365.25 * 86400000
+    const end  = cur + ms
+    result.push({
+      planet:   seq.name,
+      start:    new Date(cur),
+      end:      new Date(end),
+      children: calcSubPeriods(idx, new Date(cur), yrs, depth - 1),
+    })
+    cur = end
+  }
+  return result
+}
+
+/**
+ * Compute 5-level Vimshottari dasha tree.
+ * Each node: { planet, start, end, children[] }
+ * Levels: Mahādasha → Antardasha → Pratyantara → Sūkṣma → Prāṇa
+ *
+ * @param {object} moon   - planet object (must have lon, nakshatraIndex)
  * @param {string} dobStr - "YYYY-MM-DD"
- * @returns {DashaNode[]}
+ * @returns {DashaNode[]}  Array of 9 Mahādasha nodes
  */
 export function calcDasha(moon, dobStr) {
   if (!moon || typeof moon.lon !== 'number' || typeof moon.nakshatraIndex !== 'number') {
     throw new Error('calcDasha: valid Moon planet object with lon and nakshatraIndex required')
   }
-  const nakshatraIdx = moon.nakshatraIndex
-  const dashaStartIndex = NAKSHATRA_DASHA_INDEX[nakshatraIdx]
 
-  const nakshatraSpan = 360 / 27
-  const normalizedLon = ((moon.lon % 360) + 360) % 360
-  const posInNakshatra = normalizedLon % nakshatraSpan
-  const fractionElapsed = posInNakshatra / nakshatraSpan
-  const fractionRemaining = 1 - fractionElapsed
-  const balanceYears = DASHA_SEQUENCE[dashaStartIndex].years * fractionRemaining
+  const dashaStartIndex = NAKSHATRA_DASHA_INDEX[moon.nakshatraIndex]
+  const nakshatraSpan   = 360 / 27
+  const normalizedLon   = ((moon.lon % 360) + 360) % 360
+  const fractionElapsed = (normalizedLon % nakshatraSpan) / nakshatraSpan
+  const balanceYears    = DASHA_SEQUENCE[dashaStartIndex].years * (1 - fractionElapsed)
 
   const birthDate = new Date(dobStr + 'T00:00:00Z')
   const tree = []
-  let currentDate = new Date(birthDate)
+  let cur = birthDate.getTime()
 
   for (let i = 0; i < 9; i++) {
-    const idx = (dashaStartIndex + i) % 9
-    const maha = DASHA_SEQUENCE[idx]
-    const mahaDurationYears = i === 0 ? balanceYears : maha.years
-    const mahaEnd = addYears(currentDate, mahaDurationYears)
-
-    const antars = []
-    let antarStart = new Date(currentDate)
-
-    for (let j = 0; j < 9; j++) {
-      const aIdx = (idx + j) % 9
-      const antar = DASHA_SEQUENCE[aIdx]
-      const antarYears = (mahaDurationYears * antar.years) / TOTAL_YEARS
-      const antarEnd = addYears(antarStart, antarYears)
-
-      const pratyantars = []
-      let pratStart = new Date(antarStart)
-      for (let k = 0; k < 9; k++) {
-        const pIdx = (aIdx + k) % 9
-        const prat = DASHA_SEQUENCE[pIdx]
-        const pratYears = (antarYears * prat.years) / TOTAL_YEARS
-        const pratEnd = addYears(pratStart, pratYears)
-        pratyantars.push({ planet: prat.name, start: new Date(pratStart), end: pratEnd })
-        pratStart = pratEnd
-      }
-
-      antars.push({ planet: antar.name, start: new Date(antarStart), end: antarEnd, pratyantars })
-      antarStart = antarEnd
-    }
-
-    tree.push({ planet: maha.name, start: new Date(currentDate), end: mahaEnd, antars })
-    currentDate = mahaEnd
+    const idx  = (dashaStartIndex + i) % 9
+    const seq  = DASHA_SEQUENCE[idx]
+    const yrs  = i === 0 ? balanceYears : seq.years
+    const ms   = yrs * 365.25 * 86400000
+    const end  = cur + ms
+    tree.push({
+      planet:   seq.name,
+      start:    new Date(cur),
+      end:      new Date(end),
+      children: calcSubPeriods(idx, new Date(cur), yrs, 4), // 4 levels below maha = AD+PD+SD+Prana
+    })
+    cur = end
   }
 
   return tree
 }
 
+export function isCurrentPeriod(start, end) {
+  const now = Date.now()
+  return start.getTime() <= now && end.getTime() > now
+}
+
 function addYears(date, years) {
-  const ms = years * 365.25 * 24 * 60 * 60 * 1000
-  return new Date(date.getTime() + ms)
+  return new Date(date.getTime() + years * 365.25 * 86400000)
 }
 
 function addMonths(date, months) {
@@ -92,25 +108,12 @@ function addMonths(date, months) {
   return d
 }
 
-export function isCurrentPeriod(start, end) {
-  const now = Date.now()
-  return start.getTime() <= now && end.getTime() > now
-}
-
-// Standard Vimshottari durations keyed by planet name
-export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
-
 /**
  * Age broken into whole years, remaining months, remaining days (DATEDIF equivalent).
- * Source: Dasha Progression-V3-personal.xlsx cells L5/M5/N5
- *   L5=DATEDIF(DOB,refDate,"Y")  M5=DATEDIF(DOB,refDate,"YM")  N5=DATEDIF(DOB,refDate,"MD")
- *
- * @param {string} dobStr   "YYYY-MM-DD"
- * @param {Date}   [asOf]   Reference date (defaults to today)
  */
 export function calcAgeComponents(dobStr, asOf = new Date()) {
   const dob = new Date(dobStr + 'T00:00:00Z')
-  const ref = new Date(Date.UTC(asOf.getFullYear(), asOf.getMonth(), asOf.getDate()))
+  const ref  = new Date(Date.UTC(asOf.getFullYear(), asOf.getMonth(), asOf.getDate()))
 
   let years  = ref.getUTCFullYear() - dob.getUTCFullYear()
   let months = ref.getUTCMonth()    - dob.getUTCMonth()
@@ -128,12 +131,6 @@ export function calcAgeComponents(dobStr, asOf = new Date()) {
 
 /**
  * House active from age (DOB-based house cycle).
- * Year 1 (age 0) → H1, Year 2 (age 1) → H2, … Year 12 (age 11) → H12,
- * Year 13 (age 12) → H1 again.
- * Formula: (ageWholeYears % 12) + 1
- *
- * @param {string} dobStr   "YYYY-MM-DD"
- * @param {Date}   [asOf]   Reference date (defaults to today)
  */
 export function calcHouseActiveFromAge(dobStr, asOf = new Date()) {
   const { years } = calcAgeComponents(dobStr, asOf)
@@ -142,26 +139,6 @@ export function calcHouseActiveFromAge(dobStr, asOf = new Date()) {
 
 /**
  * Dasha Progression — 12 sub-periods within a Mahadasha.
- *
- * The Mahadasha is divided equally into 12 house-periods.
- * Each house gets `mdDurationYears` calendar months (same number, different unit).
- * Total = 12 × mdDurationYears months = mdDurationYears years — equals the full Mahadasha.
- *
- * Progression house moves forward from the MD lord's natal house:
- *   period i → house ((mdLordHouse − 1 + i) % 12) + 1
- *
- * Regression house moves backward from the MD lord's natal house:
- *   period i → house ((mdLordHouse − 1 − i + 120) % 12) + 1
- *
- * Source: Dasha Progression-V3-personal.xlsx, columns D–I rows 7–18
- *   E7: =MOD(SEQUENCE(12,1,G3)−1, 12)+1   (progression, forward)
- *   D7: =MOD(G3−SEQUENCE(12,1,0)−1, 12)+1 (regression, backward)
- *   G7: =EDATE(dashaStart, mdYears * SEQUENCE(12,1))
- *
- * @param {number} mdLordHouse  Natal house (1–12) of the Mahadasha lord
- * @param {Date}   mdStart      Start date of the Mahadasha
- * @param {number} mdDurationYears  Standard Vimshottari duration (e.g. 20 for Venus)
- * @returns {Array<{houseFromMDL, progressionHouse, regressionHouse, start, end, isActive}>}
  */
 export function calcDashaProgression(mdLordHouse, mdStart, mdDurationYears) {
   const today = new Date()

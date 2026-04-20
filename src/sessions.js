@@ -22,6 +22,7 @@ export function defaultDashaUI() {
     progNavIndex:    null,
     expandedMahas:   new Set(),          // Set<mahaName>
     expandedAntars:  new Map(),          // Map<mahaName, Set<antarName>>
+    expandedPaths:   new Set(),          // Set<"maha/antar/prat"> for levels 3-4
   }
 }
 

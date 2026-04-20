@@ -511,6 +511,7 @@ h3 {
   border-bottom: 1px solid var(--border);
 }
 .dasha-table tbody tr:last-child td { border-bottom: none; }
+.dasha-level-label { font-size: 0.7rem; color: var(--muted); margin-left: 0.25rem; font-weight: 400; }
 .dasha-table tbody tr:nth-child(even) { background: #fafbfc; }
 .dasha-table tbody tr:hover { background: #f1f5f9; }
 .current-period {

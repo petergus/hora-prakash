@@ -1,6 +1,6 @@
 // src/tabs/dasha.js
 import { state } from '../state.js'
-import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS } from '../core/dasha.js'
+import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES } from '../core/dasha.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
 
@@ -29,38 +29,7 @@ export function renderDasha() {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
-  const rows = dasha.map(maha => {
-    const isMahaCurrent  = isCurrentPeriod(maha.start, maha.end)
-    const isMahaExpanded = ui.expandedMahas.has(maha.planet)
-    const antarRows = maha.antars.map(antar => {
-      const isAntarCurrent  = isCurrentPeriod(antar.start, antar.end)
-      const isAntarExpanded = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
-      const pratRows = antar.pratyantars.map(prat => {
-        const isPratCurrent = isCurrentPeriod(prat.start, prat.end)
-        return `<tr class="${isPratCurrent ? 'current-period' : ''}"
-          style="display:${isAntarExpanded ? '' : 'none'}" data-prat>
-          <td style="padding-left:3rem">↳ ${prat.planet}</td>
-          <td>${fmt(prat.start)}</td>
-          <td>${fmt(prat.end)}</td>
-        </tr>`
-      }).join('')
-
-      return `<tr class="${isAntarCurrent ? 'current-period' : ''}"
-          style="display:${isMahaExpanded ? '' : 'none'}"
-          data-antar data-toggle-prat data-maha="${maha.planet}" data-antar-name="${antar.planet}">
-          <td style="padding-left:1.5rem; cursor:pointer">${isAntarExpanded ? '▼' : '▶'} ${antar.planet}</td>
-          <td>${fmt(antar.start)}</td>
-          <td>${fmt(antar.end)}</td>
-        </tr>${pratRows}`
-    }).join('')
-
-    return `<tr class="${isMahaCurrent ? 'current-period' : ''}"
-        data-toggle-antar data-maha="${maha.planet}" style="cursor:pointer">
-        <td><strong>${isMahaExpanded ? '▼' : '▶'} ${maha.planet}</strong></td>
-        <td>${fmt(maha.start)}</td>
-        <td>${fmt(maha.end)}</td>
-      </tr>${antarRows}`
-  }).join('')
+  const rows = buildDashaRows(dasha, ui)
 
   const progressionHtml = renderProgression(birth.dob, dasha)
   const ageRef = ui.ageAsOf ?? (ui.ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12) : new Date())
@@ -77,7 +46,7 @@ export function renderDasha() {
           </div>
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
-          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">Click a Mahadasha row to expand Antardashas</p>
+          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -143,44 +112,143 @@ export function renderDasha() {
 
   initDragReorder(document.getElementById('prog-drag-container'))
 
-  // Dasha table row toggle — tracks expanded state in session
+  // Dasha table row toggle — generic handler for all 5 levels
   panel.querySelector('.dasha-table tbody').addEventListener('click', (e) => {
-    const row = e.target.closest('tr')
+    const row = e.target.closest('tr[data-toggle]')
     if (!row) return
-    const ui = d()
+    const ui   = d()
+    const path = row.dataset.path    // e.g. "Jupiter" or "Jupiter/Saturn"
+    const depth = parseInt(row.dataset.depth)  // 0=maha, 1=antar, 2=prat, 3=sookshma
 
-    if (row.hasAttribute('data-toggle-antar')) {
-      const mahaName = row.dataset.maha
-      const opening  = toggleSiblings(row, 'data-antar')
-      setArrow(row, opening)
-      if (opening) {
-        ui.expandedMahas.add(mahaName)
-      } else {
+    const childAttr = `data-depth="${depth + 1}"`
+    const opening   = toggleChildRows(row, depth + 1)
+    setArrow(row, opening)
+
+    // Update session state
+    if (depth === 0) {
+      const mahaName = path
+      if (opening) ui.expandedMahas.add(mahaName)
+      else {
         ui.expandedMahas.delete(mahaName)
         ui.expandedAntars.delete(mahaName)
-        // Collapse all pratyantar rows visually
-        let next = row.nextElementSibling
-        while (next && next.hasAttribute('data-antar')) {
-          next.style.display = 'none'
-          setArrow(next, false)
-          let prat = next.nextElementSibling
-          while (prat && prat.hasAttribute('data-prat')) {
-            prat.style.display = 'none'
-            prat = prat.nextElementSibling
-          }
-          next = prat
+        // Clear deeper paths under this maha
+        for (const p of ui.expandedPaths) {
+          if (p.startsWith(mahaName + '/')) ui.expandedPaths.delete(p)
         }
       }
-    } else if (row.hasAttribute('data-toggle-prat')) {
-      const mahaName  = row.dataset.maha
-      const antarName = row.dataset.antarName
-      const opening   = toggleSiblings(row, 'data-prat')
-      setArrow(row, opening)
+    } else if (depth === 1) {
+      const mahaName  = path.split('/')[0]
       if (!ui.expandedAntars.has(mahaName)) ui.expandedAntars.set(mahaName, new Set())
-      if (opening) ui.expandedAntars.get(mahaName).add(antarName)
-      else         ui.expandedAntars.get(mahaName).delete(antarName)
+      if (opening) ui.expandedAntars.get(mahaName).add(path.split('/')[1])
+      else {
+        ui.expandedAntars.get(mahaName).delete(path.split('/')[1])
+        for (const p of ui.expandedPaths) {
+          if (p.startsWith(path + '/')) ui.expandedPaths.delete(p)
+        }
+      }
+    } else {
+      if (opening) ui.expandedPaths.add(path)
+      else {
+        ui.expandedPaths.delete(path)
+        for (const p of ui.expandedPaths) {
+          if (p.startsWith(path + '/')) ui.expandedPaths.delete(p)
+        }
+      }
     }
   })
+}
+
+// Builds flat HTML rows for all 5 dasha levels, restoring expanded state from ui.
+function buildDashaRows(dasha, ui) {
+  const rows = []
+
+  for (const maha of dasha) {
+    const isCur0     = isCurrentPeriod(maha.start, maha.end)
+    const expanded0  = ui.expandedMahas.has(maha.planet)
+    const path0      = maha.planet
+
+    rows.push(`<tr data-toggle data-depth="0" data-path="${path0}" class="${isCur0 ? 'current-period' : ''}">
+      <td style="padding-left:0.5rem">${expanded0 ? '▼' : '▶'} <strong>${maha.planet}</strong> <span class="dasha-level-label">MD</span></td>
+      <td>${fmt(maha.start)}</td><td>${fmt(maha.end)}</td></tr>`)
+
+    for (const antar of maha.children) {
+      const path1     = `${path0}/${antar.planet}`
+      const isCur1    = isCurrentPeriod(antar.start, antar.end)
+      const expanded1 = ui.expandedAntars.get(path0)?.has(antar.planet) ?? false
+      const show1     = expanded0
+
+      rows.push(`<tr data-toggle data-depth="1" data-path="${path1}" class="${isCur1 ? 'current-period' : ''}" style="display:${show1 ? '' : 'none'}">
+        <td style="padding-left:1.8rem">${expanded1 ? '▼' : '▶'} ${antar.planet} <span class="dasha-level-label">AD</span></td>
+        <td>${fmt(antar.start)}</td><td>${fmt(antar.end)}</td></tr>`)
+
+      for (const prat of antar.children) {
+        const path2     = `${path1}/${prat.planet}`
+        const isCur2    = isCurrentPeriod(prat.start, prat.end)
+        const expanded2 = ui.expandedPaths.has(path2)
+        const show2     = show1 && expanded1
+
+        rows.push(`<tr data-toggle data-depth="2" data-path="${path2}" class="${isCur2 ? 'current-period' : ''}" style="display:${show2 ? '' : 'none'}">
+          <td style="padding-left:3.1rem">${expanded2 ? '▼' : '▶'} ${prat.planet} <span class="dasha-level-label">PD</span></td>
+          <td>${fmt(prat.start)}</td><td>${fmt(prat.end)}</td></tr>`)
+
+        for (const sook of prat.children) {
+          const path3     = `${path2}/${sook.planet}`
+          const isCur3    = isCurrentPeriod(sook.start, sook.end)
+          const expanded3 = ui.expandedPaths.has(path3)
+          const show3     = show2 && expanded2
+
+          rows.push(`<tr data-toggle data-depth="3" data-path="${path3}" class="${isCur3 ? 'current-period' : ''}" style="display:${show3 ? '' : 'none'}">
+            <td style="padding-left:4.4rem">${expanded3 ? '▼' : '▶'} ${sook.planet} <span class="dasha-level-label">SD</span></td>
+            <td>${fmt(sook.start)}</td><td>${fmt(sook.end)}</td></tr>`)
+
+          for (const prana of sook.children) {
+            const path4  = `${path3}/${prana.planet}`
+            const isCur4 = isCurrentPeriod(prana.start, prana.end)
+            const show4  = show3 && expanded3
+
+            rows.push(`<tr data-depth="4" data-path="${path4}" class="${isCur4 ? 'current-period' : ''}" style="display:${show4 ? '' : 'none'}">
+              <td style="padding-left:5.7rem">${prana.planet} <span class="dasha-level-label">PrD</span></td>
+              <td>${fmt(prana.start)}</td><td>${fmt(prana.end)}</td></tr>`)
+          }
+        }
+      }
+    }
+  }
+
+  return rows.join('')
+}
+
+// Toggles direct children at childDepth and hides all deeper descendants when closing.
+// Returns true if rows were shown, false if hidden.
+function toggleChildRows(row, childDepth) {
+  const parentDepth = parseInt(row.dataset.depth)
+  const tbody       = row.closest('tbody')
+  const allRows     = Array.from(tbody.querySelectorAll('tr'))
+  const parentIdx   = allRows.indexOf(row)
+
+  let firstChild = null
+  for (let i = parentIdx + 1; i < allRows.length; i++) {
+    const r = allRows[i]
+    const d = parseInt(r.dataset.depth ?? '-1')
+    if (d <= parentDepth) break
+    if (d === childDepth) { firstChild = r; break }
+  }
+  if (!firstChild) return false
+
+  const willShow = firstChild.style.display === 'none'
+
+  for (let i = parentIdx + 1; i < allRows.length; i++) {
+    const r = allRows[i]
+    const d = parseInt(r.dataset.depth ?? '-1')
+    if (d <= parentDepth) break
+    if (d === childDepth) {
+      r.style.display = willShow ? '' : 'none'
+    } else if (!willShow) {
+      r.style.display = 'none'  // collapse all descendants when closing
+    }
+  }
+
+  return willShow
 }
 
 function toggleSiblings(row, attr) {

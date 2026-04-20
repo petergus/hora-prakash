@@ -202,6 +202,29 @@ nav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
 .coords-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
 
+.dms-input {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-wrap: nowrap;
+}
+.dms-input span { color: var(--muted); font-size: 0.85rem; }
+.dms-deg { width: 3.2rem; text-align: center; padding: 0.35rem 0.2rem; }
+.dms-min { width: 2.6rem; text-align: center; padding: 0.35rem 0.2rem; }
+.dms-sec { width: 2.6rem; text-align: center; padding: 0.35rem 0.2rem; }
+.dms-dir {
+  width: 3rem;
+  padding: 0.35rem 0.2rem;
+  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* hide number input spinners */
+.dms-deg::-webkit-inner-spin-button,
+.dms-min::-webkit-inner-spin-button,
+.dms-sec::-webkit-inner-spin-button { -webkit-appearance: none; }
+.dms-deg, .dms-min, .dms-sec { -moz-appearance: textfield; }
+
 /* ── Location suggestions ── */
 #location-suggestions {
   list-style: none;

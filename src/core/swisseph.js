@@ -42,6 +42,6 @@ export const PLANETS = [
   { id: 4,  name: 'Mars',    abbr: 'Ma' },
   { id: 5,  name: 'Jupiter', abbr: 'Ju' },
   { id: 6,  name: 'Saturn',  abbr: 'Sa' },
-  { id: 11, name: 'Rahu',    abbr: 'Ra' },
-  { id: 11, name: 'Ketu',    abbr: 'Ke', isKetu: true }, // Ketu = Rahu + 180°, same body ID
+  { id: 10, name: 'Rahu',    abbr: 'Ra' },    // SE_MEAN_NODE = 10
+  { id: 10, name: 'Ketu',    abbr: 'Ke', isKetu: true }, // Ketu = Rahu + 180°, same body ID
 ]

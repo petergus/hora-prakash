@@ -10,6 +10,14 @@ const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
+function fmtDeg(dec) {
+  const d = Math.floor(dec)
+  const mTotal = (dec - d) * 60
+  const m = Math.floor(mTotal)
+  const s = Math.round((mTotal - m) * 60)
+  return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(2,'0')}"`
+}
+
 let privacyOn = false   // global UI pref, not per-session
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
 
@@ -56,7 +64,7 @@ function buildPlanetTable(key, planets, lagna) {
           return `<tr>
             <td>${esc(p.name)}${p.retrograde ? ' <span style="color:#c00;font-size:0.8em">(R)</span>' : ''}${p.combust ? ' <span style="color:#b45309;font-size:0.8em">(C)</span>' : ''}</td>
             <td>${signLabel}</td>
-            <td>${p.degree.toFixed(2)}°</td>
+            <td>${fmtDeg(p.degree)}</td>
             <td>${orig?.house ?? '—'}</td>
             <td>${orig?.nakshatra ?? '—'}</td>
             <td>${orig?.pada ?? '—'}</td>
@@ -65,7 +73,7 @@ function buildPlanetTable(key, planets, lagna) {
         <tr style="background:#fef3ff">
           <td><strong>Lagna</strong></td>
           <td>${isChalit ? 'H1' : SIGN_NAMES[dLagna.sign - 1]}</td>
-          <td>${dLagna.degree.toFixed(2)}°</td>
+          <td>${fmtDeg(dLagna.degree)}</td>
           <td>1</td>
           <td>${lagna.nakshatra}</td>
           <td>${lagna.pada}</td>

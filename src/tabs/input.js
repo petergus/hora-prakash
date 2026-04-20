@@ -48,6 +48,19 @@ function nowTimeStr() {
 
 export function renderInputTab() {
   const panel = document.getElementById('tab-input')
+
+  // Pre-fill from current session's state if available; else use DELHI defaults
+  const b = state.birth
+  const fill = {
+    name:     b?.name      ?? '',
+    dob:      b?.dob       ?? todayStr(),
+    tob:      b?.tob       ?? nowTimeStr(),
+    location: b?.location  ?? DELHI.displayName,
+    lat:      b?.lat       ?? DELHI.lat,
+    lon:      b?.lon       ?? DELHI.lon,
+    tz:       b?.timezone  ?? DELHI.timezone,
+  }
+
   panel.innerHTML = `
     <div id="saved-profiles-section"></div>
     <div class="card">
@@ -64,34 +77,34 @@ export function renderInputTab() {
       <form id="birth-form">
         <div class="form-group">
           <label>Name</label>
-          <input type="text" id="inp-name" required placeholder="Full name" value="Unknown" />
+          <input type="text" id="inp-name" required placeholder="Full name" value="${escapeAttr(fill.name)}" />
         </div>
         <div class="form-group">
           <label>Date of Birth</label>
-          <input type="date" id="inp-dob" required value="${todayStr()}" />
+          <input type="date" id="inp-dob" required value="${fill.dob}" />
         </div>
         <div class="form-group">
           <label>Time of Birth</label>
-          <input type="time" id="inp-tob" required value="${nowTimeStr()}" />
+          <input type="time" id="inp-tob" required value="${fill.tob}" />
         </div>
         <div class="form-group">
           <label>Birth Location <span class="label-hint">— search or enter manually</span></label>
-          <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${DELHI.displayName}" />
+          <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${escapeAttr(fill.location)}" />
           <ul id="location-suggestions"></ul>
         </div>
         <div class="form-group coords-row">
           <div>
             <label>Latitude</label>
-            <input type="number" id="inp-lat" step="any" value="${DELHI.lat}" />
+            <input type="number" id="inp-lat" step="any" value="${fill.lat}" />
           </div>
           <div>
             <label>Longitude</label>
-            <input type="number" id="inp-lon" step="any" value="${DELHI.lon}" />
+            <input type="number" id="inp-lon" step="any" value="${fill.lon}" />
           </div>
           <div>
             <label>Timezone</label>
             <div style="display:flex;gap:0.4rem">
-              <input type="text" id="inp-tz" value="${DELHI.timezone}" placeholder="e.g. Asia/Kolkata" style="flex:1" />
+              <input type="text" id="inp-tz" value="${escapeAttr(fill.tz)}" placeholder="e.g. Asia/Kolkata" style="flex:1" />
               <button type="button" id="btn-fetch-tz" class="btn-tz" title="Auto-detect timezone from coordinates">⟳</button>
             </div>
           </div>
@@ -105,7 +118,10 @@ export function renderInputTab() {
     </div>
   `
 
-  selectedLocation = { ...DELHI }
+  // Restore selectedLocation from state.birth or default to DELHI
+  selectedLocation = b
+    ? { displayName: b.location, lat: b.lat, lon: b.lon, timezone: b.timezone }
+    : { ...DELHI }
   renderSavedProfiles()
 
   document.getElementById('inp-location').addEventListener('input', onLocationInput)

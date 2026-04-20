@@ -41,7 +41,7 @@ function saveActiveSnapshot() {
 
 export function switchSession(id) {
   if (id === activeId) return
-  saveActiveSnapshot()
+  saveActiveSnapshot()        // persist current session's state + inner tab
   activeId = id
   const next = sessions.find(s => s.id === id)
   if (!next) return
@@ -51,9 +51,10 @@ export function switchSession(id) {
 export function closeSession(id) {
   const idx = sessions.findIndex(s => s.id === id)
   if (idx < 0) return
+  // If closing the active session, save its snapshot first
+  if (activeId === id) saveActiveSnapshot()
   sessions.splice(idx, 1)
   if (activeId === id) {
-    // Switch to the tab to the left, or the first remaining
     const newIdx = Math.max(0, idx - 1)
     activeId = sessions[newIdx]?.id ?? null
     if (activeId) Object.assign(state, sessions[newIdx].snap)

@@ -167,7 +167,7 @@ function buildDashaRows(dasha, ui) {
     const expanded0  = ui.expandedMahas.has(maha.planet)
     const path0      = maha.planet
 
-    rows.push(`<tr data-toggle data-depth="0" data-path="${path0}" class="${isCur0 ? 'current-period' : ''}">
+    rows.push(`<tr data-toggle data-depth="0" data-path="${path0}" class="dasha-d0 ${isCur0 ? 'current-period' : ''}">
       <td style="padding-left:0.5rem">${expanded0 ? '▼' : '▶'} <strong>${maha.planet}</strong> <span class="dasha-level-label">MD</span></td>
       <td>${fmt(maha.start)}</td><td>${fmt(maha.end)}</td></tr>`)
 
@@ -177,7 +177,7 @@ function buildDashaRows(dasha, ui) {
       const expanded1 = ui.expandedAntars.get(path0)?.has(antar.planet) ?? false
       const show1     = expanded0
 
-      rows.push(`<tr data-toggle data-depth="1" data-path="${path1}" class="${isCur1 ? 'current-period' : ''}" style="display:${show1 ? '' : 'none'}">
+      rows.push(`<tr data-toggle data-depth="1" data-path="${path1}" class="dasha-d1 ${isCur1 ? 'current-period' : ''}" style="display:${show1 ? '' : 'none'}">
         <td style="padding-left:1.8rem">${expanded1 ? '▼' : '▶'} ${antar.planet} <span class="dasha-level-label">AD</span></td>
         <td>${fmt(antar.start)}</td><td>${fmt(antar.end)}</td></tr>`)
 
@@ -187,7 +187,7 @@ function buildDashaRows(dasha, ui) {
         const expanded2 = ui.expandedPaths.has(path2)
         const show2     = show1 && expanded1
 
-        rows.push(`<tr data-toggle data-depth="2" data-path="${path2}" class="${isCur2 ? 'current-period' : ''}" style="display:${show2 ? '' : 'none'}">
+        rows.push(`<tr data-toggle data-depth="2" data-path="${path2}" class="dasha-d2 ${isCur2 ? 'current-period' : ''}" style="display:${show2 ? '' : 'none'}">
           <td style="padding-left:3.1rem">${expanded2 ? '▼' : '▶'} ${prat.planet} <span class="dasha-level-label">PD</span></td>
           <td>${fmt(prat.start)}</td><td>${fmt(prat.end)}</td></tr>`)
 
@@ -197,18 +197,18 @@ function buildDashaRows(dasha, ui) {
           const expanded3 = ui.expandedPaths.has(path3)
           const show3     = show2 && expanded2
 
-          rows.push(`<tr data-toggle data-depth="3" data-path="${path3}" class="${isCur3 ? 'current-period' : ''}" style="display:${show3 ? '' : 'none'}">
+          rows.push(`<tr data-toggle data-depth="3" data-path="${path3}" class="dasha-d3 ${isCur3 ? 'current-period' : ''}" style="display:${show3 ? '' : 'none'}">
             <td style="padding-left:4.4rem">${expanded3 ? '▼' : '▶'} ${sook.planet} <span class="dasha-level-label">SD</span></td>
-            <td>${fmt(sook.start)}</td><td>${fmt(sook.end)}</td></tr>`)
+            <td>${fmtDeep(sook.start)}</td><td>${fmtDeep(sook.end)}</td></tr>`)
 
           for (const prana of sook.children) {
             const path4  = `${path3}/${prana.planet}`
             const isCur4 = isCurrentPeriod(prana.start, prana.end)
             const show4  = show3 && expanded3
 
-            rows.push(`<tr data-depth="4" data-path="${path4}" class="${isCur4 ? 'current-period' : ''}" style="display:${show4 ? '' : 'none'}">
+            rows.push(`<tr data-depth="4" data-path="${path4}" class="dasha-d4 ${isCur4 ? 'current-period' : ''}" style="display:${show4 ? '' : 'none'}">
               <td style="padding-left:5.7rem">${prana.planet} <span class="dasha-level-label">PrD</span></td>
-              <td>${fmt(prana.start)}</td><td>${fmt(prana.end)}</td></tr>`)
+              <td>${fmtDeep(prana.start)}</td><td>${fmtDeep(prana.end)}</td></tr>`)
           }
         }
       }
@@ -284,6 +284,11 @@ function setArrow(row, open) {
 
 function fmt(date) {
   return date.toISOString().slice(0, 10)
+}
+
+function fmtDeep(date) {
+  const d = date.toISOString()
+  return `${d.slice(0, 10)} <span class="dasha-time">${d.slice(11, 16)}</span>`
 }
 
 function offsetYearsFromDob(dobStr, years) {

@@ -82,27 +82,35 @@ export function renderInputTab() {
           <label>Name</label>
           <input type="text" id="inp-name" required placeholder="Full name" value="${escapeAttr(fill.name)}" />
         </div>
-        <div class="form-group">
-          <label>Date of Birth</label>
-          <input type="date" id="inp-dob" required value="${fill.dob}" />
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" id="inp-dob" required value="${fill.dob}" />
+          </div>
+          <div class="form-group">
+            <label>Time of Birth</label>
+            <input type="time" id="inp-tob" required value="${fill.tob}" />
+          </div>
         </div>
         <div class="form-group">
-          <label>Time of Birth</label>
-          <input type="time" id="inp-tob" required value="${fill.tob}" />
-        </div>
-        <div class="form-group">
-          <label>Birth Location <span class="label-hint">— search or enter manually</span></label>
+          <label>Birth Location <span class="label-hint">search or type manually</span></label>
           <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${escapeAttr(fill.location)}" />
           <ul id="location-suggestions"></ul>
         </div>
         <div class="form-group coords-row">
           <div>
             <label>Latitude</label>
-            <div class="dms-input">
-              <input type="number" id="inp-lat-d" class="dms-deg" min="0" max="90"  value="${latDMS.d}" />°
-              <input type="number" id="inp-lat-m" class="dms-min" min="0" max="59"  value="${latDMS.m}" />'
-              <input type="number" id="inp-lat-s" class="dms-sec" min="0" max="59"  value="${latDMS.s}" />"
-              <select id="inp-lat-dir" class="dms-dir">
+            <div class="dms-group">
+              <input type="number" id="inp-lat-d" class="dms-seg-d" min="0" max="90"  value="${latDMS.d}" placeholder="0" />
+              <span class="dms-sep">°</span>
+              <span class="dms-divider"></span>
+              <input type="number" id="inp-lat-m" class="dms-seg"   min="0" max="59"  value="${latDMS.m}" placeholder="0" />
+              <span class="dms-sep">'</span>
+              <span class="dms-divider"></span>
+              <input type="number" id="inp-lat-s" class="dms-seg"   min="0" max="59"  value="${latDMS.s}" placeholder="0" />
+              <span class="dms-sep">"</span>
+              <span class="dms-divider"></span>
+              <select id="inp-lat-dir" class="dms-seg-dir">
                 <option value="N"${latDir === 'N' ? ' selected' : ''}>N</option>
                 <option value="S"${latDir === 'S' ? ' selected' : ''}>S</option>
               </select>
@@ -110,30 +118,38 @@ export function renderInputTab() {
           </div>
           <div>
             <label>Longitude</label>
-            <div class="dms-input">
-              <input type="number" id="inp-lon-d" class="dms-deg" min="0" max="180" value="${lonDMS.d}" />°
-              <input type="number" id="inp-lon-m" class="dms-min" min="0" max="59"  value="${lonDMS.m}" />'
-              <input type="number" id="inp-lon-s" class="dms-sec" min="0" max="59"  value="${lonDMS.s}" />"
-              <select id="inp-lon-dir" class="dms-dir">
+            <div class="dms-group">
+              <input type="number" id="inp-lon-d" class="dms-seg-d" min="0" max="180" value="${lonDMS.d}" placeholder="0" />
+              <span class="dms-sep">°</span>
+              <span class="dms-divider"></span>
+              <input type="number" id="inp-lon-m" class="dms-seg"   min="0" max="59"  value="${lonDMS.m}" placeholder="0" />
+              <span class="dms-sep">'</span>
+              <span class="dms-divider"></span>
+              <input type="number" id="inp-lon-s" class="dms-seg"   min="0" max="59"  value="${lonDMS.s}" placeholder="0" />
+              <span class="dms-sep">"</span>
+              <span class="dms-divider"></span>
+              <select id="inp-lon-dir" class="dms-seg-dir">
                 <option value="E"${lonDir === 'E' ? ' selected' : ''}>E</option>
                 <option value="W"${lonDir === 'W' ? ' selected' : ''}>W</option>
               </select>
             </div>
           </div>
           <div>
-            <label>Timezone (UTC offset)</label>
-            <div class="dms-input">
-              <select id="inp-tz-sign" class="dms-dir">
+            <label>UTC Offset</label>
+            <div class="dms-group">
+              <select id="inp-tz-sign" class="dms-seg-sign">
                 <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
                 <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
               </select>
-              <input type="number" id="inp-tz-h" class="dms-deg" min="0" max="14" value="${tzP.h}" />:
-              <input type="number" id="inp-tz-m" class="dms-min" min="0" max="59" value="${tzP.m}" />
-              <button type="button" id="btn-fetch-tz" class="btn-tz" title="Auto-detect timezone from coordinates">⟳</button>
+              <span class="dms-divider"></span>
+              <input type="number" id="inp-tz-h" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
+              <span class="dms-sep">:</span>
+              <input type="number" id="inp-tz-m" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
+              <button type="button" id="btn-fetch-tz" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
             </div>
           </div>
         </div>
-        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
+        <div class="form-actions">
           <button type="submit" id="btn-calculate">Calculate Chart</button>
           <button type="button" id="btn-save-profile" class="btn-secondary">Save Profile</button>
         </div>

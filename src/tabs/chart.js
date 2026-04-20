@@ -3,21 +3,23 @@ import { state } from '../state.js'
 import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
+import { getActiveSession, defaultChartUI } from '../sessions.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
-let chartStyle     = 'north'
-let viewMode       = '1'               // '1' | '2' | '4'
-let divisional     = 'D1'
-let multiDivs      = ['D1','D9','D3','D10']   // slot selections for multi-view
-let activeMultiTab = 0                 // which tab is shown on mobile
-let tableDiv       = 'D1'             // which division the planet table shows (multi-view desktop)
-let activePlanets  = new Set()
-let privacyOn      = false
+let privacyOn = false   // global UI pref, not per-session
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
+
+function c() {
+  const s = getActiveSession()
+  if (!s) return defaultChartUI()
+  s.uiState ??= {}
+  s.uiState.chart ??= defaultChartUI()
+  return s.uiState.chart
+}
 
 const VIEW_DEFAULTS = { '1': ['D1'], '2': ['D1','D9'], '4': ['D1','D9','D3','D10'] }
 
@@ -74,6 +76,7 @@ function buildPlanetTable(key, planets, lagna) {
 
 function renderSVGOnly() {
   if (!_dPlanets) return
+  const { chartStyle, activePlanets } = c()
   const activeAspects = _dPlanets
     .filter(p => activePlanets.has(p.abbr))
     .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
@@ -90,9 +93,9 @@ function divSelectHtml(id, selected) {
   </select>`
 }
 
-function renderMultiTabNav(keys) {
+function renderMultiTabNav(keys, activeIdx) {
   return `<div class="multi-tab-nav">
-    ${keys.map((key, i) => `<button class="multi-tab-btn${activeMultiTab === i ? ' active' : ''}" data-tab="${i}">${key}</button>`).join('')}
+    ${keys.map((key, i) => `<button class="multi-tab-btn${activeIdx === i ? ' active' : ''}" data-tab="${i}">${key}</button>`).join('')}
   </div>`
 }
 
@@ -101,11 +104,15 @@ export function renderChart() {
   const { planets, lagna, birth } = state
   if (!planets || !lagna || !birth) return
 
+  const ui = c()
+  const { chartStyle, viewMode, divisional, multiDivs, activeMultiTab, tableDiv: _tableDiv, activePlanets } = ui
+
   const slots = viewMode === '1' ? 1 : viewMode === '2' ? 2 : 4
   const keys  = multiDivs.slice(0, slots)
 
   // Clamp tableDiv to one of the active slots (if not already)
-  if (viewMode !== '1' && !keys.includes(tableDiv)) tableDiv = keys[0]
+  if (viewMode !== '1' && !keys.includes(_tableDiv)) ui.tableDiv = keys[0]
+  const tableDiv = ui.tableDiv
 
   // Single view — maintain _dPlanets for aspect toggling
   if (viewMode === '1') {
@@ -162,7 +169,7 @@ export function renderChart() {
       )}
     </div>`
   } else {
-    const activeKey = keys[activeMultiTab] ?? keys[0]
+    const activeKey = keys[ui.activeMultiTab] ?? keys[0]
     const { dPlanets: activeDP, dLagna: activeDL, signLabels: activeLabels, label: activeLabel } = buildSingleChart(planets, lagna, activeKey)
 
     // Desktop: grid of charts with per-slot div selects
@@ -175,7 +182,7 @@ export function renderChart() {
     }).join('')
 
     // Mobile: tab nav + active chart + active division's planet table
-    const mobileDivKey = keys[activeMultiTab] ?? keys[0]
+    const mobileDivKey = keys[ui.activeMultiTab] ?? keys[0]
     const mobileTable = buildPlanetTable(mobileDivKey, planets, lagna)
 
     // Desktop: planet table heading with gear icon + select for choosing which division
@@ -190,7 +197,7 @@ export function renderChart() {
     </div>`
 
     chartArea = `
-      ${renderMultiTabNav(keys)}
+      ${renderMultiTabNav(keys, ui.activeMultiTab)}
       <div class="multi-chart-grid multi-chart-grid-${slots}">
         ${gridCells}
       </div>
@@ -239,54 +246,55 @@ export function renderChart() {
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
-  panel.querySelector('#btn-north').addEventListener('click', () => { chartStyle = 'north'; renderChart() })
-  panel.querySelector('#btn-south').addEventListener('click', () => { chartStyle = 'south'; renderChart() })
+  panel.querySelector('#btn-north').addEventListener('click', () => { c().chartStyle = 'north'; renderChart() })
+  panel.querySelector('#btn-south').addEventListener('click', () => { c().chartStyle = 'south'; renderChart() })
 
   panel.querySelector('#btn-view-1').addEventListener('click', () => {
-    if (viewMode === '1') return
-    viewMode = '1'; activePlanets = new Set(); renderChart()
+    const ui = c(); if (ui.viewMode === '1') return
+    ui.viewMode = '1'; ui.activePlanets = new Set(); renderChart()
   })
   panel.querySelector('#btn-view-2').addEventListener('click', () => {
-    if (viewMode === '2') return
-    viewMode = '2'
+    const ui = c(); if (ui.viewMode === '2') return
+    ui.viewMode = '2'
     const def = VIEW_DEFAULTS['2']
-    multiDivs = def.map((d, i) => multiDivs[i] ?? d)
-    tableDiv = multiDivs[0]; activeMultiTab = 0; renderChart()
+    ui.multiDivs = def.map((d, i) => ui.multiDivs[i] ?? d)
+    ui.tableDiv = ui.multiDivs[0]; ui.activeMultiTab = 0; renderChart()
   })
   panel.querySelector('#btn-view-4').addEventListener('click', () => {
-    if (viewMode === '4') return
-    viewMode = '4'
+    const ui = c(); if (ui.viewMode === '4') return
+    ui.viewMode = '4'
     const def = VIEW_DEFAULTS['4']
-    multiDivs = def.map((d, i) => multiDivs[i] ?? d)
-    tableDiv = multiDivs[0]; activeMultiTab = 0; renderChart()
+    ui.multiDivs = def.map((d, i) => ui.multiDivs[i] ?? d)
+    ui.tableDiv = ui.multiDivs[0]; ui.activeMultiTab = 0; renderChart()
   })
 
   if (viewMode === '1') {
     panel.querySelector('#div-select').addEventListener('change', e => {
-      divisional = e.target.value; activePlanets = new Set(); renderChart()
+      c().divisional = e.target.value; c().activePlanets = new Set(); renderChart()
     })
     panel.querySelector('#btn-show-all').addEventListener('click', () => {
-      _dPlanets.forEach(p => activePlanets.add(p.abbr)); renderSVGOnly()
+      _dPlanets.forEach(p => c().activePlanets.add(p.abbr)); renderSVGOnly()
     })
     panel.querySelector('#btn-hide-all').addEventListener('click', () => {
-      activePlanets = new Set(); renderSVGOnly()
+      c().activePlanets = new Set(); renderSVGOnly()
     })
     document.getElementById('chart-container').addEventListener('click', e => {
       const el = e.target.closest('[data-planet]')
       if (!el) return
       const abbr = el.dataset.planet
-      if (activePlanets.has(abbr)) activePlanets.delete(abbr)
-      else activePlanets.add(abbr)
+      const ap = c().activePlanets
+      if (ap.has(abbr)) ap.delete(abbr)
+      else ap.add(abbr)
       renderSVGOnly()
     })
   } else {
     // Per-slot div selects
     panel.querySelectorAll('[id^="multi-div-"]').forEach(sel => {
       sel.addEventListener('change', e => {
+        const ui = c()
         const i = parseInt(e.target.id.replace('multi-div-', ''), 10)
-        multiDivs[i] = e.target.value
-        // If this slot is the current tableDiv source, update tableDiv
-        if (keys[i] === tableDiv || i === 0) tableDiv = e.target.value
+        ui.multiDivs[i] = e.target.value
+        if (keys[i] === ui.tableDiv || i === 0) ui.tableDiv = e.target.value
         renderChart()
       })
     })
@@ -294,7 +302,7 @@ export function renderChart() {
     // Mobile tab nav
     panel.querySelectorAll('.multi-tab-btn').forEach(btn => {
       btn.addEventListener('click', e => {
-        activeMultiTab = parseInt(e.currentTarget.dataset.tab, 10)
+        c().activeMultiTab = parseInt(e.currentTarget.dataset.tab, 10)
         renderChart()
       })
     })
@@ -310,7 +318,7 @@ export function renderChart() {
       // Gear options
       panel.querySelectorAll('.gear-div-opt').forEach(btn => {
         btn.addEventListener('click', e => {
-          tableDiv = e.currentTarget.dataset.div
+          c().tableDiv = e.currentTarget.dataset.div
           gearPopover.style.display = 'none'
           renderChart()
         })

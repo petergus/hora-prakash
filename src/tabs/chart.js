@@ -138,15 +138,16 @@ export function renderChart() {
     ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
     : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || fmtLat(birth.lat) + ' ' + fmtLon(birth.lon)} &nbsp;·&nbsp; ${ianaToOffset(birth.timezone)}`
 
-  const singleDivSelect = viewMode === '1' ? `
-    <select id="div-select" class="div-select">
-      ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === divisional ? ' selected' : ''}>${o.label}</option>`).join('')}
-    </select>` : ''
+  // Unified div select — works for both single (divisional) and multi (active slot)
+  const activeSlotKey = viewMode === '1' ? divisional : (keys[ui.activeMultiTab] ?? keys[0])
+  const divSelectHtmlUnified = `<select id="div-select" class="div-select" style="font-size:0.8rem;padding:0.25rem 0.5rem;min-width:0;max-width:170px">
+    ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
+  </select>`
 
-  const aspectBtns = viewMode === '1' ? `
+  const aspectBtns = `
     <div class="chart-style-group">
-      <button id="btn-show-all" class="chart-style-btn" title="Show all planetary aspects">
-        <svg width="17" height="17" viewBox="0 0 17 17" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">
+        <svg width="14" height="14" viewBox="0 0 17 17" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
           <circle cx="8.5" cy="8.5" r="2"/>
           <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5">
             <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
@@ -156,8 +157,8 @@ export function renderChart() {
           </g>
         </svg>
       </button>
-      <button id="btn-hide-all" class="chart-style-btn" title="Hide all planetary aspects">
-        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">
+        <svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="8.5" cy="8.5" r="2" fill="currentColor" opacity="0.35"/>
           <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5" opacity="0.35">
             <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
@@ -166,7 +167,7 @@ export function renderChart() {
           <line x1="2" y1="2" x2="15" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         </svg>
       </button>
-    </div>` : ''
+    </div>`
 
   // ── Chart area ──
   let chartArea = ''
@@ -180,6 +181,7 @@ export function renderChart() {
   } else {
     const activeKey = keys[ui.activeMultiTab] ?? keys[0]
     const { dPlanets: activeDP, dLagna: activeDL, signLabels: activeLabels, label: activeLabel } = buildSingleChart(planets, lagna, activeKey)
+    _dPlanets = activeDP; _dLagna = activeDL; _signLabels = activeLabels; _centerLabel = activeLabel
 
     // Desktop: grid of charts with per-slot div selects
     const gridCells = keys.map((key, i) => {
@@ -205,25 +207,20 @@ export function renderChart() {
       </div>
     </div>`
 
-    const activeSlotKey = keys[ui.activeMultiTab] ?? keys[0]
-    const mobileControls = `<div class="multi-mobile-controls">
-      <select id="multi-mobile-div-select" class="div-select" style="font-size:0.78rem;padding:0.2rem 0.4rem;flex:1 1 auto;min-width:0">
-        ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
-      </select>
-      <div class="chart-style-group">
-        <button id="btn-mobile-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">N</button>
-        <button id="btn-mobile-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">S</button>
-      </div>
-    </div>`
+    const activeAspects = activeDP
+      .filter(p => activePlanets.has(p.abbr))
+      .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
+    const activePlanetColors = Object.fromEntries(
+      activeDP.filter(p => activePlanets.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
+    )
 
     chartArea = `
       ${renderMultiTabNav(keys, ui.activeMultiTab)}
       <div class="multi-chart-grid multi-chart-grid-${slots}">
         ${gridCells}
       </div>
-      <div class="multi-chart-mobile-view">
-        ${mobileControls}
-        ${renderChartSVG(activeDP, activeDL, chartStyle, activeLabels, activeLabel, [], {})}
+      <div id="chart-container" class="multi-chart-mobile-view">
+        ${renderChartSVG(activeDP, activeDL, chartStyle, activeLabels, activeLabel, activeAspects, activePlanetColors)}
       </div>
       <div class="multi-planet-desktop">
         ${tableDivSelect}
@@ -248,7 +245,7 @@ export function renderChart() {
       </div>
       <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${maskedDetails}</p>
       <div class="chart-controls">
-        ${singleDivSelect}
+        ${divSelectHtmlUnified}
         <div class="chart-style-group">
           <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>
           <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South</button>
@@ -289,27 +286,40 @@ export function renderChart() {
     ui.tableDiv = ui.multiDivs[0]; ui.activeMultiTab = 0; renderChart()
   })
 
-  if (viewMode === '1') {
-    panel.querySelector('#div-select').addEventListener('change', e => {
-      c().divisional = e.target.value; c().activePlanets = new Set(); renderChart()
-    })
-    panel.querySelector('#btn-show-all').addEventListener('click', () => {
-      _dPlanets.forEach(p => c().activePlanets.add(p.abbr)); renderSVGOnly()
-    })
-    panel.querySelector('#btn-hide-all').addEventListener('click', () => {
-      c().activePlanets = new Set(); renderSVGOnly()
-    })
-    document.getElementById('chart-container').addEventListener('click', e => {
-      const el = e.target.closest('[data-planet]')
-      if (!el) return
-      const abbr = el.dataset.planet
-      const ap = c().activePlanets
-      if (ap.has(abbr)) ap.delete(abbr)
-      else ap.add(abbr)
-      renderSVGOnly()
-    })
-  } else {
-    // Per-slot div selects
+  // Unified div-select: single view → divisional; multi view → active slot
+  panel.querySelector('#div-select').addEventListener('change', e => {
+    const ui = c()
+    if (ui.viewMode === '1') {
+      ui.divisional = e.target.value; ui.activePlanets = new Set()
+    } else {
+      const i = ui.activeMultiTab
+      ui.multiDivs[i] = e.target.value
+      if (i === 0) ui.tableDiv = e.target.value
+    }
+    renderChart()
+  })
+
+  // Aspect buttons — work for both modes via _dPlanets
+  panel.querySelector('#btn-show-all').addEventListener('click', () => {
+    if (_dPlanets) _dPlanets.forEach(p => c().activePlanets.add(p.abbr))
+    renderSVGOnly()
+  })
+  panel.querySelector('#btn-hide-all').addEventListener('click', () => {
+    c().activePlanets = new Set(); renderSVGOnly()
+  })
+
+  // Planet click to toggle aspects — single view and mobile multi
+  document.getElementById('chart-container')?.addEventListener('click', e => {
+    const el = e.target.closest('[data-planet]')
+    if (!el) return
+    const abbr = el.dataset.planet
+    const ap = c().activePlanets
+    if (ap.has(abbr)) { ap.delete(abbr) } else { ap.add(abbr) }
+    renderSVGOnly()
+  })
+
+  if (viewMode !== '1') {
+    // Per-slot div selects (desktop grid)
     panel.querySelectorAll('[id^="multi-div-"]').forEach(sel => {
       sel.addEventListener('change', e => {
         const ui = c()
@@ -327,19 +337,6 @@ export function renderChart() {
         renderChart()
       })
     })
-
-    // Mobile division select — changes active slot
-    panel.querySelector('#multi-mobile-div-select')?.addEventListener('change', e => {
-      const ui = c()
-      const i = ui.activeMultiTab
-      ui.multiDivs[i] = e.target.value
-      if (i === 0) ui.tableDiv = e.target.value
-      renderChart()
-    })
-
-    // Mobile chart style buttons
-    panel.querySelector('#btn-mobile-north')?.addEventListener('click', () => { c().chartStyle = 'north'; renderChart() })
-    panel.querySelector('#btn-mobile-south')?.addEventListener('click', () => { c().chartStyle = 'south'; renderChart() })
 
     // Gear icon toggle
     const gearBtn = panel.querySelector('#btn-table-gear')

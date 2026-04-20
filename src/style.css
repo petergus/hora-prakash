@@ -772,11 +772,16 @@ h3 {
   /* Dasha table min-width keeps it scrollable but not too wide */
   .dasha-table { min-width: 360px; }
 
+  /* Chart controls: div-select takes full first row, rest share second row */
+  .chart-controls { row-gap: 0.4rem; }
+  #div-select { flex: 0 0 100%; max-width: 100% !important; order: -1; }
+  .chart-style-group, #btn-hide-all { order: 0; }
+
   /* Multi-chart: on mobile show tab nav + single chart view, hide grid */
   .multi-chart-grid { display: none !important; }
   .multi-tab-nav {
     display: flex;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.6rem;
   }
   .multi-chart-mobile-view {
     display: block;

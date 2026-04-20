@@ -34,7 +34,8 @@ export function defaultChartUI() {
     multiDivs:     ['D1','D9','D3','D10'],
     activeMultiTab: 0,
     tableDiv:      'D1',
-    activePlanets: new Set(),
+    activePlanets:      new Set(),
+    multiActivePlanets: [new Set(), new Set(), new Set(), new Set()],
   }
 }
 

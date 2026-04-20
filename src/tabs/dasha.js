@@ -10,7 +10,7 @@ let ageAsOf = null            // null = today; set to Date when user picks a dat
 let dashaCollapsed = false
 let ageCollapsed = true
 let progCollapsed = true
-let ageNavOffset = 0          // years added to DOB for Age Progression navigation
+let ageNavCycle = null         // cycle index (0-based, 1 cycle = 12 yrs); null = use today
 let progNavIndex = null       // index into state.dasha; null = use current MD lord
 
 export function renderDasha() {
@@ -18,7 +18,7 @@ export function renderDasha() {
   if (!state.dasha || !state.birth) return
   const { dasha, birth } = state
   // Reset nav state on new chart load
-  ageNavOffset = 0
+  ageNavCycle = null
   ageAsOf = null
   selectedProgLord = null
   progNavIndex = null
@@ -58,9 +58,9 @@ export function renderDasha() {
   // Build progression section
   const progressionHtml = renderProgression(birth.dob, dasha)
 
-  // Age nav: offset years from DOB (clamped 0–120)
-  const ageRef = ageAsOf ?? offsetYearsFromDob(birth.dob, ageNavOffset)
-  const ageHtml = renderAgeProgression(birth.dob, ageRef, ageNavOffset)
+  // Age nav: cycle-based (null = today)
+  const ageRef = ageAsOf ?? (ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ageNavCycle * 12) : new Date())
+  const ageHtml = renderAgeProgression(birth.dob, ageRef)
 
   panel.innerHTML = `
     <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
@@ -88,8 +88,8 @@ export function renderDasha() {
   panel.addEventListener('change', e => {
     if (e.target.id === 'age-asof-input') {
       ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
-      const ref = ageAsOf ?? offsetYearsFromDob(birth.dob, ageNavOffset)
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
+      ageNavCycle = null
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ageAsOf ?? new Date())
     } else if (e.target.id === 'prog-lord-select') {
       selectedProgLord = e.target.value
       progNavIndex = dasha.findIndex(m => m.planet === selectedProgLord)
@@ -111,15 +111,21 @@ export function renderDasha() {
       document.getElementById('prog-body').style.display = progCollapsed ? 'none' : ''
       e.target.textContent = progCollapsed ? '▶' : '▼'
     } else if (e.target.id === 'age-prev-btn') {
-      ageNavOffset = Math.max(0, ageNavOffset - 1)
+      const curCycle = ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
+      ageNavCycle = Math.max(0, curCycle - 1)
       ageAsOf = null
-      const ref = offsetYearsFromDob(birth.dob, ageNavOffset)
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
+      const ref = offsetYearsFromDob(birth.dob, ageNavCycle * 12)
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref)
     } else if (e.target.id === 'age-next-btn') {
-      ageNavOffset = Math.min(120, ageNavOffset + 1)
+      const curCycle = ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
+      ageNavCycle = Math.min(9, curCycle + 1)
       ageAsOf = null
-      const ref = offsetYearsFromDob(birth.dob, ageNavOffset)
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref, ageNavOffset)
+      const ref = offsetYearsFromDob(birth.dob, ageNavCycle * 12)
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ref)
+    } else if (e.target.id === 'age-reset-today') {
+      ageNavCycle = null
+      ageAsOf = null
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date())
     } else if (e.target.id === 'prog-prev-btn') {
       progNavIndex = Math.max(0, (progNavIndex ?? 0) - 1)
       selectedProgLord = dasha[progNavIndex].planet
@@ -204,20 +210,30 @@ function offsetYearsFromDob(dobStr, years) {
   return d
 }
 
-function renderAgeProgression(dobStr, asOf, navOffset = 0) {
+function calcAgeYearsFromDob(dobStr) {
+  const dob = new Date(dobStr + 'T00:00:00')
+  const now = new Date()
+  let years = now.getFullYear() - dob.getFullYear()
+  if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) years--
+  return Math.max(0, years)
+}
+
+function renderAgeProgression(dobStr, asOf) {
   const { years, months, days } = calcAgeComponents(dobStr, asOf)
   const houseActive = calcHouseActiveFromAge(dobStr, asOf)
   const todayStr = new Date().toISOString().slice(0, 10)
-  const asOfStr  = asOf.toISOString ? asOf.toISOString().slice(0, 10) : todayStr
+  const asOfStr  = asOf instanceof Date ? asOf.toISOString().slice(0, 10) : todayStr
   const isToday  = asOfStr === todayStr
-  const atMin = navOffset <= 0
-  const atMax = navOffset >= 120
 
-  // 12 house cycles — mark which one contains the current age
-  const cycleNum   = Math.floor(years / 12)        // 0-based cycle (0 = first 12 years)
-  const houseRows  = Array.from({ length: 12 }, (_, i) => {
+  // Cycle the table is showing (derived from age at asOf)
+  const shownCycle = Math.floor(years / 12)   // 0-based
+  const atMin = shownCycle <= 0
+  const atMax = shownCycle >= 9               // cycle 10 = age 108-120, cap there
+
+  // Show age range for the displayed cycle
+  const houseRows = Array.from({ length: 12 }, (_, i) => {
     const h = i + 1
-    const ageStart = cycleNum * 12 + i
+    const ageStart = shownCycle * 12 + i
     const ageEnd   = ageStart + 1
     const isActive = h === houseActive
     return `<tr class="${isActive ? 'current-period' : ''}">
@@ -237,11 +253,12 @@ function renderAgeProgression(dobStr, asOf, navOffset = 0) {
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
           <button id="age-prev-btn" class="prog-nav-btn" ${atMin ? 'disabled' : ''}>←</button>
+          <span style="font-size:0.78rem;color:var(--muted);min-width:4rem;text-align:center">Cycle ${shownCycle + 1}</span>
           <button id="age-next-btn" class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
           <span style="font-size:0.78rem;color:var(--muted)">As of:</span>
           <input type="date" id="age-asof-input" value="${asOfStr}"
             style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)" />
-          ${!isToday ? `<button id="age-reset-today" style="font-size:0.75rem;padding:0.15rem 0.45rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none;color:var(--muted)">Today</button>` : ''}
+          ${!isToday ? `<button id="age-reset-today" class="prog-nav-btn">Today</button>` : ''}
         </div>
       </div>
       <div id="age-prog-body" style="display:${ageCollapsed ? 'none' : ''}">
@@ -249,7 +266,7 @@ function renderAgeProgression(dobStr, asOf, navOffset = 0) {
           <div class="age-chip"><span class="age-chip-num">${years}</span><span class="age-chip-label">Years</span></div>
           <div class="age-chip"><span class="age-chip-num">${months}</span><span class="age-chip-label">Months</span></div>
           <div class="age-chip"><span class="age-chip-num">${days}</span><span class="age-chip-label">Days</span></div>
-          <div class="age-cycle-badge">Cycle ${cycleNum + 1}</div>
+          <div class="age-cycle-badge">Cycle ${shownCycle + 1} · Age ${shownCycle * 12}–${shownCycle * 12 + 12}</div>
           <div class="age-active-badge">★ House ${houseActive} active</div>
         </div>
         <div class="table-scroll"><table class="dasha-table">
@@ -274,7 +291,12 @@ function renderProgression(dobStr, dashaSeq) {
 
   const periods = calcDashaProgression(lordHouse, mdStart, mdYears)
 
-  const houseActiveAtMDStart = calcHouseActiveFromAge(dobStr, mdStart)
+  // Determine if this is the current (live) MD lord
+  const currentMaha = (dashaSeq ?? state.dasha ?? []).find(m => isCurrentPeriod(m.start, m.end))
+  const isCurrentMD = currentMaha?.planet === selectedProgLord
+
+  // Only show active row markers when viewing the current MD
+  const activePeriod = isCurrentMD ? periods.find(p => p.isActive) : null
 
   const atMin = (progNavIndex ?? 0) <= 0
   const atMax = (progNavIndex ?? 0) >= (dashaSeq ?? state.dasha ?? []).length - 1
@@ -284,17 +306,22 @@ function renderProgression(dobStr, dashaSeq) {
     return `<option value="${m.planet}"${m.planet === selectedProgLord ? ' selected' : ''}>${m.planet} — H${h}</option>`
   }).join('')
 
-  const periodRows = periods.map(p => `
-    <tr class="${p.isActive ? 'current-period' : ''}">
+  const periodRows = periods.map(p => {
+    const showActive = isCurrentMD && p.isActive
+    return `<tr class="${showActive ? 'current-period' : ''}">
       <td style="text-align:center">${p.houseFromMDL}</td>
-      <td style="text-align:center;font-weight:${p.isActive ? '700' : '400'}">H${p.progressionHouse}</td>
-      <td style="text-align:center;color:var(--muted)">H${p.regressionHouse}</td>
+      <td style="text-align:center;font-weight:${showActive ? '700' : '400'}">H${p.progressionHouse} <span style="color:var(--muted);font-size:0.75em">(P)</span></td>
+      <td style="text-align:center;color:var(--muted)">H${p.regressionHouse} <span style="font-size:0.75em">(R)</span></td>
       <td>${fmt(p.start)}</td>
       <td>${fmt(p.end)}</td>
-      <td style="text-align:center">${p.isActive ? '★ Active' : ''}</td>
-    </tr>`).join('')
+      <td style="text-align:center">${showActive ? '★ Active' : ''}</td>
+    </tr>`
+  }).join('')
 
   const lordColor = PLANET_COLORS[PLANET_ABBR[selectedProgLord]] ?? '#94a3b8'
+  const activeBadge = activePeriod
+    ? `<span class="prog-meta-sep">·</span><span class="age-active-badge" style="font-size:0.78rem">★ H${activePeriod.progressionHouse}(P) · H${activePeriod.regressionHouse}(R) active</span>`
+    : ''
   return `
     <div class="card prog-draggable" id="prog-section" draggable="true">
       <div class="prog-card-header">
@@ -317,15 +344,14 @@ function renderProgression(dobStr, dashaSeq) {
           <span class="prog-meta-sep">·</span>
           <span>${mdYears} months per house</span>
           <span class="prog-meta-sep">·</span>
-          <span>MD starts ${fmt(mdStart)}</span>
-          <span class="prog-meta-sep">·</span>
-          <span class="age-active-badge" style="font-size:0.78rem">★ H${houseActiveAtMDStart} active at MD start</span>
+          <span>MD ${fmt(mdStart)} – ${fmt(mdEntry?.end ?? mdStart)}</span>
+          ${activeBadge}
         </div>
         <div class="table-scroll"><table class="dasha-table">
           <thead><tr>
             <th style="text-align:center">#</th>
-            <th style="text-align:center">Prog. House →</th>
-            <th style="text-align:center">Regr. House ←</th>
+            <th style="text-align:center">Prog. House (P)</th>
+            <th style="text-align:center">Regr. House (R)</th>
             <th>From</th><th>To</th><th></th>
           </tr></thead>
           <tbody>${periodRows}</tbody>

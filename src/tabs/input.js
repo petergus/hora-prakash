@@ -16,6 +16,12 @@ let autocompleteTimeout = null
 
 // ── LocalStorage helpers ──────────────────────────────────────────────────────
 
+function genId() {
+  return (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
 function loadProfiles() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
 }
@@ -34,6 +40,44 @@ function saveProfile(profile) {
 
 function deleteProfile(id) {
   saveProfiles(loadProfiles().filter(p => p.id !== id))
+}
+
+function exportProfiles() {
+  const profiles = loadProfiles()
+  if (!profiles.length) { alert('No saved profiles to export.'); return }
+  // Strip id — reimported profiles get fresh ids
+  const exportData = profiles.map(({ id: _id, ...rest }) => rest)
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `hora-prakash-profiles-${new Date().toISOString().slice(0,10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function importProfiles(file) {
+  const reader = new FileReader()
+  reader.onload = e => {
+    try {
+      const raw = JSON.parse(e.target.result)
+      if (!Array.isArray(raw)) throw new Error('Expected a JSON array.')
+      const existing = loadProfiles()
+      // Deduplicate by name+dob+tob — skip exact matches already stored
+      const existingKeys = new Set(existing.map(p => `${p.name}|${p.dob}|${p.tob}`))
+      const toAdd = raw
+        .filter(p => p.name && p.dob)
+        .filter(p => !existingKeys.has(`${p.name}|${p.dob}|${p.tob}`))
+        .map(({ id: _id, ...rest }) => ({ ...rest, id: genId() }))
+      if (!toAdd.length) { alert('No new profiles found (all already exist).'); return }
+      saveProfiles([...existing, ...toAdd])
+      renderSavedProfiles()
+      alert(`Imported ${toAdd.length} profile${toAdd.length > 1 ? 's' : ''}.`)
+    } catch (err) {
+      alert(`Import failed: ${err.message}`)
+    }
+  }
+  reader.readAsText(file)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -187,13 +231,30 @@ export function renderInputTab() {
 function renderSavedProfiles() {
   const section = document.getElementById('saved-profiles-section')
   const profiles = loadProfiles()
-  if (profiles.length === 0) { section.innerHTML = ''; return }
+  if (profiles.length === 0) {
+    section.innerHTML = `
+      <div class="card" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--muted);font-size:0.88rem">No saved profiles</span>
+        <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">
+          ↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" />
+        </label>
+      </div>`
+    section.querySelector('#inp-import-file').addEventListener('change', e => {
+      const file = e.target.files[0]
+      if (file) { importProfiles(file); e.target.value = '' }
+    })
+    return
+  }
 
   section.innerHTML = `
     <div class="card" style="margin-bottom:1rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;gap:0.5rem;flex-wrap:wrap">
         <h3 style="margin:0">Saved Profiles</h3>
-        <button type="button" id="btn-clear-all" class="btn-danger-sm">Clear All</button>
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <button type="button" id="btn-export-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem">↓ Export</button>
+          <label id="lbl-import-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" /></label>
+          <button type="button" id="btn-clear-all" class="btn-danger-sm">Clear All</button>
+        </div>
       </div>
       <div class="profile-row">
         <select id="profile-select" class="profile-select">
@@ -228,6 +289,11 @@ function renderSavedProfiles() {
     `
   })
 
+  section.querySelector('#btn-export-profiles').addEventListener('click', exportProfiles)
+  section.querySelector('#inp-import-file').addEventListener('change', e => {
+    const file = e.target.files[0]
+    if (file) { importProfiles(file); e.target.value = '' }
+  })
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
     if (confirm('Delete all saved profiles?')) { saveProfiles([]); renderSavedProfiles() }
   })
@@ -278,8 +344,7 @@ function onSaveProfile() {
     return
   }
 
-  // Use name+dob as a stable ID so re-saving the same person updates instead of duplicates
-  const id = `${name.toLowerCase().replace(/\s+/g, '-')}-${dob}`
+  const id = genId()
   saveProfile({ id, name, dob, tob, lat, lon, timezone, location, savedAt: new Date().toISOString() })
   renderSavedProfiles()
 

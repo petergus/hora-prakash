@@ -7,6 +7,32 @@
   <link rel="icon" type="image/svg+xml" href="/hora-prakash/icon.svg" />
   <link rel="apple-touch-icon" href="/hora-prakash/icon.svg" />
   <link rel="stylesheet" href="/src/style.css" />
+  <!-- Inline loader styles — render before any JS or external CSS -->
+  <style>
+    #app-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 55vh;
+      gap: 1.1rem;
+    }
+    .app-spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: hp-spin 0.75s linear infinite;
+    }
+    @keyframes hp-spin { to { transform: rotate(360deg); } }
+    .app-loader-text {
+      color: #94a3b8;
+      font-size: 0.88rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      letter-spacing: 0.02em;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -19,7 +45,11 @@
     </nav>
   </header>
   <main>
-    <section id="tab-input" class="tab-panel active"></section>
+    <div id="app-loader">
+      <div class="app-spinner"></div>
+      <span class="app-loader-text">Loading ephemeris…</span>
+    </div>
+    <section id="tab-input" class="tab-panel active" style="display:none"></section>
     <section id="tab-chart" class="tab-panel"></section>
     <section id="tab-dasha" class="tab-panel"></section>
     <section id="tab-panchang" class="tab-panel"></section>

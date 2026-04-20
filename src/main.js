@@ -7,6 +7,11 @@ import { renderProfileTabs } from './ui/profile-tabs.js'
 
 async function main() {
   await initSwissEph()
+
+  // Hide loader, reveal input panel
+  document.getElementById('app-loader')?.remove()
+  document.getElementById('tab-input').style.display = ''
+
   initTabs()
 
   // Bootstrap first session

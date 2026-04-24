@@ -81,6 +81,7 @@ async function findSolarReturn(targetLon, seedJd, swe) {
     let diff = targetLon - lon
     while (diff > 180)  diff -= 360
     while (diff < -180) diff += 360
+    if (Math.abs(diff) > 350) break
     jd += diff / 360
   }
   return jd
@@ -148,8 +149,11 @@ export async function calcDasha(moon, dobStr, options = {}) {
 
   const birthDate = new Date(dobStr + 'T00:00:00Z')
 
-  if (settings?.yearMethod === 'true-solar' && swe && jd) {
-    return calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
+  if (settings?.yearMethod === 'true-solar') {
+    if (swe && jd) {
+      return calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
+    }
+    console.warn('calcDasha: true-solar requires swe and jd — falling back to sidereal')
   }
 
   const msPerYear = yearMs(settings)

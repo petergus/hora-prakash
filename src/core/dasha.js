@@ -145,7 +145,10 @@ export async function calcDasha(moon, dobStr, options = {}) {
   const fractionElapsed = (normalizedLon % nakshatraSpan) / nakshatraSpan
   const balanceYears    = DASHA_SEQUENCE[dashaStartIndex].years * (1 - fractionElapsed)
 
-  const birthDate = new Date(dobStr + 'T00:00:00Z')
+  // Use exact birth JD when available; fall back to midnight UTC of dob string
+  const birthMs = jd != null
+    ? jdToMs(jd)
+    : new Date(dobStr + 'T00:00:00Z').getTime()
 
   if (settings?.yearMethod === 'true-solar') {
     if (swe && jd) {
@@ -156,7 +159,7 @@ export async function calcDasha(moon, dobStr, options = {}) {
 
   const msPerYear = yearMs(settings)
   const tree = []
-  let cur = birthDate.getTime()
+  let cur = birthMs
 
   for (let i = 0; i < 9; i++) {
     const idx  = (dashaStartIndex + i) % 9

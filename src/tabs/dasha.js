@@ -3,6 +3,7 @@ import { state } from '../state.js'
 import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES, ensureChildren } from '../core/dasha.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
+import { getSettings, saveSettings, YEAR_METHOD_OPTIONS } from '../core/settings.js'
 
 const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }
 
@@ -14,6 +15,25 @@ function d() {
   s.uiState ??= {}
   s.uiState.dasha ??= defaultDashaUI()
   return s.uiState.dasha
+}
+
+function renderYearMethodControls() {
+  const { yearMethod, customYearDays } = getSettings()
+  const options = YEAR_METHOD_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === yearMethod ? ' selected' : ''}>${o.label}</option>`
+  ).join('')
+  const customInput = yearMethod === 'custom'
+    ? `<input id="dasha-custom-days" type="number" min="300" max="400" step="0.001"
+         value="${customYearDays}" style="width:6rem;margin-left:0.5rem"
+         title="Days per year (300–400)" />`
+    : ''
+  return `
+    <div id="dasha-year-controls" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.85rem;flex-wrap:wrap">
+      <label style="font-size:0.82rem;color:var(--muted)">Year Method:</label>
+      <select id="dasha-year-method" style="font-size:0.82rem">${options}</select>
+      ${customInput}
+    </div>
+  `
 }
 
 export function renderDasha() {
@@ -46,6 +66,7 @@ export function renderDasha() {
           </div>
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
+          ${renderYearMethodControls()}
           <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
@@ -68,7 +89,23 @@ export function renderDasha() {
       ui.selectedProgLord = e.target.value
       ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
       document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
+    } else if (e.target.id === 'dasha-year-method') {
+      const yearMethod = e.target.value
+      saveSettings({ yearMethod })
+      import('../tabs/input.js').then(m => m.recalcAll())
     }
+  }
+
+  let _customDaysTimer = null
+  panel.oninput = e => {
+    if (e.target.id !== 'dasha-custom-days') return
+    clearTimeout(_customDaysTimer)
+    _customDaysTimer = setTimeout(() => {
+      const days = parseFloat(e.target.value)
+      if (isNaN(days) || days < 300 || days > 400) return
+      saveSettings({ customYearDays: days })
+      import('../tabs/input.js').then(m => m.recalcAll())
+    }, 500)
   }
 
   panel.onclick = e => {

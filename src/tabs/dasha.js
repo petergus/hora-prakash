@@ -3,7 +3,9 @@ import { state } from '../state.js'
 import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES, ensureChildren } from '../core/dasha.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
-import { getSettings, saveSettings, YEAR_METHOD_OPTIONS } from '../core/settings.js'
+import { getSettings, saveSettings, YEAR_METHOD_OPTIONS, AYANAMSA_OPTIONS } from '../core/settings.js'
+import { getSwe } from '../core/swisseph.js'
+import { toJulianDay } from '../utils/time.js'
 
 const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }
 
@@ -20,7 +22,7 @@ function d() {
 }
 
 function renderYearMethodControls() {
-  const { yearMethod, customYearDays } = getSettings()
+  const { yearMethod, customYearDays, ayanamsa } = getSettings()
   const options = YEAR_METHOD_OPTIONS.map(o =>
     `<option value="${o.value}"${o.value === yearMethod ? ' selected' : ''}>${o.label}</option>`
   ).join('')
@@ -29,11 +31,27 @@ function renderYearMethodControls() {
          value="${customYearDays}" style="width:6rem;margin-left:0.5rem"
          title="Days per year (300–400)" />`
     : ''
+
+  const ayanamsaName = AYANAMSA_OPTIONS.find(a => a.value === ayanamsa)?.label ?? 'Lahiri'
+  let ayanamsaVal = ''
+  try {
+    const { dob, tob, timezone } = state.birth ?? {}
+    if (dob && tob && timezone) {
+      const jd  = toJulianDay(dob, tob, timezone)
+      const raw = getSwe().get_ayanamsa_ut(jd)
+      const deg = Math.floor(raw)
+      const min = Math.floor((raw - deg) * 60)
+      const sec = ((raw - deg) * 60 - min) * 60
+      ayanamsaVal = ` (${deg}° ${min}' ${sec.toFixed(2)}")`
+    }
+  } catch (_) {}
+
   return `
     <div id="dasha-year-controls" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.85rem;flex-wrap:wrap">
       <label style="font-size:0.82rem;color:var(--muted)">Year Method:</label>
       <select id="dasha-year-method" style="font-size:0.82rem">${options}</select>
       ${customInput}
+      <span style="font-size:0.78rem;color:var(--muted);margin-left:0.5rem">· Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal}</span>
     </div>
   `
 }

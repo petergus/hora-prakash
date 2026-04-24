@@ -9,6 +9,11 @@ import { toJulianDay } from '../utils/time.js'
 
 const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }
 
+function planetDot(name) {
+  const color = PLANET_COLORS[PLANET_ABBR[name]] ?? '#94a3b8'
+  return `<span class="planet-dot" style="background:${color}"></span>`
+}
+
 let _customDaysTimer = null
 
 // Returns the UI state object for the active session's dasha tab.
@@ -295,23 +300,24 @@ async function buildDashaRows(dasha, ui) {
 
 function makeMdRow(node, expanded, isCurrent) {
   return `<tr data-toggle data-depth="0" data-path="${node.planet}" class="dasha-d0${isCurrent ? ' current-period' : ''}">
-    <td style="padding-left:0.5rem">${expanded ? '▼' : '▶'} <strong>${node.planet}</strong> <span class="dasha-level-label">MD</span></td>
+    <td style="padding-left:0.5rem">${expanded ? '▼' : '▶'} ${planetDot(node.planet)}<strong>${node.planet}</strong> <span class="dasha-level-label">MD</span></td>
     <td>${fmt(node.start)}</td><td>${fmt(node.end)}</td></tr>`
 }
 
-function makeRow(node, path, depth, expanded, isCurrent) {
+function makeRow(node, path, depth, expanded, isCurrent, isNow = false) {
   const label = LEVEL_LABELS[depth]
   const indent = INDENT[depth]
   const startCell = fmt(node.start)
   const endCell   = fmt(node.end)
+  const nowBadge  = isNow ? ' <span class="dasha-now-badge">★ now</span>' : ''
   return `<tr data-toggle data-depth="${depth}" data-path="${path}" class="dasha-d${depth}${isCurrent ? ' current-period' : ''}">
-    <td style="padding-left:${indent}">${expanded ? '▼' : '▶'} ${node.planet} <span class="dasha-level-label">${label}</span></td>
+    <td style="padding-left:${indent}">${expanded ? '▼' : '▶'} ${planetDot(node.planet)}${node.planet}${nowBadge} <span class="dasha-level-label">${label}</span></td>
     <td>${startCell}</td><td>${endCell}</td></tr>`
 }
 
 function makeLeafRow(node, path, isCurrent) {
   return `<tr data-depth="5" data-path="${path}" class="dasha-d5${isCurrent ? ' current-period' : ''}">
-    <td style="padding-left:${INDENT[5]}">${node.planet} <span class="dasha-level-label">DeD</span></td>
+    <td style="padding-left:${INDENT[5]}">${planetDot(node.planet)}${node.planet} <span class="dasha-level-label">DeD</span></td>
     <td>${fmt(node.start)}</td><td>${fmt(node.end)}</td></tr>`
 }
 
@@ -337,7 +343,7 @@ async function insertChildRows(parentRow, node, depth) {
     const label     = LEVEL_LABELS[childDepth]
     const indent    = INDENT[childDepth]
     const arrow     = isLeaf ? '' : '▶ '
-    tr.innerHTML = `<td style="padding-left:${indent}">${arrow}${child.planet} <span class="dasha-level-label">${label}</span></td><td>${startCell}</td><td>${endCell}</td>`
+    tr.innerHTML = `<td style="padding-left:${indent}">${arrow}${planetDot(child.planet)}${child.planet} <span class="dasha-level-label">${label}</span></td><td>${startCell}</td><td>${endCell}</td>`
     fragment.appendChild(tr)
   }
 

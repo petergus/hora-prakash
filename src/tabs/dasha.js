@@ -1,6 +1,6 @@
 // src/tabs/dasha.js
 import { state } from '../state.js'
-import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES } from '../core/dasha.js'
+import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES, ensureChildren } from '../core/dasha.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
 
@@ -158,57 +158,47 @@ export function renderDasha() {
   })
 }
 
-// Builds flat HTML rows for all 5 dasha levels, restoring expanded state from ui.
+const LEVEL_LABELS = ['MD','AD','PD','SD','PrD']
+const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem']
+
 function buildDashaRows(dasha, ui) {
   const rows = []
 
   for (const maha of dasha) {
-    const isCur0     = isCurrentPeriod(maha.start, maha.end)
-    const expanded0  = ui.expandedMahas.has(maha.planet)
-    const path0      = maha.planet
+    const isCur0    = isCurrentPeriod(maha.start, maha.end)
+    const expanded0 = ui.expandedMahas.has(maha.planet)
+    rows.push(makeMdRow(maha, expanded0, isCur0))
 
-    rows.push(`<tr data-toggle data-depth="0" data-path="${path0}" class="dasha-d0 ${isCur0 ? 'current-period' : ''}">
-      <td style="padding-left:0.5rem">${expanded0 ? '▼' : '▶'} <strong>${maha.planet}</strong> <span class="dasha-level-label">MD</span></td>
-      <td>${fmt(maha.start)}</td><td>${fmt(maha.end)}</td></tr>`)
+    if (!expanded0 || maha.children.length === 0) continue
 
     for (const antar of maha.children) {
-      const path1     = `${path0}/${antar.planet}`
+      const path1     = `${maha.planet}/${antar.planet}`
       const isCur1    = isCurrentPeriod(antar.start, antar.end)
-      const expanded1 = ui.expandedAntars.get(path0)?.has(antar.planet) ?? false
-      const show1     = expanded0
+      const expanded1 = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
+      rows.push(makeRow(antar, path1, 1, expanded1, isCur1))
 
-      rows.push(`<tr data-toggle data-depth="1" data-path="${path1}" class="dasha-d1 ${isCur1 ? 'current-period' : ''}" style="display:${show1 ? '' : 'none'}">
-        <td style="padding-left:1.8rem">${expanded1 ? '▼' : '▶'} ${antar.planet} <span class="dasha-level-label">AD</span></td>
-        <td>${fmt(antar.start)}</td><td>${fmt(antar.end)}</td></tr>`)
+      if (!expanded1 || antar.children.length === 0) continue
 
       for (const prat of antar.children) {
         const path2     = `${path1}/${prat.planet}`
         const isCur2    = isCurrentPeriod(prat.start, prat.end)
         const expanded2 = ui.expandedPaths.has(path2)
-        const show2     = show1 && expanded1
+        rows.push(makeRow(prat, path2, 2, expanded2, isCur2))
 
-        rows.push(`<tr data-toggle data-depth="2" data-path="${path2}" class="dasha-d2 ${isCur2 ? 'current-period' : ''}" style="display:${show2 ? '' : 'none'}">
-          <td style="padding-left:3.1rem">${expanded2 ? '▼' : '▶'} ${prat.planet} <span class="dasha-level-label">PD</span></td>
-          <td>${fmt(prat.start)}</td><td>${fmt(prat.end)}</td></tr>`)
+        if (!expanded2 || prat.children.length === 0) continue
 
         for (const sook of prat.children) {
           const path3     = `${path2}/${sook.planet}`
           const isCur3    = isCurrentPeriod(sook.start, sook.end)
           const expanded3 = ui.expandedPaths.has(path3)
-          const show3     = show2 && expanded2
+          rows.push(makeRow(sook, path3, 3, expanded3, isCur3))
 
-          rows.push(`<tr data-toggle data-depth="3" data-path="${path3}" class="dasha-d3 ${isCur3 ? 'current-period' : ''}" style="display:${show3 ? '' : 'none'}">
-            <td style="padding-left:4.4rem">${expanded3 ? '▼' : '▶'} ${sook.planet} <span class="dasha-level-label">SD</span></td>
-            <td>${fmtDeep(sook.start)}</td><td>${fmtDeep(sook.end)}</td></tr>`)
+          if (!expanded3 || sook.children.length === 0) continue
 
           for (const prana of sook.children) {
             const path4  = `${path3}/${prana.planet}`
             const isCur4 = isCurrentPeriod(prana.start, prana.end)
-            const show4  = show3 && expanded3
-
-            rows.push(`<tr data-depth="4" data-path="${path4}" class="dasha-d4 ${isCur4 ? 'current-period' : ''}" style="display:${show4 ? '' : 'none'}">
-              <td style="padding-left:5.7rem">${prana.planet} <span class="dasha-level-label">PrD</span></td>
-              <td>${fmtDeep(prana.start)}</td><td>${fmtDeep(prana.end)}</td></tr>`)
+            rows.push(makeLeafRow(prana, path4, isCur4))
           }
         }
       }
@@ -216,6 +206,29 @@ function buildDashaRows(dasha, ui) {
   }
 
   return rows.join('')
+}
+
+function makeMdRow(node, expanded, isCurrent) {
+  return `<tr data-toggle data-depth="0" data-path="${node.planet}" class="dasha-d0${isCurrent ? ' current-period' : ''}">
+    <td style="padding-left:0.5rem">${expanded ? '▼' : '▶'} <strong>${node.planet}</strong> <span class="dasha-level-label">MD</span></td>
+    <td>${fmt(node.start)}</td><td>${fmt(node.end)}</td></tr>`
+}
+
+function makeRow(node, path, depth, expanded, isCurrent) {
+  const label = LEVEL_LABELS[depth]
+  const indent = INDENT[depth]
+  const useFmtDeep = depth >= 2
+  const startCell = useFmtDeep ? fmtDeep(node.start) : fmt(node.start)
+  const endCell   = useFmtDeep ? fmtDeep(node.end)   : fmt(node.end)
+  return `<tr data-toggle data-depth="${depth}" data-path="${path}" class="dasha-d${depth}${isCurrent ? ' current-period' : ''}">
+    <td style="padding-left:${indent}">${expanded ? '▼' : '▶'} ${node.planet} <span class="dasha-level-label">${label}</span></td>
+    <td>${startCell}</td><td>${endCell}</td></tr>`
+}
+
+function makeLeafRow(node, path, isCurrent) {
+  return `<tr data-depth="4" data-path="${path}" class="dasha-d4${isCurrent ? ' current-period' : ''}">
+    <td style="padding-left:5.7rem">${node.planet} <span class="dasha-level-label">PrD</span></td>
+    <td>${fmtDeep(node.start)}</td><td>${fmtDeep(node.end)}</td></tr>`
 }
 
 // Toggles direct children at childDepth and hides all deeper descendants when closing.

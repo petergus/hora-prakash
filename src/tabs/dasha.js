@@ -227,7 +227,7 @@ function makeRow(node, path, depth, expanded, isCurrent) {
 
 function makeLeafRow(node, path, isCurrent) {
   return `<tr data-depth="4" data-path="${path}" class="dasha-d4${isCurrent ? ' current-period' : ''}">
-    <td style="padding-left:5.7rem">${node.planet} <span class="dasha-level-label">PrD</span></td>
+    <td style="padding-left:${INDENT[4]}">${node.planet} <span class="dasha-level-label">PrD</span></td>
     <td>${fmtDeep(node.start)}</td><td>${fmtDeep(node.end)}</td></tr>`
 }
 

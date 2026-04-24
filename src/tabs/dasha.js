@@ -382,6 +382,34 @@ function getTzOffsetMs() {
   return (m[1] === '+' ? 1 : -1) * mins * 60000
 }
 
+function renderBreadcrumb(dasha) {
+  const now      = new Date()
+  const activeMD = dasha.find(m => isCurrentPeriod(m.start, m.end))
+  if (!activeMD) return ''
+
+  const activeAD = activeMD.children?.find(a => isCurrentPeriod(a.start, a.end))
+  const activePD = activeAD?.children?.find(p => isCurrentPeriod(p.start, p.end))
+
+  const mdAbbr = PLANET_ABBR[activeMD.planet] ?? activeMD.planet
+
+  const adAbbr = activeAD ? (PLANET_ABBR[activeAD.planet] ?? activeAD.planet) : null
+  const pdAbbr = activePD ? (PLANET_ABBR[activePD.planet] ?? activePD.planet) : null
+
+  let timeLeft = ''
+  if (activeAD) {
+    const daysLeft = Math.round((activeAD.end - now) / 86400000)
+    if (daysLeft >= 30) timeLeft = `${Math.round(daysLeft / 30.4)} months left in AD`
+    else if (daysLeft > 0) timeLeft = `${daysLeft} days left in AD`
+  }
+
+  let crumb = `★ &nbsp;${mdAbbr} <span class="dasha-level-label">MD</span>`
+  if (adAbbr) crumb += ` &rsaquo; ${adAbbr} <span class="dasha-level-label">AD</span>`
+  if (pdAbbr) crumb += ` &rsaquo; ${pdAbbr} <span class="dasha-level-label">PD</span>`
+  if (timeLeft) crumb += ` <span class="dasha-breadcrumb-sep">·</span> ${timeLeft}`
+
+  return `<div class="dasha-breadcrumb">${crumb}</div>`
+}
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function fmt(date) {
   const d = new Date(date.getTime() + getTzOffsetMs()).toISOString()

@@ -966,3 +966,17 @@ h3 {
 }
 .btn-tz:hover:not(:disabled) { background: #e0e7ff; color: var(--primary); border-color: var(--primary); }
 .btn-tz:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.dasha-breadcrumb {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  color: #60a5fa;
+  background: #0f172a;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  border-radius: 6px 6px 0 0;
+}
+.dasha-breadcrumb-sep {
+  color: var(--muted);
+  margin: 0 4px;
+}

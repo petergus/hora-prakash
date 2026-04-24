@@ -21,7 +21,7 @@ export function loadSettings() {
 }
 
 export function getSettings() {
-  return _settings
+  return { ..._settings }
 }
 
 export function saveSettings(patch) {
@@ -29,6 +29,7 @@ export function saveSettings(patch) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(_settings))
 }
 
+/** Must be called after initSwissEph() has resolved. */
 export function applyAyanamsa() {
   getSwe().set_sid_mode(_settings.ayanamsa, 0, 0)
 }

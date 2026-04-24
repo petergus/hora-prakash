@@ -1,7 +1,6 @@
 // src/core/calculations.js
 import { getSwe, PLANETS } from './swisseph.js'
-
-const SIDEREAL_SPEED_FLAG = 65536 + 256  // SEFLG_SIDEREAL | SEFLG_SPEED
+import { buildCalcFlags } from './settings.js'
 
 const NAKSHATRAS = [
   'Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra',
@@ -29,13 +28,6 @@ export function getNakshatraInfo(lon) {
   }
 }
 
-/**
- * Calculate all planet positions, lagna, and house cusps.
- * @param {number} jd  Julian Day (UT)
- * @param {number} lat Latitude
- * @param {number} lon Longitude
- * @returns {{ planets: object[], lagna: object, houses: number[] }}
- */
 // Parashari combustion orbs in degrees (planets not listed are immune: Sun, Rahu, Ketu)
 const COMBUST_ORBS = {
   Moon: 12, Mars: 17, Mercury: 14, Jupiter: 11, Venus: 10, Saturn: 15,
@@ -46,22 +38,34 @@ function angularDist(a, b) {
   return d
 }
 
-export function calcBirthChart(jd, lat, lon) {
-  const swe = getSwe()
+/**
+ * Calculate all planet positions, lagna, and house cusps.
+ * @param {number} jd        Julian Day (UT)
+ * @param {number} lat       Latitude
+ * @param {number} lon       Longitude
+ * @param {object} [settings] Calculation settings from getSettings()
+ * @returns {{ planets: object[], lagna: object, houses: number[] }}
+ */
+export function calcBirthChart(jd, lat, lon, settings) {
+  const swe   = getSwe()
+  const flags = buildCalcFlags(settings)
+
+  if (settings?.observerType === 'topocentric') {
+    swe.set_topo(lon, lat, 0)
+  }
 
   // Use houses_ex with SEFLG_SIDEREAL (65536) to get sidereal ascendant
   const housesResult = swe.houses_ex(jd, 65536, lat, lon, 'P')
   const lagnaLon = ((housesResult.ascmc[0] % 360) + 360) % 360
   const lagnaSign = Math.floor(lagnaLon / 30) + 1
-  const houseCusps = Array.from(housesResult.cusps).slice(1, 13)  // [cusp1..cusp12]
+  const houseCusps = Array.from(housesResult.cusps).slice(1, 13)
 
   const rawPlanets = PLANETS.map(p => {
-    const result = swe.calc_ut(jd, p.id, SIDEREAL_SPEED_FLAG)
+    const result = swe.calc_ut(jd, p.id, flags)
     let pLon = result[0]
-    if (p.isKetu) pLon = (pLon + 180) % 360  // Ketu = Rahu + 180°
+    if (p.isKetu) pLon = (pLon + 180) % 360
     const speed = result[3]
     const planetSign = Math.floor(pLon / 30) + 1
-    // Whole-sign houses: same formula the chart SVG uses (signToCell)
     const house = ((planetSign - lagnaSign + 12) % 12) + 1
     const nak = getNakshatraInfo(pLon)
     return {
@@ -101,4 +105,3 @@ export function calcBirthChart(jd, lat, lon) {
 
   return { planets, lagna, houses: houseCusps }
 }
-

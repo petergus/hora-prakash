@@ -1,5 +1,8 @@
 // src/ui/settings-modal.js
-import { getSettings, saveSettings, applyAyanamsa, AYANAMSA_OPTIONS } from '../core/settings.js'
+import {
+  getSettings, saveSettings, applyAyanamsa,
+  AYANAMSA_OPTIONS, PLANET_POSITION_OPTIONS, OBSERVER_TYPE_OPTIONS,
+} from '../core/settings.js'
 
 export function initSettingsModal() {
   const nav = document.getElementById('tab-nav')
@@ -20,10 +23,22 @@ export function initSettingsModal() {
         <h3 style="margin:0;font-size:0.9rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">⚙ Calculation Settings</h3>
         <button id="settings-close" type="button" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--muted);padding:0 0.3rem">✕</button>
       </div>
-      <div class="form-group" style="margin-bottom:1.2rem">
+      <div class="form-group" style="margin-bottom:1rem">
         <label style="display:block;margin-bottom:0.4rem;font-size:0.85rem;color:var(--muted)">Ayanamsa</label>
         <select id="settings-ayanamsa" style="width:100%">
           ${AYANAMSA_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:1rem">
+        <label style="display:block;margin-bottom:0.4rem;font-size:0.85rem;color:var(--muted)">Planet Positions</label>
+        <select id="settings-planet-positions" style="width:100%">
+          ${PLANET_POSITION_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:1.2rem">
+        <label style="display:block;margin-bottom:0.4rem;font-size:0.85rem;color:var(--muted)">Observer</label>
+        <select id="settings-observer-type" style="width:100%">
+          ${OBSERVER_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
         </select>
       </div>
       <div style="display:flex;gap:0.5rem">
@@ -37,8 +52,11 @@ export function initSettingsModal() {
   const close = () => { overlay.style.display = 'none' }
 
   gearBtn.addEventListener('click', () => {
+    const s = getSettings()
     overlay.style.display = 'flex'
-    document.getElementById('settings-ayanamsa').value = String(getSettings().ayanamsa)
+    document.getElementById('settings-ayanamsa').value         = String(s.ayanamsa)
+    document.getElementById('settings-planet-positions').value = s.planetPositions
+    document.getElementById('settings-observer-type').value    = s.observerType
   })
 
   document.getElementById('settings-close').addEventListener('click', close)
@@ -46,8 +64,10 @@ export function initSettingsModal() {
   overlay.addEventListener('click', e => { if (e.target === overlay) close() })
 
   document.getElementById('settings-apply').addEventListener('click', async () => {
-    const ayanamsa = parseInt(document.getElementById('settings-ayanamsa').value, 10)
-    saveSettings({ ayanamsa })
+    const ayanamsa        = parseInt(document.getElementById('settings-ayanamsa').value, 10)
+    const planetPositions = document.getElementById('settings-planet-positions').value
+    const observerType    = document.getElementById('settings-observer-type').value
+    saveSettings({ ayanamsa, planetPositions, observerType })
     close()
     const { recalcAll } = await import('../tabs/input.js')
     await recalcAll()

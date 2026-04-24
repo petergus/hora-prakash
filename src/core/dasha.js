@@ -32,6 +32,10 @@ function jdToMs(jd) {
   return (jd - 2440587.5) * 86400000
 }
 
+function msToJd(ms) {
+  return ms / 86400000 + 2440587.5
+}
+
 // Standard Vimshottari durations keyed by planet name
 export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
 
@@ -73,42 +77,80 @@ function calcSubPeriods(startIdx, startDate, parentYears, depth, parentMs) {
   return result
 }
 
-async function findSolarReturn(targetLon, seedJd, swe) {
-  const SIDEREAL_SPEED = 65536 | 256  // SEFLG_SIDEREAL | SEFLG_SPEED
+async function findSolarReturn(targetLon, seedJd, swe, flags) {
   let jd = seedJd
-  for (let i = 0; i < 6; i++) {
-    const lon = swe.calc_ut(jd, 0, SIDEREAL_SPEED)[0]
+  for (let i = 0; i < 10; i++) {
+    const lon = swe.calc_ut(jd, 0, flags)[0]
     let diff = targetLon - lon
     while (diff > 180)  diff -= 360
     while (diff < -180) diff += 360
+    if (Math.abs(diff) < 1e-9) break
     jd += diff  // Sun ~1°/day, so degree diff ≈ day correction
   }
   return jd
 }
 
-async function calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, fractionElapsed) {
-  const SIDEREAL = 65536 | 256
-  const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL)[0]
+/**
+ * Advance jdStart by exactly `years` true sidereal years.
+ * One true sidereal year = Sun sweeps 360° of sidereal longitude from its current position.
+ */
+async function advanceTSSY(jdStart, years, swe, flags) {
+  const startLon  = swe.calc_ut(jdStart, 0, flags)[0]
+  const targetLon = ((startLon + years * 360) % 360 + 360) % 360
+  const seedJd    = jdStart + years * 365.256363004
+  return findSolarReturn(targetLon, seedJd, swe, flags)
+}
+
+/**
+ * Compute sub-periods using True Sidereal Solar Year boundaries.
+ * Each boundary is independently computed via ephemeris, not by linear interpolation.
+ */
+async function calcSubPeriodsTSSY(startIdx, startJd, parentYears, depth, swe, flags) {
+  if (depth <= 0) return []
+  const result = []
+  let curJd = startJd
+  for (let i = 0; i < 9; i++) {
+    const idx     = (startIdx + i) % 9
+    const seq     = DASHA_SEQUENCE[idx]
+    const adYears = parentYears * seq.years / TOTAL_YEARS
+    const endJd   = await advanceTSSY(curJd, adYears, swe, flags)
+    result.push({
+      planet:        seq.name,
+      start:         new Date(jdToMs(curJd)),
+      end:           new Date(jdToMs(endJd)),
+      seqIndex:      idx,
+      durationYears: adYears,
+      tssy:          true,
+      children:      depth > 1
+        ? await calcSubPeriodsTSSY(idx, curJd, adYears, depth - 1, swe, flags)
+        : [],
+    })
+    curJd = endJd
+  }
+  return result
+}
+
+async function calcDashaSolarReturn(jd, swe, flags, dashaStartIndex, balanceYears, fractionElapsed) {
+  const sidSunLon = swe.calc_ut(jd, 0, flags)[0]
 
   const targetLon = ((sidSunLon + balanceYears * 360) % 360 + 360) % 360
 
   const elapsedYears = DASHA_SEQUENCE[dashaStartIndex].years * fractionElapsed
-  const cycleStartJd = await findSolarReturn(targetLon, jd - elapsedYears * 365.256363004, swe)
+  const cycleStartJd = await findSolarReturn(targetLon, jd - elapsedYears * 365.256363004, swe, flags)
 
   const tree = []
   let cumulativeYears = 0
 
   for (let i = 0; i < 9; i++) {
-    const idx  = (dashaStartIndex + i) % 9
-    const seq  = DASHA_SEQUENCE[idx]
-    const startJd = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
-    cumulativeYears += seq.years  // always full dasha years for seeding next boundary
-    const endJd   = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
+    const idx     = (dashaStartIndex + i) % 9
+    const seq     = DASHA_SEQUENCE[idx]
+    const startJd = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe, flags)
+    cumulativeYears += seq.years
+    const endJd   = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe, flags)
 
-    const start       = new Date(jdToMs(startJd))
-    const end         = new Date(jdToMs(endJd))
-    const spanMs      = jdToMs(endJd) - jdToMs(startJd)
-    const displayYrs  = i === 0 ? balanceYears : seq.years
+    const start      = new Date(jdToMs(startJd))
+    const end        = new Date(jdToMs(endJd))
+    const displayYrs = i === 0 ? balanceYears : seq.years
 
     tree.push({
       planet:        seq.name,
@@ -116,7 +158,8 @@ async function calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, frac
       end,
       seqIndex:      idx,
       durationYears: displayYrs,
-      children:      calcSubPeriods(idx, start, displayYrs, 1, spanMs),
+      tssy:          true,
+      children:      await calcSubPeriodsTSSY(idx, startJd, seq.years, 1, swe, flags),
     })
   }
 
@@ -152,7 +195,9 @@ export async function calcDasha(moon, dobStr, options = {}) {
 
   if (settings?.yearMethod === 'true-solar') {
     if (swe && jd) {
-      return calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
+      const { buildCalcFlags } = await import('./settings.js')
+      const flags = buildCalcFlags(settings)
+      return calcDashaSolarReturn(jd, swe, flags, dashaStartIndex, balanceYears, fractionElapsed)
     }
     console.warn('calcDasha: true-solar requires swe and jd — falling back to sidereal')
   }
@@ -189,8 +234,18 @@ export async function calcDasha(moon, dobStr, options = {}) {
  * have no children and would be re-populated incorrectly. The UI guarantees this
  * by only expanding nodes at depth 0–4, but there is no runtime enforcement here.
  */
-export function ensureChildren(node) {
-  if (node.children.length === 0) {
+export async function ensureChildren(node, swe, flags) {
+  if (node.children.length > 0) return
+  if (node.tssy && swe && flags) {
+    node.children = await calcSubPeriodsTSSY(
+      node.seqIndex,
+      msToJd(node.start.getTime()),
+      node.durationYears,
+      1,
+      swe,
+      flags,
+    )
+  } else {
     node.children = calcSubPeriods(node.seqIndex, node.start, node.durationYears, 1)
   }
 }

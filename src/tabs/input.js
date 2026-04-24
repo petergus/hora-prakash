@@ -446,10 +446,10 @@ async function onFormSubmit(e) {
 
     applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
-    const { planets, lagna, houses } = calcBirthChart(jd, lat, lon)
+    const settings = getSettings()
+    const { planets, lagna, houses } = calcBirthChart(jd, lat, lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
-    const settings = getSettings()
     const swe      = getSwe()
     const dasha    = await calcDasha(moon, dob, { settings, swe, jd })
     const panchang = calcPanchang(jd, lat, lon)
@@ -539,10 +539,10 @@ export async function recalcAll() {
       btn.textContent = 'Recalculating…'
     }
     const jd = toJulianDay(state.birth.dob, state.birth.tob, state.birth.timezone)
-    const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon)
+    const settings = getSettings()
+    const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
-    const settings = getSettings()
     const swe      = getSwe()
     const dasha    = await calcDasha(moon, state.birth.dob, { settings, swe, jd })
     const panchang = calcPanchang(jd, state.birth.lat, state.birth.lon)

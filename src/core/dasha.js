@@ -87,7 +87,7 @@ async function findSolarReturn(targetLon, seedJd, swe) {
   return jd
 }
 
-async function calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed) {
+async function calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, fractionElapsed) {
   const SIDEREAL = 65536 | 256
   const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL).data[0]
 
@@ -151,7 +151,7 @@ export async function calcDasha(moon, dobStr, options = {}) {
 
   if (settings?.yearMethod === 'true-solar') {
     if (swe && jd) {
-      return calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
+      return calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
     }
     console.warn('calcDasha: true-solar requires swe and jd — falling back to sidereal')
   }

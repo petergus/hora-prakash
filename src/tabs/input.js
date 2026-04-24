@@ -523,6 +523,46 @@ function fillCoords(lat, lon, timezone) {
   document.getElementById('inp-tz-m').value    = tzP.m
 }
 
+/** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */
+export async function recalcAll() {
+  if (!state.birth) return
+  try {
+    const btn = document.getElementById('btn-calculate')
+    if (btn) {
+      btn.disabled = true
+      btn.textContent = 'Recalculating…'
+    }
+    const jd = toJulianDay(state.birth.dob, state.birth.tob, state.birth.timezone)
+    const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon)
+    const moon = planets.find(p => p.name === 'Moon')
+    if (!moon) throw new Error('Moon position could not be calculated.')
+    const dasha   = calcDasha(moon, state.birth.dob)
+    const panchang = calcPanchang(jd, state.birth.lat, state.birth.lon)
+
+    state.planets  = planets
+    state.lagna    = lagna
+    state.houses   = houses
+    state.dasha    = dasha
+    state.panchang = panchang
+
+    const { renderChart }    = await import('./chart.js')
+    const { renderDasha }    = await import('./dasha.js')
+    const { renderPanchang } = await import('./panchang.js')
+
+    renderChart(); renderDasha(); renderPanchang()
+  } catch (err) {
+    const errEl = document.getElementById('calc-error')
+    if (errEl) errEl.textContent = `Recalculation error: ${err.message}`
+    console.error(err)
+  } finally {
+    const btn = document.getElementById('btn-calculate')
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = 'Calculate Chart'
+    }
+  }
+}
+
 // ── Utils ─────────────────────────────────────────────────────────────────────
 
 function escapeHtml(str) {

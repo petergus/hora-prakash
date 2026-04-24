@@ -444,11 +444,14 @@ async function onFormSubmit(e) {
     btn.disabled = true
     btn.textContent = 'Calculating…'
 
+    applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
     const { planets, lagna, houses } = calcBirthChart(jd, lat, lon)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
-    const dasha   = calcDasha(moon, dob)
+    const settings = getSettings()
+    const swe      = getSwe()
+    const dasha    = await calcDasha(moon, dob, { settings, swe, jd })
     const panchang = calcPanchang(jd, lat, lon)
 
     const location = document.getElementById('inp-location').value.trim()
@@ -528,8 +531,8 @@ function fillCoords(lat, lon, timezone) {
 /** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */
 export async function recalcAll() {
   if (!state.birth) return
-  applyAyanamsa()
   try {
+    applyAyanamsa()
     const btn = document.getElementById('btn-calculate')
     if (btn) {
       btn.disabled = true

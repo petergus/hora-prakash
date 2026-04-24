@@ -48,7 +48,6 @@ export function initSettingsModal() {
   document.getElementById('settings-apply').addEventListener('click', async () => {
     const ayanamsa = parseInt(document.getElementById('settings-ayanamsa').value, 10)
     saveSettings({ ayanamsa })
-    applyAyanamsa()
     close()
     const { recalcAll } = await import('../tabs/input.js')
     await recalcAll()

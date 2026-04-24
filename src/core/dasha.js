@@ -13,6 +13,25 @@ const DASHA_SEQUENCE = [
 ]
 const TOTAL_YEARS = 120
 
+const YEAR_MS = {
+  sidereal: 365.256363004 * 86400000,
+  tropical: 365.242190   * 86400000,
+  savana:   360.0        * 86400000,
+  julian:   365.25       * 86400000,
+}
+
+function yearMs(settings) {
+  if (!settings || settings.yearMethod === 'sidereal')  return YEAR_MS.sidereal
+  if (settings.yearMethod === 'tropical') return YEAR_MS.tropical
+  if (settings.yearMethod === 'savana')   return YEAR_MS.savana
+  if (settings.yearMethod === 'custom')   return (settings.customYearDays || 365.25) * 86400000
+  return YEAR_MS.sidereal
+}
+
+function jdToMs(jd) {
+  return (jd - 2440587.5) * 86400000
+}
+
 // Standard Vimshottari durations keyed by planet name
 export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
 
@@ -30,15 +49,16 @@ const NAKSHATRA_DASHA_INDEX = [
  * depth=1 → children only (no recursion deeper)
  * depth=4 → 4 levels below the caller
  */
-function calcSubPeriods(startIdx, startDate, parentYears, depth) {
+function calcSubPeriods(startIdx, startDate, parentYears, depth, parentMs) {
   if (depth <= 0) return []
+  const totalMs = parentMs ?? parentYears * YEAR_MS.julian
   const result = []
   let cur = startDate.getTime()
   for (let i = 0; i < 9; i++) {
     const idx  = (startIdx + i) % 9
     const seq  = DASHA_SEQUENCE[idx]
     const yrs  = parentYears * seq.years / TOTAL_YEARS
-    const ms   = yrs * 365.25 * 86400000
+    const ms   = totalMs * seq.years / TOTAL_YEARS
     const end  = cur + ms
     result.push({
       planet:        seq.name,
@@ -46,27 +66,79 @@ function calcSubPeriods(startIdx, startDate, parentYears, depth) {
       end:           new Date(end),
       seqIndex:      idx,
       durationYears: yrs,
-      children:      calcSubPeriods(idx, new Date(cur), yrs, depth - 1),
+      children:      calcSubPeriods(idx, new Date(cur), yrs, depth - 1, ms),
     })
     cur = end
   }
   return result
 }
 
+async function findSolarReturn(targetLon, seedJd, swe) {
+  const SIDEREAL_SPEED = 65536 | 256  // SEFLG_SIDEREAL | SEFLG_SPEED
+  let jd = seedJd
+  for (let i = 0; i < 6; i++) {
+    const lon = swe.calc_ut(jd, 0, SIDEREAL_SPEED).data[0]
+    let diff = targetLon - lon
+    while (diff > 180)  diff -= 360
+    while (diff < -180) diff += 360
+    jd += diff / 360
+  }
+  return jd
+}
+
+async function calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed) {
+  const SIDEREAL = 65536 | 256
+  const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL).data[0]
+
+  const targetLon = ((sidSunLon + balanceYears * 360) % 360 + 360) % 360
+
+  const elapsedYears = DASHA_SEQUENCE[dashaStartIndex].years * fractionElapsed
+  const cycleStartJd = await findSolarReturn(targetLon, jd - elapsedYears * 365.256363004, swe)
+
+  const tree = []
+  let cumulativeYears = 0
+
+  for (let i = 0; i < 9; i++) {
+    const idx  = (dashaStartIndex + i) % 9
+    const seq  = DASHA_SEQUENCE[idx]
+    const yrs  = i === 0 ? balanceYears : seq.years
+
+    const startJd = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
+    cumulativeYears += yrs
+    const endJd   = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
+
+    const start  = new Date(jdToMs(startJd))
+    const end    = new Date(jdToMs(endJd))
+    const spanMs = jdToMs(endJd) - jdToMs(startJd)
+
+    tree.push({
+      planet:        seq.name,
+      start,
+      end,
+      seqIndex:      idx,
+      durationYears: yrs,
+      children:      calcSubPeriods(idx, start, yrs, 1, spanMs),
+    })
+  }
+
+  return tree
+}
+
 /**
- * Compute Vimshottari dasha tree — MD + AD (2 levels) are built eagerly.
- * Deeper levels (Pratyantara → Sūkṣma → Prāṇa) are populated lazily via
- * `ensureChildren` when the UI expands a node.
- * Each node: { planet, start, end, children[] }
+ * Compute Vimshottari dasha tree — MD + AD (2 levels) built eagerly.
+ * Deeper levels populated lazily via `ensureChildren`.
  *
- * @param {object} moon   - planet object (must have lon, nakshatraIndex)
- * @param {string} dobStr - "YYYY-MM-DD"
- * @returns {DashaNode[]}  Array of 9 Mahādasha nodes
+ * @param {object} moon      - planet object with lon and nakshatraIndex
+ * @param {string} dobStr    - "YYYY-MM-DD"
+ * @param {object} [options] - { settings, swe, jd }
+ * @returns {Promise<DashaNode[]>}
  */
-export function calcDasha(moon, dobStr) {
+export async function calcDasha(moon, dobStr, options = {}) {
   if (!moon || typeof moon.lon !== 'number' || typeof moon.nakshatraIndex !== 'number') {
     throw new Error('calcDasha: valid Moon planet object with lon and nakshatraIndex required')
   }
+
+  const { settings = null, swe = null, jd = null } = options
 
   const dashaStartIndex = NAKSHATRA_DASHA_INDEX[moon.nakshatraIndex]
   const nakshatraSpan   = 360 / 27
@@ -75,6 +147,12 @@ export function calcDasha(moon, dobStr) {
   const balanceYears    = DASHA_SEQUENCE[dashaStartIndex].years * (1 - fractionElapsed)
 
   const birthDate = new Date(dobStr + 'T00:00:00Z')
+
+  if (settings?.yearMethod === 'true-solar' && swe && jd) {
+    return calcDashaSolarReturn(birthDate, jd, swe, dashaStartIndex, balanceYears, fractionElapsed)
+  }
+
+  const msPerYear = yearMs(settings)
   const tree = []
   let cur = birthDate.getTime()
 
@@ -82,7 +160,7 @@ export function calcDasha(moon, dobStr) {
     const idx  = (dashaStartIndex + i) % 9
     const seq  = DASHA_SEQUENCE[idx]
     const yrs  = i === 0 ? balanceYears : seq.years
-    const ms   = yrs * 365.25 * 86400000
+    const ms   = yrs * msPerYear
     const end  = cur + ms
     tree.push({
       planet:        seq.name,
@@ -90,7 +168,7 @@ export function calcDasha(moon, dobStr) {
       end:           new Date(end),
       seqIndex:      idx,
       durationYears: yrs,
-      children:      calcSubPeriods(idx, new Date(cur), yrs, 1),
+      children:      calcSubPeriods(idx, new Date(cur), yrs, 1, ms),
     })
     cur = end
   }

@@ -376,9 +376,11 @@ function getTzOffsetMs() {
   return (m[1] === '+' ? 1 : -1) * mins * 60000
 }
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function fmt(date) {
   const d = new Date(date.getTime() + getTzOffsetMs()).toISOString()
-  return `${d.slice(0, 10)} <span class="dasha-time">${d.slice(11, 16)}</span>`
+  const [y, m, day] = d.slice(0, 10).split('-')
+  return `${y}-${MONTHS[+m - 1]}-${day} <span class="dasha-time">${d.slice(11, 16)}</span>`
 }
 
 function offsetYearsFromDob(dobStr, years) {

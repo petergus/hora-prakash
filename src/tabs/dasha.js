@@ -51,7 +51,7 @@ function renderYearMethodControls() {
       <label style="font-size:0.82rem;color:var(--muted)">Year Method:</label>
       <select id="dasha-year-method" style="font-size:0.82rem">${options}</select>
       ${customInput}
-      <span style="font-size:0.78rem;color:var(--muted);margin-left:0.5rem">· Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal}</span>
+      <span style="font-size:0.78rem;color:var(--muted);margin-left:0.5rem">· Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal} · TZ: ${state.birth?.timezone ?? 'UTC'}</span>
     </div>
   `
 }
@@ -366,8 +366,16 @@ function setArrow(row, open) {
   }
 }
 
+function getTzOffsetMs() {
+  const tz = state.birth?.timezone ?? '+00:00'
+  const m = tz.match(/^([+-])(\d{1,2}):(\d{2})$/)
+  if (!m) return 0
+  const mins = parseInt(m[2]) * 60 + parseInt(m[3])
+  return (m[1] === '+' ? 1 : -1) * mins * 60000
+}
+
 function fmt(date) {
-  const d = date.toISOString()
+  const d = new Date(date.getTime() + getTzOffsetMs()).toISOString()
   return `${d.slice(0, 10)} <span class="dasha-time">${d.slice(11, 16)}</span>`
 }
 

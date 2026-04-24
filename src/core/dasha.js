@@ -101,23 +101,22 @@ async function calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, frac
   for (let i = 0; i < 9; i++) {
     const idx  = (dashaStartIndex + i) % 9
     const seq  = DASHA_SEQUENCE[idx]
-    const yrs  = i === 0 ? balanceYears : seq.years
-
     const startJd = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
-    cumulativeYears += yrs
+    cumulativeYears += seq.years  // always full dasha years for seeding next boundary
     const endJd   = await findSolarReturn(targetLon, cycleStartJd + cumulativeYears * 365.256363004, swe)
 
-    const start  = new Date(jdToMs(startJd))
-    const end    = new Date(jdToMs(endJd))
-    const spanMs = jdToMs(endJd) - jdToMs(startJd)
+    const start       = new Date(jdToMs(startJd))
+    const end         = new Date(jdToMs(endJd))
+    const spanMs      = jdToMs(endJd) - jdToMs(startJd)
+    const displayYrs  = i === 0 ? balanceYears : seq.years
 
     tree.push({
       planet:        seq.name,
       start,
       end,
       seqIndex:      idx,
-      durationYears: yrs,
-      children:      calcSubPeriods(idx, start, yrs, 1, spanMs),
+      durationYears: displayYrs,
+      children:      calcSubPeriods(idx, start, displayYrs, 1, spanMs),
     })
   }
 

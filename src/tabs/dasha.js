@@ -7,6 +7,8 @@ import { getSettings, saveSettings, YEAR_METHOD_OPTIONS } from '../core/settings
 
 const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }
 
+let _customDaysTimer = null
+
 // Returns the UI state object for the active session's dasha tab.
 // All reads and writes go through this reference — no module-level vars.
 function d() {
@@ -92,11 +94,10 @@ export function renderDasha() {
     } else if (e.target.id === 'dasha-year-method') {
       const yearMethod = e.target.value
       saveSettings({ yearMethod })
-      import('../tabs/input.js').then(m => m.recalcAll())
+      import('../tabs/input.js').then(m => m.recalcAll()).catch(err => console.error('recalcAll failed:', err))
     }
   }
 
-  let _customDaysTimer = null
   panel.oninput = e => {
     if (e.target.id !== 'dasha-custom-days') return
     clearTimeout(_customDaysTimer)
@@ -104,7 +105,7 @@ export function renderDasha() {
       const days = parseFloat(e.target.value)
       if (isNaN(days) || days < 300 || days > 400) return
       saveSettings({ customYearDays: days })
-      import('../tabs/input.js').then(m => m.recalcAll())
+      import('../tabs/input.js').then(m => m.recalcAll()).catch(err => console.error('recalcAll failed:', err))
     }, 500)
   }
 

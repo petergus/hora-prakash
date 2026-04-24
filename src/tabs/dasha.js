@@ -74,6 +74,14 @@ export async function renderDasha() {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
+  // Auto-expand active MD in focused mode on first render
+  if (ui.focusedMode ?? true) {
+    const activeMaha = dasha.find(m => isCurrentPeriod(m.start, m.end))
+    if (activeMaha && !ui.expandedMahas.has(activeMaha.planet)) {
+      ui.expandedMahas.add(activeMaha.planet)
+    }
+  }
+
   const rows = await buildDashaRows(dasha, ui)
 
   const progressionHtml = renderProgression(birth.dob, dasha)
@@ -86,12 +94,17 @@ export async function renderDasha() {
         <div class="prog-card-header">
           <div class="prog-card-title">
             <span class="drag-handle" title="Drag to reorder">⠿</span>
+            <div class="focus-toggle" id="dasha-focus-toggle">
+              <span class="${(ui.focusedMode ?? true) ? 'focus-on' : ''}" data-mode="focused">Focused</span>
+              <span class="${!(ui.focusedMode ?? true) ? 'focus-on' : ''}" data-mode="full">Full</span>
+            </div>
             <button id="dasha-toggle-btn" class="toggle-btn">${ui.dashaCollapsed ? '▶' : '▼'}</button>
             <h3>Vimshottari Dasha — ${birth.name}</h3>
           </div>
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
           ${renderYearMethodControls()}
+          <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) ? renderBreadcrumb(dasha) : ''}</div>
           <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
@@ -134,7 +147,20 @@ export async function renderDasha() {
 
   panel.onclick = e => {
     const ui = d()
-    if (e.target.id === 'dasha-toggle-btn') {
+    if (e.target.closest('#dasha-focus-toggle')) {
+      const span = e.target.closest('span[data-mode]')
+      if (!span) return
+      ui.focusedMode = span.dataset.mode === 'focused'
+      document.querySelectorAll('#dasha-focus-toggle span').forEach(s => {
+        s.classList.toggle('focus-on', s.dataset.mode === (ui.focusedMode ? 'focused' : 'full'))
+      })
+      buildDashaRows(dasha, ui).then(rows => {
+        document.querySelector('.dasha-table tbody').innerHTML = rows
+        document.getElementById('dasha-breadcrumb-wrap').innerHTML =
+          ui.focusedMode ? renderBreadcrumb(dasha) : ''
+      })
+      return
+    } else if (e.target.id === 'dasha-toggle-btn') {
       ui.dashaCollapsed = !ui.dashaCollapsed
       document.getElementById('dasha-body').style.display = ui.dashaCollapsed ? 'none' : ''
       e.target.textContent = ui.dashaCollapsed ? '▶' : '▼'
@@ -241,12 +267,20 @@ const LEVEL_LABELS = ['MD','AD','PD','SD','PrD','DeD']
 const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem','7.0rem']
 
 async function buildDashaRows(dasha, ui) {
-  const swe   = getSwe()
-  const flags = buildCalcFlags(getSettings())
-  const rows  = []
+  const swe         = getSwe()
+  const flags       = buildCalcFlags(getSettings())
+  const rows        = []
+  const focusedMode = ui.focusedMode ?? true
+
+  const activeMaha        = dasha.find(m => isCurrentPeriod(m.start, m.end))
+  const activeMahaExpanded = activeMaha && ui.expandedMahas.has(activeMaha.planet)
 
   for (const maha of dasha) {
-    const isCur0    = isCurrentPeriod(maha.start, maha.end)
+    const isCur0 = isCurrentPeriod(maha.start, maha.end)
+
+    // In focused mode with active MD expanded: skip non-active MDs
+    if (focusedMode && activeMahaExpanded && !isCur0) continue
+
     const expanded0 = ui.expandedMahas.has(maha.planet)
     rows.push(makeMdRow(maha, expanded0, isCur0))
 
@@ -256,7 +290,7 @@ async function buildDashaRows(dasha, ui) {
       const path1     = `${maha.planet}/${antar.planet}`
       const isCur1    = isCurrentPeriod(antar.start, antar.end)
       const expanded1 = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
-      rows.push(makeRow(antar, path1, 1, expanded1, isCur1))
+      rows.push(makeRow(antar, path1, 1, expanded1, isCur1, isCur1))
 
       if (!expanded1) continue
       await ensureChildren(antar, swe, flags)
@@ -287,6 +321,7 @@ async function buildDashaRows(dasha, ui) {
             for (const deha of prana.children) {
               const path5  = `${path4}/${deha.planet}`
               const isCur5 = isCurrentPeriod(deha.start, deha.end)
+              const expanded5 = ui.expandedPaths.has(path5)
               rows.push(makeLeafRow(deha, path5, isCur5))
             }
           }

@@ -54,9 +54,10 @@ function calcSubPeriods(startIdx, startDate, parentYears, depth) {
 }
 
 /**
- * Compute 5-level Vimshottari dasha tree.
+ * Compute Vimshottari dasha tree — MD + AD (2 levels) are built eagerly.
+ * Deeper levels (Pratyantara → Sūkṣma → Prāṇa) are populated lazily via
+ * `ensureChildren` when the UI expands a node.
  * Each node: { planet, start, end, children[] }
- * Levels: Mahādasha → Antardasha → Pratyantara → Sūkṣma → Prāṇa
  *
  * @param {object} moon   - planet object (must have lon, nakshatraIndex)
  * @param {string} dobStr - "YYYY-MM-DD"
@@ -88,8 +89,8 @@ export function calcDasha(moon, dobStr) {
       start:         new Date(cur),
       end:           new Date(end),
       seqIndex:      idx,
-      durationYears: i === 0 ? balanceYears : seq.years,
-      children:      calcSubPeriods(idx, new Date(cur), i === 0 ? balanceYears : seq.years, 1),
+      durationYears: yrs,
+      children:      calcSubPeriods(idx, new Date(cur), yrs, 1),
     })
     cur = end
   }
@@ -100,6 +101,10 @@ export function calcDasha(moon, dobStr) {
 /**
  * Lazily compute direct children of a node if not yet computed.
  * Idempotent — safe to call multiple times.
+ *
+ * NOTE: Must NOT be called on depth-4 (Prāṇa/leaf) nodes — those legitimately
+ * have no children and would be re-populated incorrectly. The UI guarantees this
+ * by only expanding nodes at depth 0–3, but there is no runtime enforcement here.
  */
 export function ensureChildren(node) {
   if (node.children.length === 0) {

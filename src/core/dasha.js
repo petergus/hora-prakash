@@ -41,10 +41,12 @@ function calcSubPeriods(startIdx, startDate, parentYears, depth) {
     const ms   = yrs * 365.25 * 86400000
     const end  = cur + ms
     result.push({
-      planet:   seq.name,
-      start:    new Date(cur),
-      end:      new Date(end),
-      children: calcSubPeriods(idx, new Date(cur), yrs, depth - 1),
+      planet:        seq.name,
+      start:         new Date(cur),
+      end:           new Date(end),
+      seqIndex:      idx,
+      durationYears: yrs,
+      children:      calcSubPeriods(idx, new Date(cur), yrs, depth - 1),
     })
     cur = end
   }
@@ -82,15 +84,27 @@ export function calcDasha(moon, dobStr) {
     const ms   = yrs * 365.25 * 86400000
     const end  = cur + ms
     tree.push({
-      planet:   seq.name,
-      start:    new Date(cur),
-      end:      new Date(end),
-      children: calcSubPeriods(idx, new Date(cur), yrs, 4), // 4 levels below maha = AD+PD+SD+Prana
+      planet:        seq.name,
+      start:         new Date(cur),
+      end:           new Date(end),
+      seqIndex:      idx,
+      durationYears: i === 0 ? balanceYears : seq.years,
+      children:      calcSubPeriods(idx, new Date(cur), i === 0 ? balanceYears : seq.years, 1),
     })
     cur = end
   }
 
   return tree
+}
+
+/**
+ * Lazily compute direct children of a node if not yet computed.
+ * Idempotent — safe to call multiple times.
+ */
+export function ensureChildren(node) {
+  if (node.children.length === 0) {
+    node.children = calcSubPeriods(node.seqIndex, node.start, node.durationYears, 1)
+  }
 }
 
 export function isCurrentPeriod(start, end) {

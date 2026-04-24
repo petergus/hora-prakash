@@ -2,11 +2,9 @@
 import { state } from '../state.js'
 import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES, ensureChildren } from '../core/dasha.js'
 import { getSwe } from '../core/swisseph.js'
-import { buildCalcFlags, getSettings } from '../core/settings.js'
+import { getSettings, saveSettings, buildCalcFlags, YEAR_METHOD_OPTIONS, AYANAMSA_OPTIONS } from '../core/settings.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
-import { getSettings, saveSettings, YEAR_METHOD_OPTIONS, AYANAMSA_OPTIONS } from '../core/settings.js'
-import { getSwe } from '../core/swisseph.js'
 import { toJulianDay } from '../utils/time.js'
 
 const PLANET_ABBR = { Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma', Rahu:'Ra', Jupiter:'Ju', Saturn:'Sa', Mercury:'Me' }

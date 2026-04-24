@@ -1,4 +1,5 @@
 // src/core/dasha.js
+import { buildCalcFlags } from './settings.js'
 
 const DASHA_SEQUENCE = [
   { name: 'Ketu',    years: 7  },
@@ -86,6 +87,7 @@ async function findSolarReturn(targetLon, seedJd, swe, flags) {
     while (diff < -180) diff += 360
     if (Math.abs(diff) < 1e-9) break
     jd += diff  // Sun ~1°/day, so degree diff ≈ day correction
+    if (i === 9) console.warn('findSolarReturn: did not converge to 1e-9 at', targetLon, 'residual:', diff)
   }
   return jd
 }
@@ -195,7 +197,6 @@ export async function calcDasha(moon, dobStr, options = {}) {
 
   if (settings?.yearMethod === 'true-solar') {
     if (swe && jd) {
-      const { buildCalcFlags } = await import('./settings.js')
       const flags = buildCalcFlags(settings)
       return calcDashaSolarReturn(jd, swe, flags, dashaStartIndex, balanceYears, fractionElapsed)
     }

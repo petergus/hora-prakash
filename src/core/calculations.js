@@ -51,7 +51,7 @@ export function calcBirthChart(jd, lat, lon, settings) {
   const flags = buildCalcFlags(settings)
 
   if (settings?.observerType === 'topocentric') {
-    swe.set_topo(lon, lat, 0)
+    swe.set_topo(lon, lat, 0)  // SwissEph: set_topo(geolon, geolat, altitude_m)
   }
 
   // Use houses_ex with SEFLG_SIDEREAL (65536) to get sidereal ascendant

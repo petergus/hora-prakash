@@ -9,6 +9,7 @@ import { getSwe } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
+import { parseJhdFile } from '../utils/jhd.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
 const STORAGE_KEY = 'hora-prakash-profiles'
@@ -80,6 +81,48 @@ function importProfiles(file) {
     }
   }
   reader.readAsText(file)
+}
+
+async function importJhdFiles(files) {
+  const existing    = loadProfiles()
+  const existingKeys = new Set(
+    existing.map(p => `${p.name.toLowerCase()}|${p.dob}|${p.tob}|${(p.location||'').toLowerCase()}`)
+  )
+  const successes = []
+  let failCount   = 0
+  let dupCount    = 0
+
+  for (const file of files) {
+    try {
+      const text    = await file.text()
+      const profile = parseJhdFile(text, file.name)
+      const key     = `${profile.name.toLowerCase()}|${profile.dob}|${profile.tob}|${(profile.location||'').toLowerCase()}`
+      if (existingKeys.has(key)) { dupCount++; continue }
+      existingKeys.add(key)
+      successes.push(profile)
+    } catch {
+      failCount++
+    }
+  }
+
+  if (successes.length > 0) {
+    saveProfiles([...successes, ...existing])
+    renderSavedProfiles()
+  }
+
+  const n = successes.length
+  const m = failCount
+  if (n > 0 && m === 0 && dupCount === 0) {
+    alert(`Imported ${n} profile${n > 1 ? 's' : ''}.`)
+  } else if (n > 0 && m > 0) {
+    alert(`Imported ${n} profile${n > 1 ? 's' : ''}. ${m} file${m > 1 ? 's' : ''} were invalid and skipped.`)
+  } else if (n > 0 && dupCount > 0 && m === 0) {
+    alert(`Imported ${n} profile${n > 1 ? 's' : ''}. ${dupCount} already existed.`)
+  } else if (n === 0 && dupCount > 0 && m === 0) {
+    alert('All profiles already exist.')
+  } else {
+    alert('No valid JHD files found.')
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

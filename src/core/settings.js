@@ -4,9 +4,11 @@ import { getSwe } from './swisseph.js'
 const STORAGE_KEY = 'hora-prakash-settings'
 
 const DEFAULTS = {
-  ayanamsa: 1,
-  yearMethod: 'sidereal',
-  customYearDays: 365.25,
+  ayanamsa:        1,
+  yearMethod:      'sidereal',
+  customYearDays:  365.25,
+  planetPositions: 'apparent',   // 'apparent' | 'true'
+  observerType:    'geocentric', // 'geocentric' | 'topocentric'
 }
 
 let _settings = { ...DEFAULTS }
@@ -34,6 +36,17 @@ export function applyAyanamsa() {
   getSwe().set_sid_mode(_settings.ayanamsa, 0, 0)
 }
 
+/**
+ * Build SwissEph calculation flags from settings.
+ * SEFLG_SIDEREAL=65536, SEFLG_SPEED=256, SEFLG_TRUEPOS=512, SEFLG_TOPOCTR=32768
+ */
+export function buildCalcFlags(settings) {
+  let flags = 65536 | 256  // SEFLG_SIDEREAL | SEFLG_SPEED
+  if (settings?.planetPositions === 'true')        flags |= 512    // SEFLG_TRUEPOS
+  if (settings?.observerType    === 'topocentric') flags |= 32768  // SEFLG_TOPOCTR
+  return flags
+}
+
 export const AYANAMSA_OPTIONS = [
   { label: 'Lahiri',                  value: 1  },
   { label: 'Raman',                   value: 3  },
@@ -42,7 +55,7 @@ export const AYANAMSA_OPTIONS = [
   { label: 'Fagan-Bradley',           value: 0  },
   { label: 'Djwhal Khul',             value: 6  },
   { label: 'De Luce',                 value: 2  },
-  { label: 'JN Bhasin',               value: 8  },
+  { label: 'JN Bhasin',              value: 8  },
   { label: 'True Citra',              value: 27 },
   { label: 'Babylonian (Kugler 1)',   value: 9  },
   { label: 'Suryasiddhanta',          value: 21 },
@@ -55,4 +68,14 @@ export const YEAR_METHOD_OPTIONS = [
   { label: 'Savana (360)',             value: 'savana'     },
   { label: 'True Solar Return',        value: 'true-solar' },
   { label: 'Custom',                   value: 'custom'     },
+]
+
+export const PLANET_POSITION_OPTIONS = [
+  { label: 'Apparent',         value: 'apparent' },
+  { label: 'True (Geometric)', value: 'true'     },
+]
+
+export const OBSERVER_TYPE_OPTIONS = [
+  { label: 'Geocentric (default)', value: 'geocentric'  },
+  { label: 'Topocentric',          value: 'topocentric' },
 ]

@@ -54,7 +54,7 @@ export function parseJhdFile(text, filename)
 
 - **name**: filename without `.jhd` extension; underscores and hyphens replaced with spaces; trimmed.
 - **dob**: `YYYY-MM-DD` from lines 2, 0, 1.
-- **tob**: `HH:MM` from line 3. `h = Math.floor(decHours)`, `m = Math.round((decHours - h) * 60)`, both zero-padded.
+- **tob**: `HH:MM` from line 3. JHora stores time as `H.MM` (not decimal fractional hours), so `h = Math.floor(decHours)`, `m = Math.round((decHours - h) * 100)`, both zero-padded. e.g. `8.30` → `08:30`, `9.34` → `09:34`.
 - **lat**: `parseFloat(line[6])` — positive = North, standard convention.
 - **lon**: `-parseFloat(line[5])` — negate JHora's East-negative convention to standard East-positive.
 - **timezone**: from line 8. `utcHours = -parseFloat(line[8])` (negate JHora sign). `sign = utcHours >= 0 ? '+' : '-'`. `h = Math.floor(Math.abs(utcHours))`, `m = Math.round((Math.abs(utcHours) - h) * 60)`. Format: `±HH:MM`.
@@ -70,7 +70,7 @@ New function `importJhdFiles(files)`:
 1. For each file in the `FileList`, read text via `file.text()` (returns Promise).
 2. Call `parseJhdFile(text, file.name)`.
 3. Collect successes and failures.
-4. Deduplicate against existing profiles by `name + dob` slug — skip if a profile with the same name+dob already exists (case-insensitive name match).
+4. Deduplicate against existing profiles by `name + dob + tob + location` — skip if a profile with the same combination already exists (case-insensitive name match).
 5. Prepend new profiles to the existing list via `saveProfiles`.
 6. Call `renderSavedProfiles()`.
 7. Show alert:
@@ -108,7 +108,7 @@ The `change` event on `#inp-import-jhd` calls `importJhdFiles(e.target.files)` t
 ## Validation
 
 Test with sample files from `/Users/priyankgahtori/Astrology/charts/`:
-- `Chart A_Gahtori.jhd` → name "Chart A", DOB 1990-07-26, TOB 08:18, lat 29.25, lon 80.06, tz +05:30, location "Location A, India"
-- `Narendra_Modi.jhd` → name "Narendra Modi", DOB 1950-09-17, TOB 09:20, lat 23.47, lon 72.38, tz +05:30, location "Vadnagar, India"
+- `Chart A_Gahtori.jhd` → name "Chart A", DOB 1990-07-26, TOB 08:30, lat 29.25, lon 80.06, tz +05:30, location "Location A, India"
+- `Narendra_Modi.jhd` → name "Narendra Modi", DOB 1950-09-17, TOB 09:34, lat 23.47, lon 72.38, tz +05:30, location "Vadnagar, India"
 - Re-importing same files → "All profiles already exist."
 - Selecting a `.txt` file renamed to `.jhd` with wrong format → skipped with error count

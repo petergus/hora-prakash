@@ -169,32 +169,32 @@ function buildDashaRows(dasha, ui) {
     const expanded0 = ui.expandedMahas.has(maha.planet)
     rows.push(makeMdRow(maha, expanded0, isCur0))
 
-    if (!expanded0 || maha.children.length === 0) continue
-
+    if (!expanded0) continue
+    ensureChildren(maha)
     for (const antar of maha.children) {
       const path1     = `${maha.planet}/${antar.planet}`
       const isCur1    = isCurrentPeriod(antar.start, antar.end)
       const expanded1 = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
       rows.push(makeRow(antar, path1, 1, expanded1, isCur1))
 
-      if (!expanded1 || antar.children.length === 0) continue
-
+      if (!expanded1) continue
+      ensureChildren(antar)
       for (const prat of antar.children) {
         const path2     = `${path1}/${prat.planet}`
         const isCur2    = isCurrentPeriod(prat.start, prat.end)
         const expanded2 = ui.expandedPaths.has(path2)
         rows.push(makeRow(prat, path2, 2, expanded2, isCur2))
 
-        if (!expanded2 || prat.children.length === 0) continue
-
+        if (!expanded2) continue
+        ensureChildren(prat)
         for (const sook of prat.children) {
           const path3     = `${path2}/${sook.planet}`
           const isCur3    = isCurrentPeriod(sook.start, sook.end)
           const expanded3 = ui.expandedPaths.has(path3)
           rows.push(makeRow(sook, path3, 3, expanded3, isCur3))
 
-          if (!expanded3 || sook.children.length === 0) continue
-
+          if (!expanded3) continue
+          ensureChildren(sook)
           for (const prana of sook.children) {
             const path4  = `${path3}/${prana.planet}`
             const isCur4 = isCurrentPeriod(prana.start, prana.end)

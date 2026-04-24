@@ -35,7 +35,7 @@ function jdToMs(jd) {
 // Standard Vimshottari durations keyed by planet name
 export const DASHA_YEARS = Object.fromEntries(DASHA_SEQUENCE.map(d => [d.name, d.years]))
 
-export const LEVEL_NAMES = ['Mahādasha', 'Antardasha', 'Pratyantara', 'Sūkṣma', 'Prāṇa']
+export const LEVEL_NAMES = ['Mahādasha', 'Antardasha', 'Pratyantara', 'Sūkṣma', 'Prāṇa', 'Deha']
 
 // Index in DASHA_SEQUENCE for each nakshatra (0-26)
 const NAKSHATRA_DASHA_INDEX = [
@@ -81,7 +81,6 @@ async function findSolarReturn(targetLon, seedJd, swe) {
     let diff = targetLon - lon
     while (diff > 180)  diff -= 360
     while (diff < -180) diff += 360
-    if (Math.abs(diff) > 350) break
     jd += diff  // Sun ~1°/day, so degree diff ≈ day correction
   }
   return jd
@@ -184,9 +183,9 @@ export async function calcDasha(moon, dobStr, options = {}) {
  * Lazily compute direct children of a node if not yet computed.
  * Idempotent — safe to call multiple times.
  *
- * NOTE: Must NOT be called on depth-4 (Prāṇa/leaf) nodes — those legitimately
+ * NOTE: Must NOT be called on depth-5 (Deha/leaf) nodes — those legitimately
  * have no children and would be re-populated incorrectly. The UI guarantees this
- * by only expanding nodes at depth 0–3, but there is no runtime enforcement here.
+ * by only expanding nodes at depth 0–4, but there is no runtime enforcement here.
  */
 export function ensureChildren(node) {
   if (node.children.length === 0) {

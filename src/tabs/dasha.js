@@ -214,8 +214,8 @@ export function renderDasha() {
   })
 }
 
-const LEVEL_LABELS = ['MD','AD','PD','SD','PrD']
-const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem']
+const LEVEL_LABELS = ['MD','AD','PD','SD','PrD','DeD']
+const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem','7.0rem']
 
 function buildDashaRows(dasha, ui) {
   const rows = []
@@ -252,9 +252,18 @@ function buildDashaRows(dasha, ui) {
           if (!expanded3) continue
           ensureChildren(sook)
           for (const prana of sook.children) {
-            const path4  = `${path3}/${prana.planet}`
-            const isCur4 = isCurrentPeriod(prana.start, prana.end)
-            rows.push(makeLeafRow(prana, path4, isCur4))
+            const path4     = `${path3}/${prana.planet}`
+            const isCur4    = isCurrentPeriod(prana.start, prana.end)
+            const expanded4 = ui.expandedPaths.has(path4)
+            rows.push(makeRow(prana, path4, 4, expanded4, isCur4))
+
+            if (!expanded4) continue
+            ensureChildren(prana)
+            for (const deha of prana.children) {
+              const path5  = `${path4}/${deha.planet}`
+              const isCur5 = isCurrentPeriod(deha.start, deha.end)
+              rows.push(makeLeafRow(deha, path5, isCur5))
+            }
           }
         }
       }
@@ -281,8 +290,8 @@ function makeRow(node, path, depth, expanded, isCurrent) {
 }
 
 function makeLeafRow(node, path, isCurrent) {
-  return `<tr data-depth="4" data-path="${path}" class="dasha-d4${isCurrent ? ' current-period' : ''}">
-    <td style="padding-left:${INDENT[4]}">${node.planet} <span class="dasha-level-label">PrD</span></td>
+  return `<tr data-depth="5" data-path="${path}" class="dasha-d5${isCurrent ? ' current-period' : ''}">
+    <td style="padding-left:${INDENT[5]}">${node.planet} <span class="dasha-level-label">DeD</span></td>
     <td>${fmt(node.start)}</td><td>${fmt(node.end)}</td></tr>`
 }
 
@@ -291,7 +300,7 @@ function insertChildRows(parentRow, node, depth) {
   ensureChildren(node)
 
   const childDepth = depth + 1
-  const isLeaf     = childDepth === 4
+  const isLeaf     = childDepth === 5
   const path       = parentRow.dataset.path
 
   const fragment = document.createDocumentFragment()

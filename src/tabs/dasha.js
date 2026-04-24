@@ -116,12 +116,31 @@ export function renderDasha() {
   panel.querySelector('.dasha-table tbody').addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-toggle]')
     if (!row) return
-    const ui   = d()
-    const path = row.dataset.path    // e.g. "Jupiter" or "Jupiter/Saturn"
-    const depth = parseInt(row.dataset.depth)  // 0=maha, 1=antar, 2=prat, 3=sookshma
+    const ui    = d()
+    const path  = row.dataset.path
+    const depth = parseInt(row.dataset.depth)
 
-    const childAttr = `data-depth="${depth + 1}"`
-    const opening   = toggleChildRows(row, depth + 1)
+    // Find the node in state.dasha by path
+    const parts = path.split('/')
+    let node = state.dasha.find(m => m.planet === parts[0])
+    for (let i = 1; i < parts.length; i++) {
+      node = node?.children.find(c => c.planet === parts[i])
+    }
+    if (!node) return
+
+    // Determine if we're opening or closing by checking for existing child rows
+    const tbody    = row.closest('tbody')
+    const allRows  = Array.from(tbody.querySelectorAll('tr'))
+    const nextIdx  = allRows.indexOf(row) + 1
+    const hasChild = nextIdx < allRows.length && parseInt(allRows[nextIdx].dataset.depth ?? '-1') === depth + 1
+
+    const opening = !hasChild
+
+    if (opening) {
+      insertChildRows(row, node, depth)
+    } else {
+      removeChildRows(row)
+    }
     setArrow(row, opening)
 
     // Update session state
@@ -131,17 +150,16 @@ export function renderDasha() {
       else {
         ui.expandedMahas.delete(mahaName)
         ui.expandedAntars.delete(mahaName)
-        // Clear deeper paths under this maha
         for (const p of ui.expandedPaths) {
           if (p.startsWith(mahaName + '/')) ui.expandedPaths.delete(p)
         }
       }
     } else if (depth === 1) {
-      const mahaName  = path.split('/')[0]
+      const mahaName = parts[0]
       if (!ui.expandedAntars.has(mahaName)) ui.expandedAntars.set(mahaName, new Set())
-      if (opening) ui.expandedAntars.get(mahaName).add(path.split('/')[1])
+      if (opening) ui.expandedAntars.get(mahaName).add(parts[1])
       else {
-        ui.expandedAntars.get(mahaName).delete(path.split('/')[1])
+        ui.expandedAntars.get(mahaName).delete(parts[1])
         for (const p of ui.expandedPaths) {
           if (p.startsWith(path + '/')) ui.expandedPaths.delete(p)
         }
@@ -231,62 +249,59 @@ function makeLeafRow(node, path, isCurrent) {
     <td>${fmtDeep(node.start)}</td><td>${fmtDeep(node.end)}</td></tr>`
 }
 
-// Toggles direct children at childDepth and hides all deeper descendants when closing.
-// Returns true if rows were shown, false if hidden.
-function toggleChildRows(row, childDepth) {
-  const parentDepth = parseInt(row.dataset.depth)
-  const tbody       = row.closest('tbody')
-  const allRows     = Array.from(tbody.querySelectorAll('tr'))
-  const parentIdx   = allRows.indexOf(row)
+// Lazily compute children of node and insert their <tr> elements after parentRow.
+function insertChildRows(parentRow, node, depth) {
+  ensureChildren(node)
+  const tbody   = parentRow.closest('tbody')
+  const allRows = Array.from(tbody.querySelectorAll('tr'))
+  let insertAfter = parentRow
 
-  let firstChild = null
-  for (let i = parentIdx + 1; i < allRows.length; i++) {
-    const r = allRows[i]
-    const d = parseInt(r.dataset.depth ?? '-1')
-    if (d <= parentDepth) break
-    if (d === childDepth) { firstChild = r; break }
-  }
-  if (!firstChild) return false
-
-  const willShow = firstChild.style.display === 'none'
-
-  for (let i = parentIdx + 1; i < allRows.length; i++) {
-    const r = allRows[i]
-    const d = parseInt(r.dataset.depth ?? '-1')
-    if (d <= parentDepth) break
-    if (d === childDepth) {
-      r.style.display = willShow ? '' : 'none'
-    } else if (!willShow) {
-      r.style.display = 'none'  // collapse all descendants when closing
-    }
+  // Find last existing descendant so we insert after it (handles re-expand)
+  for (let i = allRows.indexOf(parentRow) + 1; i < allRows.length; i++) {
+    const d = parseInt(allRows[i].dataset.depth ?? '-1')
+    if (d <= parseInt(parentRow.dataset.depth)) break
+    insertAfter = allRows[i]
   }
 
-  return willShow
+  const childDepth = depth + 1
+  const useFmtDeep = childDepth >= 2
+  const isLeaf     = childDepth === 4
+  const path       = parentRow.dataset.path
+
+  const fragment = document.createDocumentFragment()
+  for (const child of node.children) {
+    const childPath = `${path}/${child.planet}`
+    const isCur     = isCurrentPeriod(child.start, child.end)
+    const tr        = document.createElement('tr')
+    tr.dataset.depth = String(childDepth)
+    tr.dataset.path  = childPath
+    if (!isLeaf) tr.dataset.toggle = ''
+    tr.className = `dasha-d${childDepth}${isCur ? ' current-period' : ''}`
+    const startCell = useFmtDeep ? fmtDeep(child.start) : fmt(child.start)
+    const endCell   = useFmtDeep ? fmtDeep(child.end)   : fmt(child.end)
+    const label     = LEVEL_LABELS[childDepth]
+    const indent    = INDENT[childDepth]
+    const arrow     = isLeaf ? '' : '▶ '
+    tr.innerHTML = `<td style="padding-left:${indent}">${arrow}${child.planet} <span class="dasha-level-label">${label}</span></td><td>${startCell}</td><td>${endCell}</td>`
+    fragment.appendChild(tr)
+  }
+
+  insertAfter.after(fragment)
 }
 
-function toggleSiblings(row, attr) {
-  const isPrat = attr === 'data-prat'
-  let probe = row.nextElementSibling
-  while (probe && !probe.hasAttribute(attr)) {
-    if (isPrat && probe.hasAttribute('data-antar')) return false
-    probe = probe.nextElementSibling
+// Remove all descendant rows of parentRow from the DOM.
+function removeChildRows(parentRow) {
+  const parentDepth = parseInt(parentRow.dataset.depth)
+  const tbody       = parentRow.closest('tbody')
+  const allRows     = Array.from(tbody.querySelectorAll('tr'))
+  const parentIdx   = allRows.indexOf(parentRow)
+  const toRemove    = []
+  for (let i = parentIdx + 1; i < allRows.length; i++) {
+    const d = parseInt(allRows[i].dataset.depth ?? '-1')
+    if (d <= parentDepth) break
+    toRemove.push(allRows[i])
   }
-  if (!probe) return false
-
-  const willShow = probe.style.display === 'none'
-  let cur = row.nextElementSibling
-  while (cur) {
-    if (isPrat && cur.hasAttribute('data-antar')) break
-    if (cur.hasAttribute(attr)) {
-      cur.style.display = willShow ? '' : 'none'
-    } else if (cur.hasAttribute('data-prat') || cur.hasAttribute('data-antar')) {
-      if (!willShow) cur.style.display = 'none'
-    } else {
-      break
-    }
-    cur = cur.nextElementSibling
-  }
-  return willShow
+  toRemove.forEach(r => r.remove())
 }
 
 function setArrow(row, open) {

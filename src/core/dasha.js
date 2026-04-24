@@ -77,19 +77,19 @@ async function findSolarReturn(targetLon, seedJd, swe) {
   const SIDEREAL_SPEED = 65536 | 256  // SEFLG_SIDEREAL | SEFLG_SPEED
   let jd = seedJd
   for (let i = 0; i < 6; i++) {
-    const lon = swe.calc_ut(jd, 0, SIDEREAL_SPEED).data[0]
+    const lon = swe.calc_ut(jd, 0, SIDEREAL_SPEED)[0]
     let diff = targetLon - lon
     while (diff > 180)  diff -= 360
     while (diff < -180) diff += 360
     if (Math.abs(diff) > 350) break
-    jd += diff / 360
+    jd += diff  // Sun ~1°/day, so degree diff ≈ day correction
   }
   return jd
 }
 
 async function calcDashaSolarReturn(jd, swe, dashaStartIndex, balanceYears, fractionElapsed) {
   const SIDEREAL = 65536 | 256
-  const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL).data[0]
+  const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL)[0]
 
   const targetLon = ((sidSunLon + balanceYears * 360) % 360 + 360) % 360
 

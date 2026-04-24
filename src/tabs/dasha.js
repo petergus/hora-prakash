@@ -1,6 +1,8 @@
 // src/tabs/dasha.js
 import { state } from '../state.js'
 import { isCurrentPeriod, calcDashaProgression, calcHouseActiveFromAge, calcAgeComponents, DASHA_YEARS, LEVEL_NAMES, ensureChildren } from '../core/dasha.js'
+import { getSwe } from '../core/swisseph.js'
+import { buildCalcFlags, getSettings } from '../core/settings.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { getActiveSession, defaultDashaUI } from '../sessions.js'
 import { getSettings, saveSettings, YEAR_METHOD_OPTIONS, AYANAMSA_OPTIONS } from '../core/settings.js'
@@ -193,7 +195,7 @@ export function renderDasha() {
     const opening = !hasChild
 
     if (opening) {
-      insertChildRows(row, node, depth)
+      insertChildRows(row, node, depth).catch(console.error)
     } else {
       removeChildRows(row)
     }
@@ -314,8 +316,8 @@ function makeLeafRow(node, path, isCurrent) {
 }
 
 // Lazily compute children of node and insert their <tr> elements after parentRow.
-function insertChildRows(parentRow, node, depth) {
-  ensureChildren(node)
+async function insertChildRows(parentRow, node, depth) {
+  await ensureChildren(node, getSwe(), buildCalcFlags(getSettings()))
 
   const childDepth = depth + 1
   const isLeaf     = childDepth === 5

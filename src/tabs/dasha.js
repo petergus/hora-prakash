@@ -252,16 +252,6 @@ function makeLeafRow(node, path, isCurrent) {
 // Lazily compute children of node and insert their <tr> elements after parentRow.
 function insertChildRows(parentRow, node, depth) {
   ensureChildren(node)
-  const tbody   = parentRow.closest('tbody')
-  const allRows = Array.from(tbody.querySelectorAll('tr'))
-  let insertAfter = parentRow
-
-  // Find last existing descendant so we insert after it (handles re-expand)
-  for (let i = allRows.indexOf(parentRow) + 1; i < allRows.length; i++) {
-    const d = parseInt(allRows[i].dataset.depth ?? '-1')
-    if (d <= parseInt(parentRow.dataset.depth)) break
-    insertAfter = allRows[i]
-  }
 
   const childDepth = depth + 1
   const useFmtDeep = childDepth >= 2
@@ -286,7 +276,7 @@ function insertChildRows(parentRow, node, depth) {
     fragment.appendChild(tr)
   }
 
-  insertAfter.after(fragment)
+  parentRow.after(fragment)
 }
 
 // Remove all descendant rows of parentRow from the DOM.
@@ -307,7 +297,10 @@ function removeChildRows(parentRow) {
 function setArrow(row, open) {
   const td = row.querySelector('td')
   if (!td) return
-  td.textContent = td.textContent.replace(/^[▶▼] /, open ? '▼ ' : '▶ ')
+  const textNode = td.firstChild
+  if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+    textNode.textContent = textNode.textContent.replace(/^[▶▼] /, open ? '▼ ' : '▶ ')
+  }
 }
 
 function fmt(date) {

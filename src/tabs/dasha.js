@@ -273,9 +273,8 @@ function makeMdRow(node, expanded, isCurrent) {
 function makeRow(node, path, depth, expanded, isCurrent) {
   const label = LEVEL_LABELS[depth]
   const indent = INDENT[depth]
-  const useFmtDeep = depth >= 2
-  const startCell = useFmtDeep ? fmtDeep(node.start) : fmt(node.start)
-  const endCell   = useFmtDeep ? fmtDeep(node.end)   : fmt(node.end)
+  const startCell = fmt(node.start)
+  const endCell   = fmt(node.end)
   return `<tr data-toggle data-depth="${depth}" data-path="${path}" class="dasha-d${depth}${isCurrent ? ' current-period' : ''}">
     <td style="padding-left:${indent}">${expanded ? '▼' : '▶'} ${node.planet} <span class="dasha-level-label">${label}</span></td>
     <td>${startCell}</td><td>${endCell}</td></tr>`
@@ -284,7 +283,7 @@ function makeRow(node, path, depth, expanded, isCurrent) {
 function makeLeafRow(node, path, isCurrent) {
   return `<tr data-depth="4" data-path="${path}" class="dasha-d4${isCurrent ? ' current-period' : ''}">
     <td style="padding-left:${INDENT[4]}">${node.planet} <span class="dasha-level-label">PrD</span></td>
-    <td>${fmtDeep(node.start)}</td><td>${fmtDeep(node.end)}</td></tr>`
+    <td>${fmt(node.start)}</td><td>${fmt(node.end)}</td></tr>`
 }
 
 // Lazily compute children of node and insert their <tr> elements after parentRow.
@@ -292,7 +291,6 @@ function insertChildRows(parentRow, node, depth) {
   ensureChildren(node)
 
   const childDepth = depth + 1
-  const useFmtDeep = childDepth >= 2
   const isLeaf     = childDepth === 4
   const path       = parentRow.dataset.path
 
@@ -305,8 +303,8 @@ function insertChildRows(parentRow, node, depth) {
     tr.dataset.path  = childPath
     if (!isLeaf) tr.dataset.toggle = ''
     tr.className = `dasha-d${childDepth}${isCur ? ' current-period' : ''}`
-    const startCell = useFmtDeep ? fmtDeep(child.start) : fmt(child.start)
-    const endCell   = useFmtDeep ? fmtDeep(child.end)   : fmt(child.end)
+    const startCell = fmt(child.start)
+    const endCell   = fmt(child.end)
     const label     = LEVEL_LABELS[childDepth]
     const indent    = INDENT[childDepth]
     const arrow     = isLeaf ? '' : '▶ '
@@ -342,10 +340,6 @@ function setArrow(row, open) {
 }
 
 function fmt(date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function fmtDeep(date) {
   const d = date.toISOString()
   return `${d.slice(0, 10)} <span class="dasha-time">${d.slice(11, 16)}</span>`
 }

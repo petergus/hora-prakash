@@ -280,13 +280,21 @@ function renderSavedProfiles() {
     section.innerHTML = `
       <div class="card" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--muted);font-size:0.88rem">No saved profiles</span>
-        <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">
-          ↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" />
-        </label>
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">
+            ↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" />
+          </label>
+          <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">
+            ↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd" multiple style="display:none" />
+          </label>
+        </div>
       </div>`
     section.querySelector('#inp-import-file').addEventListener('change', e => {
       const file = e.target.files[0]
       if (file) { importProfiles(file); e.target.value = '' }
+    })
+    section.querySelector('#inp-import-jhd').addEventListener('change', e => {
+      if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
     })
     return
   }
@@ -298,6 +306,7 @@ function renderSavedProfiles() {
         <div style="display:flex;gap:0.4rem;align-items:center">
           <button type="button" id="btn-export-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem">↓ Export</button>
           <label id="lbl-import-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" /></label>
+          <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd" multiple style="display:none" /></label>
           <button type="button" id="btn-clear-all" class="btn-danger-sm">Clear All</button>
         </div>
       </div>
@@ -338,6 +347,9 @@ function renderSavedProfiles() {
   section.querySelector('#inp-import-file').addEventListener('change', e => {
     const file = e.target.files[0]
     if (file) { importProfiles(file); e.target.value = '' }
+  })
+  section.querySelector('#inp-import-jhd').addEventListener('change', e => {
+    if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
   })
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
     if (confirm('Delete all saved profiles?')) { saveProfiles([]); renderSavedProfiles() }

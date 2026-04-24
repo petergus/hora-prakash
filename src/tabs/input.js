@@ -4,6 +4,8 @@ import { toJulianDay } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
+import { applyAyanamsa, getSettings } from '../core/settings.js'
+import { getSwe } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
@@ -526,6 +528,7 @@ function fillCoords(lat, lon, timezone) {
 /** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */
 export async function recalcAll() {
   if (!state.birth) return
+  applyAyanamsa()
   try {
     const btn = document.getElementById('btn-calculate')
     if (btn) {
@@ -536,7 +539,9 @@ export async function recalcAll() {
     const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
-    const dasha   = calcDasha(moon, state.birth.dob)
+    const settings = getSettings()
+    const swe      = getSwe()
+    const dasha    = await calcDasha(moon, state.birth.dob, { settings, swe, jd })
     const panchang = calcPanchang(jd, state.birth.lat, state.birth.lon)
 
     state.planets  = planets

@@ -472,7 +472,7 @@ async function onFormSubmit(e) {
     const { renderDasha }    = await import('./dasha.js')
     const { renderPanchang } = await import('./panchang.js')
 
-    renderChart(); renderDasha(); renderPanchang()
+    renderChart(); renderDasha().catch(console.error); renderPanchang()
     enableTab('chart'); enableTab('dasha'); enableTab('panchang')
     switchTab('chart')
   } catch (err) {
@@ -557,7 +557,7 @@ export async function recalcAll() {
     const { renderDasha }    = await import('./dasha.js')
     const { renderPanchang } = await import('./panchang.js')
 
-    renderChart(); renderDasha(); renderPanchang()
+    renderChart(); renderDasha().catch(console.error); renderPanchang()
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

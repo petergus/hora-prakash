@@ -22,7 +22,7 @@ export function activateInnerTab(tab) {
   if (!hasData) tab = 'input'
   switchTab(tab)
   if (tab === 'chart')         renderChart()
-  else if (tab === 'dasha')    renderDasha()
+  else if (tab === 'dasha')    renderDasha().catch(console.error)
   else if (tab === 'panchang') renderPanchang()
   else                         renderInputTab()
 }

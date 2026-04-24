@@ -56,7 +56,7 @@ function renderYearMethodControls() {
   `
 }
 
-export function renderDasha() {
+export async function renderDasha() {
   const panel = document.getElementById('tab-dasha')
   if (!state.dasha || !state.birth) return
   const { dasha, birth } = state
@@ -69,7 +69,7 @@ export function renderDasha() {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
-  const rows = buildDashaRows(dasha, ui)
+  const rows = await buildDashaRows(dasha, ui)
 
   const progressionHtml = renderProgression(birth.dob, dasha)
   const ageRef = ui.ageAsOf ?? (ui.ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12) : new Date())
@@ -235,8 +235,10 @@ export function renderDasha() {
 const LEVEL_LABELS = ['MD','AD','PD','SD','PrD','DeD']
 const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem','7.0rem']
 
-function buildDashaRows(dasha, ui) {
-  const rows = []
+async function buildDashaRows(dasha, ui) {
+  const swe   = getSwe()
+  const flags = buildCalcFlags(getSettings())
+  const rows  = []
 
   for (const maha of dasha) {
     const isCur0    = isCurrentPeriod(maha.start, maha.end)
@@ -244,7 +246,7 @@ function buildDashaRows(dasha, ui) {
     rows.push(makeMdRow(maha, expanded0, isCur0))
 
     if (!expanded0) continue
-    ensureChildren(maha)
+    await ensureChildren(maha, swe, flags)
     for (const antar of maha.children) {
       const path1     = `${maha.planet}/${antar.planet}`
       const isCur1    = isCurrentPeriod(antar.start, antar.end)
@@ -252,7 +254,7 @@ function buildDashaRows(dasha, ui) {
       rows.push(makeRow(antar, path1, 1, expanded1, isCur1))
 
       if (!expanded1) continue
-      ensureChildren(antar)
+      await ensureChildren(antar, swe, flags)
       for (const prat of antar.children) {
         const path2     = `${path1}/${prat.planet}`
         const isCur2    = isCurrentPeriod(prat.start, prat.end)
@@ -260,7 +262,7 @@ function buildDashaRows(dasha, ui) {
         rows.push(makeRow(prat, path2, 2, expanded2, isCur2))
 
         if (!expanded2) continue
-        ensureChildren(prat)
+        await ensureChildren(prat, swe, flags)
         for (const sook of prat.children) {
           const path3     = `${path2}/${sook.planet}`
           const isCur3    = isCurrentPeriod(sook.start, sook.end)
@@ -268,7 +270,7 @@ function buildDashaRows(dasha, ui) {
           rows.push(makeRow(sook, path3, 3, expanded3, isCur3))
 
           if (!expanded3) continue
-          ensureChildren(sook)
+          await ensureChildren(sook, swe, flags)
           for (const prana of sook.children) {
             const path4     = `${path3}/${prana.planet}`
             const isCur4    = isCurrentPeriod(prana.start, prana.end)
@@ -276,7 +278,7 @@ function buildDashaRows(dasha, ui) {
             rows.push(makeRow(prana, path4, 4, expanded4, isCur4))
 
             if (!expanded4) continue
-            ensureChildren(prana)
+            await ensureChildren(prana, swe, flags)
             for (const deha of prana.children) {
               const path5  = `${path4}/${deha.planet}`
               const isCur5 = isCurrentPeriod(deha.start, deha.end)

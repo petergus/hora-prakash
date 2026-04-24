@@ -11,7 +11,7 @@ export function initTabs() {
       renderChart()
     } else if (name === 'dasha') {
       const { renderDasha }    = await import('../tabs/dasha.js')
-      renderDasha()
+      renderDasha().catch(console.error)
     } else if (name === 'panchang') {
       const { renderPanchang } = await import('../tabs/panchang.js')
       renderPanchang()

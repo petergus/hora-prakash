@@ -126,7 +126,7 @@ export async function renderDasha() {
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
           ${renderYearMethodControls()}
-          <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) ? renderBreadcrumb(dasha, ui) : ''}</div>
+          <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
           <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
@@ -175,7 +175,8 @@ export async function renderDasha() {
       ui.focusedPath = depth < 0 ? [] : (ui.focusedPath ?? []).slice(0, depth + 1)
       buildDashaRows(state.dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows
-        document.getElementById('dasha-breadcrumb-wrap').innerHTML = renderBreadcrumb(state.dasha, ui)
+        document.getElementById('dasha-breadcrumb-wrap').innerHTML =
+          ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
       }).catch(console.error)
       return
     }
@@ -191,7 +192,7 @@ export async function renderDasha() {
       buildDashaRows(dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows
         document.getElementById('dasha-breadcrumb-wrap').innerHTML =
-          ui.focusedMode ? renderBreadcrumb(dasha, ui) : ''
+          (ui.focusedMode && (ui.focusedPath?.length > 0)) ? renderBreadcrumb(dasha, ui) : ''
       }).catch(console.error)
       return
     } else if (e.target.id === 'dasha-toggle-btn') {
@@ -257,7 +258,8 @@ export async function renderDasha() {
 
       const rows = await buildDashaRows(state.dasha, ui)
       document.querySelector('.dasha-table tbody').innerHTML = rows
-      document.getElementById('dasha-breadcrumb-wrap').innerHTML = renderBreadcrumb(state.dasha, ui)
+      document.getElementById('dasha-breadcrumb-wrap').innerHTML =
+        ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
       return
     }
 

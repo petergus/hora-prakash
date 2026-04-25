@@ -107,14 +107,6 @@ export async function renderDasha() {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
-  // Auto-expand active MD in focused mode on first render
-  if (ui.focusedMode ?? true) {
-    const activeMaha = dasha.find(m => isCurrentPeriod(m.start, m.end))
-    if (activeMaha && !ui.expandedMahas.has(activeMaha.planet)) {
-      ui.expandedMahas.add(activeMaha.planet)
-    }
-  }
-
   const rows = await buildDashaRows(dasha, ui)
 
   const progressionHtml = renderProgression(birth.dob, dasha)

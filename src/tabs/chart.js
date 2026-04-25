@@ -254,10 +254,10 @@ export function renderChart() {
   panel.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
-        <h2 style="margin:0">${maskedName}</h2>
+        <h2 style="margin:0;font-size:1.1rem;font-weight:600">${maskedName}</h2>
         <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2rem;margin-top:0.1rem;border-radius:4px;line-height:1;display:flex;align-items:center" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
       </div>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${maskedDetails}</p>
+      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.15rem;margin-bottom:1rem;line-height:1.5">${maskedDetails}</p>
       <div class="chart-controls">
         ${divSelectHtmlUnified}
         <div class="chart-style-group">

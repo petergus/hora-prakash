@@ -408,11 +408,13 @@ h3 {
 }
 
 .chart-pane {
+  align-self: start;
   min-width: 0;
   min-height: 0;
 }
 
 .dasha-pane {
+  align-self: start;
   min-width: 0;
   overflow-y: auto;
   max-height: 80vh;

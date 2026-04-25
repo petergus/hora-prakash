@@ -658,7 +658,7 @@ h3 {
 .dasha-d2 { border-left: 3px solid #10b981; background: #f6fbf9; font-size: 0.83rem; }
 .dasha-d3 { border-left: 3px solid #f59e0b; background: #fffdf4; font-size: 0.8rem; }
 .dasha-d4 { border-left: 3px solid #ef4444; background: #fff8f8; font-size: 0.77rem; }
-.dasha-table tbody tr:nth-child(even) { background: #fafbfc; }
+.dasha-table tbody tr:nth-child(even) { background: #eef2f7; }
 .dasha-table tbody tr:hover { background: #f1f5f9; }
 .current-period {
   background: #fffbeb !important;

@@ -314,6 +314,150 @@ export async function renderDasha() {
   })
 }
 
+export async function renderDashaCards(container, cards) {
+  if (!state.dasha || !state.birth) return
+  const { dasha, birth } = state
+  const ui = d()
+
+  if (ui.selectedProgLord === null) {
+    const currentMaha = dasha.find(m => isCurrentPeriod(m.start, m.end)) ?? dasha[0]
+    ui.selectedProgLord = currentMaha.planet
+    ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
+  }
+
+  let html = ''
+  if (cards.includes('vimshottari')) {
+    const rows = await buildDashaRows(dasha, ui)
+    html += `
+      <div class="card" id="dasha-panel-vimshottari">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
+          <button id="dasha-panel-mode-btn" class="dasha-mode-btn${(ui.focusedMode ?? true) ? ' focused-active' : ''}">${(ui.focusedMode ?? true) ? 'Focused' : 'Full'}</button>
+          <h3 style="margin:0;font-size:0.95rem">Vimshottari Dasha — ${birth.name}</h3>
+        </div>
+        <div id="dasha-panel-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
+        <div class="table-scroll"><table class="dasha-table">
+          <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`
+  }
+  if (cards.includes('age')) {
+    const ageRef = ui.ageAsOf ?? (ui.ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12) : new Date())
+    html += renderAgeProgression(birth.dob, ageRef).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+  }
+  if (cards.includes('progression')) {
+    html += renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+  }
+
+  container.innerHTML = html
+
+  // Wire up vimshottari interactions if rendered
+  if (cards.includes('vimshottari')) {
+    const modBtn = container.querySelector('#dasha-panel-mode-btn')
+    if (modBtn) {
+      modBtn.addEventListener('click', () => {
+        const wasFocused = ui.focusedMode ?? true
+        ui.focusedMode = !wasFocused
+        if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
+        modBtn.textContent = ui.focusedMode ? 'Focused' : 'Full'
+        modBtn.classList.toggle('focused-active', ui.focusedMode)
+        buildDashaRows(dasha, ui).then(rows => {
+          container.querySelector('.dasha-table tbody').innerHTML = rows
+          container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
+            (ui.focusedMode && (ui.focusedPath?.length > 0)) ? renderBreadcrumb(dasha, ui) : ''
+        }).catch(console.error)
+      })
+    }
+
+    container.querySelector('#dasha-panel-breadcrumb-wrap')?.addEventListener('click', e => {
+      const crumbBtn = e.target.closest('[data-crumb-depth]')
+      if (!crumbBtn) return
+      const depth = parseInt(crumbBtn.dataset.crumbDepth)
+      ui.focusedPath = depth < 0 ? [] : (ui.focusedPath ?? []).slice(0, depth + 1)
+      buildDashaRows(state.dasha, ui).then(rows => {
+        container.querySelector('.dasha-table tbody').innerHTML = rows
+        container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
+          ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
+      }).catch(console.error)
+    })
+
+    container.querySelector('.dasha-table tbody')?.addEventListener('click', async (e) => {
+      const row = e.target.closest('tr[data-toggle]')
+      if (!row) return
+      const ui    = d()
+      const path  = row.dataset.path
+      const depth = parseInt(row.dataset.depth)
+      const parts = path.split('/')
+
+      if (ui.focusedMode ?? true) {
+        const fp = ui.focusedPath ?? []
+        const isExpanded = fp.length > depth && fp[depth] === parts[depth]
+        ui.focusedPath = isExpanded ? fp.slice(0, depth) : parts.slice(0, depth + 1)
+        const rows = await buildDashaRows(state.dasha, ui)
+        container.querySelector('.dasha-table tbody').innerHTML = rows
+        container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
+          ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
+      }
+    })
+  }
+
+  // Wire up toggle buttons for age and progression cards (collapse/expand)
+  container.querySelector('#age-toggle-btn')?.addEventListener('click', e => {
+    const ui = d()
+    ui.ageCollapsed = !ui.ageCollapsed
+    container.querySelector('#age-prog-body').style.display = ui.ageCollapsed ? 'none' : ''
+    e.target.textContent = ui.ageCollapsed ? '▶' : '▼'
+  })
+  container.querySelector('#prog-toggle-btn')?.addEventListener('click', e => {
+    const ui = d()
+    ui.progCollapsed = !ui.progCollapsed
+    container.querySelector('#prog-body').style.display = ui.progCollapsed ? 'none' : ''
+    e.target.textContent = ui.progCollapsed ? '▶' : '▼'
+  })
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('button')
+    if (!btn) return
+    const ui = d()
+
+    if (btn.id === 'age-prev-btn') {
+      const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
+      ui.ageNavCycle = Math.max(0, curCycle - 1)
+      ui.ageAsOf = null
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12)).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (btn.id === 'age-next-btn') {
+      const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
+      ui.ageNavCycle = Math.min(9, curCycle + 1)
+      ui.ageAsOf = null
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12)).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (btn.id === 'age-reset-today') {
+      ui.ageNavCycle = null
+      ui.ageAsOf = null
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date()).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (btn.id === 'prog-prev-btn') {
+      ui.progNavIndex = Math.max(0, (ui.progNavIndex ?? 0) - 1)
+      ui.selectedProgLord = dasha[ui.progNavIndex].planet
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (btn.id === 'prog-next-btn') {
+      ui.progNavIndex = Math.min(dasha.length - 1, (ui.progNavIndex ?? 0) + 1)
+      ui.selectedProgLord = dasha[ui.progNavIndex].planet
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    }
+  })
+  container.onchange = e => {
+    if (e.target.id === 'age-asof-input') {
+      const ui = d()
+      ui.ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
+      ui.ageNavCycle = null
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date()).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (e.target.id === 'prog-lord-select') {
+      const ui = d()
+      ui.selectedProgLord = e.target.value
+      ui.progNavIndex = dasha.findIndex(m => m.planet === ui.selectedProgLord)
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    }
+  }
+}
+
 const LEVEL_LABELS = ['MD','AD','PD','SD','PrD','DeD']
 const INDENT = ['0.5rem','1.8rem','3.1rem','4.4rem','5.7rem','7.0rem']
 

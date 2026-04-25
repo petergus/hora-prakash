@@ -21,20 +21,52 @@ export function initTabs() {
   })
 
   // Global swipe navigation between top-level tabs (mobile)
+  // "Hard swipe": must be fast, far, and clearly horizontal — not a scroll gesture.
   const TAB_ORDER = ['input', 'chart', 'dasha', 'panchang']
-  let swipeStartX = 0, swipeStartY = 0
+  let swipeStartX = 0, swipeStartY = 0, swipeStartTime = 0, swipeCancelled = false
+
+  // Returns true if el (or any ancestor up to <main>) can scroll horizontally.
+  function insideHorizScrollable(el) {
+    while (el && el.tagName !== 'MAIN') {
+      if (el.scrollWidth > el.clientWidth + 4) return true
+      el = el.parentElement
+    }
+    return false
+  }
 
   const mainEl = document.querySelector('main')
   if (mainEl) {
     mainEl.addEventListener('touchstart', e => {
-      swipeStartX = e.changedTouches[0].clientX
-      swipeStartY = e.changedTouches[0].clientY
+      const t = e.changedTouches[0]
+      swipeStartX    = t.clientX
+      swipeStartY    = t.clientY
+      swipeStartTime = Date.now()
+      swipeCancelled = insideHorizScrollable(e.target)
+    }, { passive: true })
+
+    // Cancel early if the gesture turns vertical before the finger lifts.
+    mainEl.addEventListener('touchmove', e => {
+      if (swipeCancelled) return
+      const t  = e.changedTouches[0]
+      const dx = Math.abs(t.clientX - swipeStartX)
+      const dy = Math.abs(t.clientY - swipeStartY)
+      // If vertical movement leads horizontal by more than 10 px, this is a scroll.
+      if (dy > 10 && dy > dx) swipeCancelled = true
     }, { passive: true })
 
     mainEl.addEventListener('touchend', async e => {
-      const dx = e.changedTouches[0].clientX - swipeStartX
-      const dy = Math.abs(e.changedTouches[0].clientY - swipeStartY)
-      if (Math.abs(dx) < 50 || dy > 75) return
+      if (swipeCancelled) return
+      const t   = e.changedTouches[0]
+      const dx  = t.clientX - swipeStartX
+      const adx = Math.abs(dx)
+      const ady = Math.abs(t.clientY - swipeStartY)
+      const ms  = Date.now() - swipeStartTime
+
+      // Hard-swipe rules:
+      //   • minimum 80 px horizontal travel
+      //   • horizontal must be at least 2.5× the vertical (≈ 22° angle)
+      //   • completed within 400 ms (deliberate swipe, not a slow drag)
+      if (adx < 80 || ady > adx * 0.4 || ms > 400) return
 
       const activeBtn = document.querySelector('#tab-nav .tab-btn.active')
       if (!activeBtn) return

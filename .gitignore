@@ -1,2 +1,7 @@
 node_modules/
 dist/
+.playwright-mcp/
+.superpowers/
+*.png
+*.xlsx
+docs/superpowers/

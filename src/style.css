@@ -997,17 +997,18 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 2px;
+  padding: 5px 10px;
   font-size: 0.78rem;
-  background: #0f172a;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
   border-radius: 6px;
   margin-bottom: 0.5rem;
 }
 .dasha-crumb-btn {
   background: none;
   border: none;
-  color: #60a5fa;
+  color: var(--primary);
   cursor: pointer;
   font-size: 0.78rem;
   font-family: inherit;
@@ -1015,6 +1016,6 @@ h3 {
   border-radius: 4px;
   transition: background 0.1s;
 }
-.dasha-crumb-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
-.dasha-crumb-btn.active { color: #fff; font-weight: 600; cursor: default; }
-.dasha-crumb-sep { color: #475569; font-size: 0.72rem; padding: 0 2px; }
+.dasha-crumb-btn:hover:not(.active) { background: #c7d2fe; color: var(--primary-hover); }
+.dasha-crumb-btn.active { color: var(--text); font-weight: 600; cursor: default; }
+.dasha-crumb-sep { color: var(--muted); font-size: 0.72rem; padding: 0 2px; }

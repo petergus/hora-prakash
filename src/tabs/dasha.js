@@ -127,7 +127,6 @@ export async function renderDasha() {
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
           ${renderYearMethodControls()}
           <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
-          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
             <tbody>${rows}</tbody>

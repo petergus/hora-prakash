@@ -28,8 +28,9 @@ export default {
         ]
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,wasm,data}'],
-        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15MB
+        globPatterns: ['**/*.{js,css,html,ico,svg,wasm}'],
+        globIgnores: ['**/*.data'],  // 12MB ephemeris — cached at runtime on first use
+        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
       }
     })
   ],

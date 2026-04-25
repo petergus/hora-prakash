@@ -1,6 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { CacheFirst } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 
@@ -13,6 +13,18 @@ precacheAndRoute(self.__WB_MANIFEST)
 
 // Remove stale precaches from previous versions
 cleanupOutdatedCaches()
+
+// Cache ephemeris .data file at runtime (12MB — excluded from precache, cached on first use)
+registerRoute(
+  /\/wasm\/swisseph\.data$/i,
+  new CacheFirst({
+    cacheName: 'ephemeris-data',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 365 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  })
+)
 
 // Cache geocoding API responses (30 days)
 registerRoute(

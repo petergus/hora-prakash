@@ -9,9 +9,8 @@ import { renderProfileTabs } from './ui/profile-tabs.js'
 
 async function main() {
   loadSettings()
-  await initSwissEph()
-  applyAyanamsa()
 
+  // Show UI immediately — WASM loads in background
   document.getElementById('app-loader')?.remove()
   document.getElementById('tab-input').style.display = ''
 
@@ -21,8 +20,10 @@ async function main() {
   const id = createSession()
   switchSession(id)
   renderProfileTabs()
-
   renderInputTab()
+
+  // Kick off WASM init in background so it's ready by the time user submits
+  initSwissEph().then(() => applyAyanamsa()).catch(console.error)
 }
 
 main()

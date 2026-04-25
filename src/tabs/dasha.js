@@ -189,14 +189,13 @@ export async function renderDasha() {
         // Infer focusedPath from full-mode expansion state
         ui.focusedPath = inferFocusedPath(dasha, ui)
       }
-      const btn = document.getElementById('dasha-mode-btn')
-      btn.textContent = ui.focusedMode ? 'Focused' : 'Full'
-      btn.classList.toggle('focused-active', ui.focusedMode)
+      e.target.textContent = ui.focusedMode ? 'Focused' : 'Full'
+      e.target.classList.toggle('focused-active', ui.focusedMode)
       buildDashaRows(dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows
         document.getElementById('dasha-breadcrumb-wrap').innerHTML =
           ui.focusedMode ? renderBreadcrumb(dasha, ui) : ''
-      })
+      }).catch(console.error)
       return
     } else if (e.target.id === 'dasha-toggle-btn') {
       ui.dashaCollapsed = !ui.dashaCollapsed

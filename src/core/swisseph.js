@@ -14,17 +14,25 @@ export function initSwissEph() {
   if (swe) return Promise.resolve(swe)
   if (initPromise) return initPromise
   initPromise = (async () => {
-    const mod = await import('swisseph-wasm')
-    const SwissEph = mod.default
-    const base = import.meta.env.BASE_URL
-    const instance = new SwissEph({
-      locateFile: (file) => `${base}wasm/${file}`,
-    })
-    await instance.initSwissEph()
-    instance.set_sid_mode(1, 0, 0)
-    swe = instance
-    return swe
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Ephemeris load timed out (30s). Check your connection and reload.')), 30000)
+    )
+    const load = (async () => {
+      const mod = await import('swisseph-wasm')
+      const SwissEph = mod.default
+      const base = import.meta.env.BASE_URL
+      const instance = new SwissEph({
+        locateFile: (file) => `${base}wasm/${file}`,
+      })
+      await instance.initSwissEph()
+      instance.set_sid_mode(1, 0, 0)
+      swe = instance
+      return swe
+    })()
+    return Promise.race([load, timeout])
   })()
+  // Reset on failure so the user can retry
+  initPromise.catch(() => { initPromise = null })
   return initPromise
 }
 

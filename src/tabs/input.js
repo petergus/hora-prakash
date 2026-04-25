@@ -502,9 +502,10 @@ async function onFormSubmit(e) {
   const btn = document.getElementById('btn-calculate')
   try {
     btn.disabled = true
-    btn.textContent = 'Calculating…'
+    btn.textContent = 'Loading ephemeris…'
 
     await initSwissEph()
+    btn.textContent = 'Calculating…'
     applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
     const settings = getSettings()

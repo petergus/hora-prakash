@@ -111,40 +111,6 @@ function renderDashaOptionsPopover(ui, id = 'dasha') {
     </div>`
 }
 
-function renderYearMethodControls() {
-  const { yearMethod, customYearDays, ayanamsa } = getSettings()
-  const options = YEAR_METHOD_OPTIONS.map(o =>
-    `<option value="${o.value}"${o.value === yearMethod ? ' selected' : ''}>${o.label}</option>`
-  ).join('')
-  const customInput = yearMethod === 'custom'
-    ? `<input id="dasha-custom-days" type="number" min="300" max="400" step="0.001"
-         value="${customYearDays}" style="width:6rem;margin-left:0.5rem"
-         title="Days per year (300–400)" />`
-    : ''
-
-  const ayanamsaName = AYANAMSA_OPTIONS.find(a => a.value === ayanamsa)?.label ?? 'Lahiri'
-  let ayanamsaVal = ''
-  try {
-    const { dob, tob, timezone } = state.birth ?? {}
-    if (dob && tob && timezone) {
-      const jd  = toJulianDay(dob, tob, timezone)
-      const raw = getSwe().get_ayanamsa_ut(jd)
-      const deg = Math.floor(raw)
-      const min = Math.floor((raw - deg) * 60)
-      const sec = ((raw - deg) * 60 - min) * 60
-      ayanamsaVal = ` (${deg}° ${min}' ${sec.toFixed(2)}")`
-    }
-  } catch (_) {}
-
-  return `
-    <div id="dasha-year-controls" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.85rem;flex-wrap:wrap">
-      <label style="font-size:0.82rem;color:var(--muted)">Year Method:</label>
-      <select id="dasha-year-method" style="font-size:0.82rem">${options}</select>
-      ${customInput}
-      <span style="font-size:0.78rem;color:var(--muted);margin-left:0.5rem">· Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal} · TZ: ${state.birth?.timezone ?? 'UTC'}</span>
-    </div>
-  `
-}
 
 export async function renderDasha() {
   const panel = document.getElementById('tab-dasha')
@@ -387,14 +353,15 @@ export async function renderDashaCards(container, cards) {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
-  let html = renderYearMethodControls()
+  let html = ''
   if (cards.includes('vimshottari')) {
     const rows = await buildDashaRows(dasha, ui)
     html += `
       <div class="card" id="dasha-panel-vimshottari">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
-          <button id="dasha-panel-mode-btn" class="dasha-mode-btn${(ui.focusedMode ?? true) ? ' focused-active' : ''}">${(ui.focusedMode ?? true) ? 'Focused' : 'Full'}</button>
-          <h3 style="margin:0;font-size:0.95rem">Vimshottari Dasha</h3>
+        <div style="display:flex;align-items:center;position:relative;margin-bottom:0.75rem">
+          <h3 class="section-label" style="margin:0;flex:1">Vimshottari Dasha</h3>
+          <button id="dasha-panel-options-btn" class="dasha-options-btn" title="Options">⋮</button>
+          ${renderDashaOptionsPopover(ui, 'dasha-panel')}
         </div>
         <div id="dasha-panel-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
         <div class="table-scroll"><table class="dasha-table">
@@ -415,19 +382,42 @@ export async function renderDashaCards(container, cards) {
 
   // Wire up vimshottari interactions if rendered
   if (cards.includes('vimshottari')) {
-    const modBtn = container.querySelector('#dasha-panel-mode-btn')
-    if (modBtn) {
-      modBtn.addEventListener('click', () => {
-        const wasFocused = ui.focusedMode ?? true
-        ui.focusedMode = !wasFocused
-        if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
-        modBtn.textContent = ui.focusedMode ? 'Focused' : 'Full'
-        modBtn.classList.toggle('focused-active', ui.focusedMode)
-        buildDashaRows(dasha, ui).then(rows => {
-          container.querySelector('.dasha-table tbody').innerHTML = rows
-          container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
-            (ui.focusedMode && (ui.focusedPath?.length > 0)) ? renderBreadcrumb(dasha, ui) : ''
-        }).catch(console.error)
+    // ⋮ popover toggle
+    const optBtn  = container.querySelector('#dasha-panel-options-btn')
+    const popover = container.querySelector('#dasha-panel-options-popover')
+    if (optBtn && popover) {
+      optBtn.addEventListener('click', () => popover.classList.toggle('open'))
+      const closeHandler = e => {
+        if (!popover.contains(e.target) && e.target !== optBtn) popover.classList.remove('open')
+      }
+      document.addEventListener('mousedown', closeHandler)
+    }
+
+    const vimsCard = container.querySelector('#dasha-panel-vimshottari')
+    if (vimsCard) {
+      vimsCard.addEventListener('change', e => {
+        if (e.target.name === 'dasha-panel-mode') {
+          const ui = chartD()
+          ui.focusedMode = e.target.value === 'focused'
+          if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
+          buildDashaRows(state.dasha, ui).then(rows => {
+            container.querySelector('.dasha-table tbody').innerHTML = rows
+            container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
+              ui.focusedMode && ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
+          }).catch(console.error)
+        }
+        if (e.target.id === 'dasha-panel-year-method') {
+          const yearMethod = e.target.value
+          saveSettings({ yearMethod })
+          if (yearMethod !== 'custom') renderDashaCards(container, cards).catch(console.error)
+        }
+        if (e.target.id === 'dasha-panel-custom-days') {
+          clearTimeout(_customDaysTimer)
+          _customDaysTimer = setTimeout(() => {
+            const v = parseFloat(e.target.value)
+            if (v >= 300 && v <= 400) { saveSettings({ customYearDays: v }); renderDashaCards(container, cards).catch(console.error) }
+          }, 600)
+        }
       })
     }
 
@@ -567,16 +557,6 @@ export async function renderDashaCards(container, cards) {
       ui.selectedProgLord = e.target.value
       ui.progNavIndex = dasha.findIndex(m => m.planet === ui.selectedProgLord)
       container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
-    } else if (e.target.id === 'dasha-year-method') {
-      const yearMethod = e.target.value
-      saveSettings({ yearMethod })
-      if (yearMethod !== 'custom') renderDashaCards(container, cards).catch(console.error)
-    } else if (e.target.id === 'dasha-custom-days') {
-      clearTimeout(_customDaysTimer)
-      _customDaysTimer = setTimeout(() => {
-        const v = parseFloat(e.target.value)
-        if (v >= 300 && v <= 400) { saveSettings({ customYearDays: v }); renderDashaCards(container, cards).catch(console.error) }
-      }, 600)
     }
   }
 }

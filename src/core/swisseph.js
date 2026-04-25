@@ -8,24 +8,24 @@
 //   SEFLG_SIDEREAL = 65536, SEFLG_SPEED = 256
 
 let swe = null
+let initPromise = null
 
-export async function initSwissEph() {
-  if (swe) return swe
-
-  const mod = await import('swisseph-wasm')
-  const SwissEph = mod.default
-  // locateFile redirects .wasm/.data lookups to /hora-prakash/ (public/ in dev, dist root in prod)
-  const base = import.meta.env.BASE_URL  // '/hora-prakash/' in prod, '/' in dev
-  const instance = new SwissEph({
-    locateFile: (file) => `${base}wasm/${file}`,
-  })
-  await instance.initSwissEph()
-
-  // Set Lahiri ayanamsa (SE_SIDM_LAHIRI = 1)
-  instance.set_sid_mode(1, 0, 0)
-
-  swe = instance
-  return swe
+export function initSwissEph() {
+  if (swe) return Promise.resolve(swe)
+  if (initPromise) return initPromise
+  initPromise = (async () => {
+    const mod = await import('swisseph-wasm')
+    const SwissEph = mod.default
+    const base = import.meta.env.BASE_URL
+    const instance = new SwissEph({
+      locateFile: (file) => `${base}wasm/${file}`,
+    })
+    await instance.initSwissEph()
+    instance.set_sid_mode(1, 0, 0)
+    swe = instance
+    return swe
+  })()
+  return initPromise
 }
 
 export function getSwe() {

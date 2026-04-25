@@ -1,16 +1,14 @@
 // src/config/branding.js
 // Reads public/branding.json at runtime and applies name, logo, favicon, theme.
-// Called once in main.js before loadSettings() so theme from branding.json acts
-// as the fallback when the user has no saved theme preference.
-
-import { getSettings } from '../core/settings.js'
+// Called once in main.js after loadSettings(). Applies branding defaults (name,
+// logo, favicon, theme) — theme only applied when user has no saved preference.
 
 export async function loadBranding() {
   let json = {}
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}branding.json`)
     if (res.ok) json = await res.json()
-  } catch (_) {}
+  } catch (e) { console.warn('[branding] failed to load branding.json:', e) }
 
   // App name
   const appName = json.appName || 'Hora Prakash'
@@ -32,20 +30,24 @@ export async function loadBranding() {
     if (link) link.href = json.faviconUrl
   }
 
-  // Theme — only apply if the user has no saved preference
-  const savedTheme = getSettings().theme
-  if (!savedTheme && json.theme) {
+  // Apply branding theme only when user has no saved preference
+  const hasUserTheme = (() => {
+    try { return 'theme' in JSON.parse(localStorage.getItem('hora-prakash-settings') || '{}') } catch { return false }
+  })()
+  if (!hasUserTheme && json.theme) {
     document.documentElement.dataset.theme = json.theme
   }
 
   // Meta tags
+  const ogTitle = document.querySelector('meta[property="og:title"]')
+  if (ogTitle) ogTitle.setAttribute('content', appName)
   if (json.appTagline) {
     const desc = document.querySelector('meta[name="description"]')
     if (desc) desc.setAttribute('content', json.appTagline)
   }
 
   // Footer
-  if (json.footerText) {
+  if (json.footerText && !document.querySelector('.app-footer')) {
     const footer = document.createElement('footer')
     footer.className = 'app-footer'
     footer.style.cssText = 'text-align:center;padding:1rem;font-size:0.78rem;color:var(--muted);margin-top:1rem'

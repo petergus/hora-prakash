@@ -1,0 +1,41 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Aditya Amrit Hora" [level=1] [ref=e3]
+    - navigation [ref=e4]:
+      - button "Birth Details" [ref=e5] [cursor=pointer]
+      - button "Birth Chart" [ref=e6] [cursor=pointer]
+      - button "Dasha" [ref=e7] [cursor=pointer]
+      - button "Panchang" [active] [ref=e8] [cursor=pointer]
+  - main [ref=e9]:
+    - generic [ref=e170]:
+      - heading "Panchang — 1990-01-15" [level=2] [ref=e171]
+      - paragraph [ref=e172]: Mumbai, Mumbai Suburban District, Maharashtra, 400051, India
+      - table [ref=e173]:
+        - rowgroup [ref=e174]:
+          - row "Tithi Panchami (Krishna) (20/30)" [ref=e175]:
+            - rowheader "Tithi" [ref=e176]
+            - cell "Panchami (Krishna) (20/30)" [ref=e177]
+          - 'row "Vara Monday (Lord: Moon)" [ref=e178]':
+            - rowheader "Vara" [ref=e179]
+            - 'cell "Monday (Lord: Moon)" [ref=e180]'
+          - 'row "Nakshatra Purva Phalguni Pada 3 (Lord: Venus)" [ref=e181]':
+            - rowheader "Nakshatra" [ref=e182]
+            - 'cell "Purva Phalguni Pada 3 (Lord: Venus)" [ref=e183]'
+          - row "Yoga Dhriti" [ref=e184]:
+            - rowheader "Yoga" [ref=e185]
+            - cell "Dhriti" [ref=e186]
+          - row "Karana Kaulava" [ref=e187]:
+            - rowheader "Karana" [ref=e188]
+            - cell "Kaulava" [ref=e189]
+          - row "Sunrise 12:00 UTC" [ref=e190]:
+            - rowheader "Sunrise" [ref=e191]
+            - cell "12:00 UTC" [ref=e192]
+          - row "Sunset 12:00 UTC" [ref=e193]:
+            - rowheader "Sunset" [ref=e194]
+            - cell "12:00 UTC" [ref=e195]
+          - row "Rahu Kalam 12:00 UTC – 12:00 UTC" [ref=e196]:
+            - rowheader "Rahu Kalam" [ref=e197]
+            - cell "12:00 UTC – 12:00 UTC" [ref=e198]
+          - row "Gulika Kalam 12:00 UTC – 12:00 UTC" [ref=e199]:
+            - rowheader "Gulika Kalam" [ref=e200]
+            - cell "12:00 UTC – 12:00 UTC" [ref=e201]

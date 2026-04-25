@@ -55,15 +55,12 @@
     <section id="tab-panchang" class="tab-panel"></section>
   </main>
   <script>
-    // Reload once to let the service worker take control and apply COI headers
-    if (!window.crossOriginIsolated && navigator.serviceWorker.controller) {
-      location.reload();
-    }
-    // Auto-reload when a new service worker activates so users get the latest version
+    // Unregister any previously installed service workers and clear their caches
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        location.reload();
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
       });
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
     }
   </script>
   <script type="module" src="/src/main.js"></script>

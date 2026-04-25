@@ -1,0 +1,143 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Hora Prakash" [level=1] [ref=e3]
+    - navigation [ref=e4]:
+      - button "Birth Details" [ref=e5] [cursor=pointer]
+      - button "Birth Chart" [ref=e6] [cursor=pointer]
+      - button "Dasha" [ref=e7] [cursor=pointer]
+      - button "Panchang" [ref=e8] [cursor=pointer]
+  - main [ref=e9]:
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - heading "Unknown — Birth Chart" [level=2] [ref=e50]
+        - button "Hide details" [ref=e51] [cursor=pointer]:
+          - img [ref=e52]
+      - paragraph [ref=e55]: 2026-04-19 20:10 · New Delhi, India
+      - generic [ref=e56]:
+        - combobox [ref=e57] [cursor=pointer]:
+          - option "D1 – Rashi" [selected]
+          - option "D2 – Hora"
+          - option "D3 – Drekkana"
+          - option "D4 – Chaturthamsha"
+          - option "D5 – Panchamsha"
+          - option "D6 – Shashthamsha"
+          - option "D7 – Saptamsha"
+          - option "D8 – Ashtamsha"
+          - option "D9 – Navamsa"
+          - option "D10 – Dashamsha"
+          - option "D11 – Rudramsha"
+          - option "D12 – Dwadashamsha"
+          - option "Chalit"
+        - generic [ref=e58]:
+          - button "North" [ref=e59] [cursor=pointer]
+          - button "South" [ref=e60] [cursor=pointer]
+        - generic [ref=e61]:
+          - button "Show all planetary aspects" [ref=e62] [cursor=pointer]:
+            - img [ref=e63]
+          - button "Hide all planetary aspects" [ref=e70] [cursor=pointer]:
+            - img [ref=e71]
+      - img [ref=e76]:
+        - generic [ref=e79]: Li 7
+        - generic [ref=e80]: Asc 23°
+        - generic [ref=e82]: Sc 8
+        - generic [ref=e84]: Sg 9
+        - generic [ref=e86]: Cp 10
+        - generic [ref=e88]: Aq 11
+        - generic [ref=e89] [cursor=pointer]: Raᴿ 13°
+        - generic [ref=e91]: Pi 12
+        - generic [ref=e92] [cursor=pointer]: Me 12°
+        - generic [ref=e93] [cursor=pointer]: Ma 13°
+        - generic [ref=e94] [cursor=pointer]: Sa 14°
+        - generic [ref=e96]: Ar 1
+        - generic [ref=e97] [cursor=pointer]: Su 5°
+        - generic [ref=e99]: Ta 2
+        - generic [ref=e100] [cursor=pointer]: Mo 5°
+        - generic [ref=e101] [cursor=pointer]: Ve 0°
+        - generic [ref=e103]: Ge 3
+        - generic [ref=e104] [cursor=pointer]: Ju 23°
+        - generic [ref=e106]: Ca 4
+        - generic [ref=e108]: Le 5
+        - generic [ref=e109] [cursor=pointer]: Keᴿ 13°
+        - generic [ref=e111]: Vi 6
+      - heading "Planetary Positions" [level=3] [ref=e112]
+      - table [ref=e114]:
+        - rowgroup [ref=e115]:
+          - row "Planet Sign Deg D1 House Nakshatra Pada" [ref=e116]:
+            - columnheader "Planet" [ref=e117]
+            - columnheader "Sign" [ref=e118]
+            - columnheader "Deg" [ref=e119]
+            - columnheader "D1 House" [ref=e120]
+            - columnheader "Nakshatra" [ref=e121]
+            - columnheader "Pada" [ref=e122]
+        - rowgroup [ref=e123]:
+          - row "Sun Aries 5.33° 6 Ashwini 2" [ref=e124]:
+            - cell "Sun" [ref=e125]
+            - cell "Aries" [ref=e126]
+            - cell "5.33°" [ref=e127]
+            - cell "6" [ref=e128]
+            - cell "Ashwini" [ref=e129]
+            - cell "2" [ref=e130]
+          - row "Moon Taurus 4.76° 7 Krittika 3" [ref=e131]:
+            - cell "Moon" [ref=e132]
+            - cell "Taurus" [ref=e133]
+            - cell "4.76°" [ref=e134]
+            - cell "7" [ref=e135]
+            - cell "Krittika" [ref=e136]
+            - cell "3" [ref=e137]
+          - row "Mercury Pisces 12.36° 5 Uttara Bhadrapada 3" [ref=e138]:
+            - cell "Mercury" [ref=e139]
+            - cell "Pisces" [ref=e140]
+            - cell "12.36°" [ref=e141]
+            - cell "5" [ref=e142]
+            - cell "Uttara Bhadrapada" [ref=e143]
+            - cell "3" [ref=e144]
+          - row "Venus Taurus 0.22° 7 Krittika 2" [ref=e145]:
+            - cell "Venus" [ref=e146]
+            - cell "Taurus" [ref=e147]
+            - cell "0.22°" [ref=e148]
+            - cell "7" [ref=e149]
+            - cell "Krittika" [ref=e150]
+            - cell "2" [ref=e151]
+          - row "Mars Pisces 13.38° 5 Uttara Bhadrapada 4" [ref=e152]:
+            - cell "Mars" [ref=e153]
+            - cell "Pisces" [ref=e154]
+            - cell "13.38°" [ref=e155]
+            - cell "5" [ref=e156]
+            - cell "Uttara Bhadrapada" [ref=e157]
+            - cell "4" [ref=e158]
+          - row "Jupiter Gemini 23.24° 8 Punarvasu 1" [ref=e159]:
+            - cell "Jupiter" [ref=e160]
+            - cell "Gemini" [ref=e161]
+            - cell "23.24°" [ref=e162]
+            - cell "8" [ref=e163]
+            - cell "Punarvasu" [ref=e164]
+            - cell "1" [ref=e165]
+          - row "Saturn Pisces 13.60° 5 Uttara Bhadrapada 4" [ref=e166]:
+            - cell "Saturn" [ref=e167]
+            - cell "Pisces" [ref=e168]
+            - cell "13.60°" [ref=e169]
+            - cell "5" [ref=e170]
+            - cell "Uttara Bhadrapada" [ref=e171]
+            - cell "4" [ref=e172]
+          - row "Rahu (R) Aquarius 13.43° 4 Shatabhisha 3" [ref=e173]:
+            - cell "Rahu (R)" [ref=e174]
+            - cell "Aquarius" [ref=e175]
+            - cell "13.43°" [ref=e176]
+            - cell "4" [ref=e177]
+            - cell "Shatabhisha" [ref=e178]
+            - cell "3" [ref=e179]
+          - row "Ketu (R) Leo 13.43° 10 Purva Phalguni 1" [ref=e180]:
+            - cell "Ketu (R)" [ref=e181]
+            - cell "Leo" [ref=e182]
+            - cell "13.43°" [ref=e183]
+            - cell "10" [ref=e184]
+            - cell "Purva Phalguni" [ref=e185]
+            - cell "1" [ref=e186]
+          - row "Lagna Libra 23.49° 1 Vishakha 2" [ref=e187]:
+            - cell "Lagna" [ref=e188]:
+              - strong [ref=e189]: Lagna
+            - cell "Libra" [ref=e190]
+            - cell "23.49°" [ref=e191]
+            - cell "1" [ref=e192]
+            - cell "Vishakha" [ref=e193]
+            - cell "2" [ref=e194]

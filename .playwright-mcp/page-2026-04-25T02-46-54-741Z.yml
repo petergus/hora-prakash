@@ -1,0 +1,121 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Hora Prakash" [level=1] [ref=e3]
+    - navigation [ref=e4]:
+      - button "Birth Details" [ref=e5] [cursor=pointer]
+      - button "Birth Chart" [ref=e6] [cursor=pointer]
+      - button "Dasha" [ref=e7] [cursor=pointer]
+      - button "Panchang" [ref=e8] [cursor=pointer]
+      - button "⚙" [ref=e9] [cursor=pointer]
+  - generic [ref=e89]:
+    - button "Test Person" [ref=e90] [cursor=pointer]:
+      - img [ref=e92]
+      - generic [ref=e95]: Test Person
+    - button "Open new profile" [ref=e96] [cursor=pointer]:
+      - img [ref=e97]
+  - main [ref=e20]:
+    - generic [ref=e251]:
+      - generic [ref=e252]:
+        - generic [ref=e254]:
+          - generic "Drag to reorder" [ref=e255]: ⠿
+          - button "▼" [ref=e256] [cursor=pointer]
+          - heading "Vimshottari Dasha — Test Person" [level=3] [ref=e257]
+          - button "Focused" [ref=e258] [cursor=pointer]
+        - generic [ref=e259]:
+          - generic [ref=e260]:
+            - generic [ref=e261]: "Year Method:"
+            - combobox [ref=e262]:
+              - option "Mean Sidereal (365.2564)"
+              - option "Tropical (365.2422)"
+              - option "Savana (360)"
+              - option "True Solar Return" [selected]
+              - option "Custom"
+            - generic [ref=e263]:
+              - text: "· Ayanamsa:"
+              - strong [ref=e264]: Lahiri
+              - text: "(23° 43' 4.62\") · TZ: +05:30"
+          - generic [ref=e345]:
+            - button "All MDs" [ref=e346] [cursor=pointer]
+            - generic [ref=e347]: ›
+            - button "Ve MD" [ref=e348]
+          - paragraph [ref=e268]: MD → AD → PD → SD → PrD — click any row to expand
+          - table [ref=e270]:
+            - rowgroup [ref=e271]:
+              - row "Period Start End" [ref=e272]:
+                - columnheader "Period" [ref=e273]
+                - columnheader "Start" [ref=e274]
+                - columnheader "End" [ref=e275]
+            - rowgroup [ref=e276]:
+              - row "▼ Venus MD 1979-Nov-11 00:41 1999-Nov-11 03:42" [ref=e349]:
+                - cell "▼ Venus MD" [ref=e350]:
+                  - text: ▼
+                  - strong [ref=e351]: Venus
+                  - text: MD
+                - cell "1979-Nov-11 00:41" [ref=e352]
+                - cell "1999-Nov-11 03:42" [ref=e353]
+              - row "▶ Venus AD 1979-Nov-11 00:41 1983-Mar-09 05:13" [ref=e354]:
+                - cell "▶ Venus AD" [ref=e355]
+                - cell "1979-Nov-11 00:41" [ref=e356]
+                - cell "1983-Mar-09 05:13" [ref=e357]
+              - row "▶ Sun AD 1983-Mar-09 05:13 1984-Mar-08 11:10" [ref=e358]:
+                - cell "▶ Sun AD" [ref=e359]
+                - cell "1983-Mar-09 05:13" [ref=e360]
+                - cell "1984-Mar-08 11:10" [ref=e361]
+              - row "▶ Moon AD 1984-Mar-08 11:10 1985-Nov-10 13:35" [ref=e362]:
+                - cell "▶ Moon AD" [ref=e363]
+                - cell "1984-Mar-08 11:10" [ref=e364]
+                - cell "1985-Nov-10 13:35" [ref=e365]
+              - row "▶ Mars AD 1985-Nov-10 13:35 1987-Jan-08 22:46" [ref=e366]:
+                - cell "▶ Mars AD" [ref=e367]
+                - cell "1985-Nov-10 13:35" [ref=e368]
+                - cell "1987-Jan-08 22:46" [ref=e369]
+              - row "▶ Rahu AD 1987-Jan-08 22:46 1990-Jan-08 17:12" [ref=e370]:
+                - cell "▶ Rahu AD" [ref=e371]
+                - cell "1987-Jan-08 22:46" [ref=e372]
+                - cell "1990-Jan-08 17:12" [ref=e373]
+              - row "▶ Jupiter AD 1990-Jan-08 17:12 1992-Sep-10 16:19" [ref=e374]:
+                - cell "▶ Jupiter AD" [ref=e375]
+                - cell "1990-Jan-08 17:12" [ref=e376]
+                - cell "1992-Sep-10 16:19" [ref=e377]
+              - row "▶ Saturn AD 1992-Sep-10 16:19 1995-Nov-11 03:11" [ref=e378]:
+                - cell "▶ Saturn AD" [ref=e379]
+                - cell "1992-Sep-10 16:19" [ref=e380]
+                - cell "1995-Nov-11 03:11" [ref=e381]
+              - row "▶ Mercury AD 1995-Nov-11 03:11 1998-Sep-11 05:11" [ref=e382]:
+                - cell "▶ Mercury AD" [ref=e383]
+                - cell "1995-Nov-11 03:11" [ref=e384]
+                - cell "1998-Sep-11 05:11" [ref=e385]
+              - row "▶ Ketu AD 1998-Sep-11 05:11 1999-Nov-11 03:42" [ref=e386]:
+                - cell "▶ Ketu AD" [ref=e387]
+                - cell "1998-Sep-11 05:11" [ref=e388]
+                - cell "1999-Nov-11 03:42" [ref=e389]
+      - generic [ref=e323]:
+        - generic [ref=e324]:
+          - generic "Drag to reorder" [ref=e325]: ⠿
+          - button "▶" [ref=e326] [cursor=pointer]
+          - heading "Age Progression" [level=3] [ref=e327]
+        - generic [ref=e328]:
+          - button "←" [ref=e329] [cursor=pointer]
+          - generic [ref=e330]: Cycle 4
+          - button "→" [ref=e331] [cursor=pointer]
+          - generic [ref=e332]: "As of:"
+          - textbox [ref=e333]: 2026-04-25
+      - generic [ref=e335]:
+        - generic [ref=e336]:
+          - generic "Drag to reorder" [ref=e337]: ⠿
+          - button "▶" [ref=e338] [cursor=pointer]
+          - heading "Dasha Progression" [level=3] [ref=e339]
+        - generic [ref=e340]:
+          - button "←" [ref=e341] [cursor=pointer]
+          - button "→" [ref=e342] [cursor=pointer]
+          - generic [ref=e343]: "MD Lord:"
+          - combobox [ref=e344] [cursor=pointer]:
+            - option "Venus — H11"
+            - option "Sun — H11"
+            - option "Moon — H6"
+            - option "Mars — H9"
+            - option "Rahu — H11" [selected]
+            - option "Jupiter — H4"
+            - option "Saturn — H10"
+            - option "Mercury — H10"
+            - option "Ketu — H5"

@@ -1,0 +1,111 @@
+<style>
+  .dasha-mock { font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border, #334155); border-radius: 8px; overflow: hidden; margin-bottom: 0.5rem; }
+  .dasha-mock table { width: 100%; border-collapse: collapse; }
+  .dasha-mock th { background: #1e293b; color: #94a3b8; padding: 5px 8px; text-align: left; font-size: 0.75rem; }
+  .dasha-mock td { padding: 5px 8px; border-top: 1px solid #1e293b; color: #cbd5e1; }
+  .dasha-mock tr.active { background: #1e3a5f; }
+  .dasha-mock tr.active td { color: #f1f5f9; font-weight: 600; }
+  .dasha-mock tr.dim { opacity: 0.45; }
+  .dasha-mock .planet-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .dasha-mock .label { font-size: 0.68rem; color: #64748b; margin-left: 4px; }
+  .dasha-mock .badge { font-size: 0.68rem; background: #1e3a5f; color: #60a5fa; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+  .dasha-mock .breadcrumb { background: #0f172a; padding: 6px 10px; color: #60a5fa; font-size: 0.78rem; border-bottom: 1px solid #1e293b; }
+  .mode-toggle { display: inline-flex; border: 1px solid #334155; border-radius: 6px; overflow: hidden; font-size: 0.75rem; margin-bottom: 8px; }
+  .mode-toggle span { padding: 3px 10px; color: #94a3b8; cursor: pointer; }
+  .mode-toggle span.on { background: #3b82f6; color: white; }
+  .approach-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; margin: 0 0 6px 0; letter-spacing: 0.03em; }
+  .approach-desc { font-size: 0.74rem; color: #94a3b8; margin: 0 0 8px 0; }
+  .tag { display: inline-block; font-size: 0.65rem; background: #1e293b; color: #94a3b8; border-radius: 4px; padding: 2px 6px; margin-right: 4px; }
+  .rec-tag { background: #1d4ed8; color: #bfdbfe; }
+  .remaining { font-size: 0.72rem; color: #22d3ee; margin-left: 6px; }
+</style>
+
+<h2>Dasha Display — 3 Approaches</h2>
+<p class="subtitle">All share the toggle + active-first behavior you described. They differ in how much extra context they show.</p>
+
+<div class="options">
+
+  <!-- APPROACH A -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Focused + Toggle only <span class="tag rec-tag">Recommended</span></h3>
+      <p>Clean implementation of your idea. Toggle switches Focused ↔ Full. Focused shows active MD expanded with all ADs. Collapsing shows all MDs. No extra chrome.</p>
+
+      <div class="mode-toggle"><span class="on">Focused</span><span>Full</span></div>
+      <div class="dasha-mock">
+        <table>
+          <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>
+            <tr class="active"><td><span class="planet-dot" style="background:#a78bfa"></span>▼ <strong>Ketu</strong> <span class="label">MD</span></td><td>2022-Feb-14</td><td>2029-Feb-14</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Venus <span class="label">AD</span></td><td>2022-Feb-14</td><td>2022-Dec-16</td></tr>
+            <tr class="active"><td style="padding-left:1.8rem">▶ <strong>Sun</strong> <span class="label">AD</span> <span class="badge">★ now</span></td><td>2022-Dec-16</td><td>2023-Apr-14</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Moon <span class="label">AD</span></td><td>2023-Apr-14</td><td>2023-Nov-14</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Mars <span class="label">AD</span></td><td>2023-Nov-14</td><td>2024-Feb-21</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Rahu <span class="label">AD</span></td><td>2024-Feb-21</td><td>2025-Jan-20</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Minimal scope</li><li>Immediate clarity on active period</li><li>Easy to implement</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>No at-a-glance summary of where you are</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROACH B -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Focused + Breadcrumb header</h3>
+      <p>Adds a compact "you are here" strip above the table showing the active path MD › AD › PD at a glance. Works great when deep in expanded rows.</p>
+
+      <div class="mode-toggle"><span class="on">Focused</span><span>Full</span></div>
+      <div class="dasha-mock">
+        <div class="breadcrumb">★ Ketu MD &rsaquo; Sun AD &rsaquo; Moon PD &nbsp;·&nbsp; 4 months left in AD</div>
+        <table>
+          <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>
+            <tr class="active"><td><span class="planet-dot" style="background:#a78bfa"></span>▼ <strong>Ketu</strong> <span class="label">MD</span></td><td>2022-Feb-14</td><td>2029-Feb-14</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Venus <span class="label">AD</span></td><td>2022-Feb-14</td><td>2022-Dec-16</td></tr>
+            <tr class="active"><td style="padding-left:1.8rem">▶ <strong>Sun</strong> <span class="label">AD</span> <span class="badge">★ now</span></td><td>2022-Dec-16</td><td>2023-Apr-14</td></tr>
+            <tr><td style="padding-left:1.8rem">▶ Moon <span class="label">AD</span></td><td>2023-Apr-14</td><td>2023-Nov-14</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Instant orientation at any depth</li><li>"X months left" is very useful</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>A bit more work to compute remaining time</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROACH C -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Focused + Breadcrumb + Planet colors</h3>
+      <p>B plus colored planet dots on every row using the existing PLANET_COLORS. Makes the table scannable and ties into the chart tab's visual language.</p>
+
+      <div class="mode-toggle"><span class="on">Focused</span><span>Full</span></div>
+      <div class="dasha-mock">
+        <div class="breadcrumb">★ Ketu MD &rsaquo; Sun AD &rsaquo; Moon PD &nbsp;·&nbsp; 4 months left in AD</div>
+        <table>
+          <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>
+            <tr class="active"><td><span class="planet-dot" style="background:#a78bfa"></span>▼ <strong>Ketu</strong> <span class="label">MD</span></td><td>2022-Feb-14</td><td>2029-Feb-14</td></tr>
+            <tr><td style="padding-left:1.8rem"><span class="planet-dot" style="background:#fb923c"></span>▶ Venus <span class="label">AD</span></td><td>2022-Feb-14</td><td>2022-Dec-16</td></tr>
+            <tr class="active"><td style="padding-left:1.8rem"><span class="planet-dot" style="background:#fbbf24"></span>▶ <strong>Sun</strong> <span class="label">AD</span> <span class="badge">★ now</span></td><td>2022-Dec-16</td><td>2023-Apr-14</td></tr>
+            <tr><td style="padding-left:1.8rem"><span class="planet-dot" style="background:#60a5fa"></span>▶ Moon <span class="label">AD</span></td><td>2023-Apr-14</td><td>2023-Nov-14</td></tr>
+            <tr><td style="padding-left:1.8rem"><span class="planet-dot" style="background:#f87171"></span>▶ Mars <span class="label">AD</span></td><td>2023-Nov-14</td><td>2024-Feb-21</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Most visual — rows are instantly scannable</li><li>Consistent with chart tab colors</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Slightly more visual noise at deep levels</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -5,7 +5,7 @@ import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
 import { applyAyanamsa, getSettings } from '../core/settings.js'
-import { getSwe, initSwissEph } from '../core/swisseph.js'
+import { getSwe } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
@@ -504,7 +504,6 @@ async function onFormSubmit(e) {
     btn.disabled = true
     btn.textContent = 'Calculating…'
 
-    await initSwissEph()
     applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
     const settings = getSettings()

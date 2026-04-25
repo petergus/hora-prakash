@@ -430,20 +430,45 @@ export function renderChart() {
     })
   })
 
-  // Swipe gesture for chart/dasha split panel (mobile)
+  // Swipe gesture for chart/dasha split panel (mobile) — same hard-swipe rules as tab nav
   const splitWrapper = panel.querySelector('#chart-split-wrapper')
   if (splitWrapper && showDasha) {
-    let touchStartX = 0, touchStartY = 0
+    let touchStartX = 0, touchStartY = 0, touchStartTime = 0, swipeCancelled = false
+
+    function insideHorizScrollable(el) {
+      while (el && el !== splitWrapper) {
+        if (el.scrollWidth > el.clientWidth + 4) return true
+        el = el.parentElement
+      }
+      return false
+    }
+
     splitWrapper.addEventListener('touchstart', e => {
       e.stopPropagation()
-      touchStartX = e.changedTouches[0].clientX
-      touchStartY = e.changedTouches[0].clientY
+      const t = e.changedTouches[0]
+      touchStartX    = t.clientX
+      touchStartY    = t.clientY
+      touchStartTime = Date.now()
+      swipeCancelled = insideHorizScrollable(e.target)
     }, { passive: true })
+
+    splitWrapper.addEventListener('touchmove', e => {
+      if (swipeCancelled) return
+      const t  = e.changedTouches[0]
+      const dx = Math.abs(t.clientX - touchStartX)
+      const dy = Math.abs(t.clientY - touchStartY)
+      if (dy > 10 && dy > dx) swipeCancelled = true
+    }, { passive: true })
+
     splitWrapper.addEventListener('touchend', e => {
       e.stopPropagation()
-      const dx = e.changedTouches[0].clientX - touchStartX
-      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY)
-      if (Math.abs(dx) < 50 || dy > 75) return
+      if (swipeCancelled) return
+      const t   = e.changedTouches[0]
+      const dx  = t.clientX - touchStartX
+      const adx = Math.abs(dx)
+      const ady = Math.abs(t.clientY - touchStartY)
+      const ms  = Date.now() - touchStartTime
+      if (adx < 80 || ady > adx * 0.4 || ms > 400) return
       const current = c().mobileDashaTab ?? 'chart'
       const next = dx < 0 ? 'dasha' : 'chart'
       if (next === current) return

@@ -9,9 +9,8 @@ import { renderProfileTabs } from './ui/profile-tabs.js'
 
 async function main() {
   loadSettings()
-  await initSwissEph()
-  applyAyanamsa()
 
+  // Show UI immediately — don't block on 12MB ephemeris download
   document.getElementById('app-loader')?.remove()
   document.getElementById('tab-input').style.display = ''
 
@@ -21,8 +20,10 @@ async function main() {
   const id = createSession()
   switchSession(id)
   renderProfileTabs()
-
   renderInputTab()
+
+  // Preload WASM in background; form submit will await it if still loading
+  initSwissEph().then(() => applyAyanamsa()).catch(console.error)
 }
 
 main()

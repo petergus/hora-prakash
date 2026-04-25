@@ -4,6 +4,7 @@ import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI } from '../sessions.js'
+import { renderDashaCards } from './dasha.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -21,6 +22,7 @@ function fmtDeg(dec) {
 
 let privacyOn = false   // global UI pref, not per-session
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
+let _splitDragRatio = null
 
 function c() {
   const s = getActiveSession()
@@ -241,6 +243,11 @@ export function renderChart() {
     <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
     ${buildPlanetTable(divisional, planets, lagna)}` : ''
 
+  const ui2 = c()
+  const showDasha = ui2.showDasha && ui2.viewMode !== '4'
+  const splitRatio = ui2.splitRatio ?? 0.55
+  const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
+
   panel.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
@@ -261,10 +268,56 @@ export function renderChart() {
         </div>
         ${aspectBtns}
       </div>
-      ${chartArea}
-      ${planetTable}
+      <div class="chart-split-wrapper" id="chart-split-wrapper"${showDasha ? ` style="grid-template-columns:${gridCols}"` : ''}>
+        <div class="chart-pane" id="chart-pane" data-mobile-panel="chart">
+          ${chartArea}
+          ${planetTable}
+        </div>
+        ${showDasha ? `<div class="split-handle" id="split-handle"></div><div class="dasha-pane" id="dasha-pane" data-mobile-panel="dasha"></div>` : ''}
+      </div>
     </div>
   `
+
+  if (showDasha) {
+    const dashaPane = panel.querySelector('#dasha-pane')
+    if (dashaPane) renderDashaCards(dashaPane, ui2.dashaCards).catch(console.error)
+  }
+
+  const handle = panel.querySelector('#split-handle')
+  const wrapper = panel.querySelector('#chart-split-wrapper')
+  if (handle && wrapper) {
+    const SNAP_POINTS = [0.40, 0.50, 0.60]
+    const SNAP_THRESHOLD = 0.03
+
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault()
+      handle.classList.add('dragging')
+
+      function onMove(ev) {
+        const rect = wrapper.getBoundingClientRect()
+        let ratio = (ev.clientX - rect.left) / rect.width
+        ratio = Math.max(0.2, Math.min(0.8, ratio))
+        wrapper.style.gridTemplateColumns = `${ratio}fr 6px ${1 - ratio}fr`
+        _splitDragRatio = ratio
+      }
+
+      function onUp() {
+        handle.classList.remove('dragging')
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        let ratio = _splitDragRatio ?? c().splitRatio
+        _splitDragRatio = null
+        const snap = SNAP_POINTS.find(s => Math.abs(ratio - s) <= SNAP_THRESHOLD)
+        if (snap !== undefined) ratio = snap
+        ratio = Math.round(ratio * 1000) / 1000
+        c().splitRatio = ratio
+        wrapper.style.gridTemplateColumns = `${ratio}fr 6px ${1 - ratio}fr`
+      }
+
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    })
+  }
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })

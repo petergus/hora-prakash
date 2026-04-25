@@ -615,6 +615,29 @@ h3 {
 }
 .toggle-btn:hover { color: var(--text); }
 
+.dasha-mode-btn {
+  font-size: 0.75rem;
+  padding: 3px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.dasha-mode-btn.focused-active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+.dasha-mode-btn:hover:not(.focused-active) {
+  background: #e0e7ff;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 /* ── Age stat chips ── */
 .age-stats {
   display: flex;
@@ -808,6 +831,9 @@ h3 {
   /* Swap planet table sections on mobile */
   .multi-planet-desktop { display: none; }
   .multi-planet-mobile  { display: block; }
+
+  .prog-card-title { flex-wrap: wrap; gap: 0.4rem; }
+  .dasha-breadcrumb { font-size: 0.72rem; }
 }
 
 /* ── Saved Profiles ── */
@@ -968,34 +994,27 @@ h3 {
 .btn-tz:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .dasha-breadcrumb {
-  padding: 5px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
   font-size: 0.78rem;
-  color: #60a5fa;
   background: #0f172a;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0.5rem;
-  border-radius: 6px 6px 0 0;
-}
-.dasha-breadcrumb-sep {
-  color: var(--muted);
-  margin: 0 4px;
-}
-
-.focus-toggle {
-  display: inline-flex;
-  border: 1px solid var(--border);
   border-radius: 6px;
-  overflow: hidden;
-  font-size: 0.75rem;
-  margin-right: 0.4rem;
+  margin-bottom: 0.5rem;
 }
-.focus-toggle span {
-  padding: 2px 10px;
-  color: var(--muted);
+.dasha-crumb-btn {
+  background: none;
+  border: none;
+  color: #60a5fa;
   cursor: pointer;
-  user-select: none;
+  font-size: 0.78rem;
+  font-family: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.1s;
 }
-.focus-toggle span.focus-on {
-  background: #3b82f6;
-  color: #fff;
-}
+.dasha-crumb-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
+.dasha-crumb-btn.active { color: #fff; font-weight: 600; cursor: default; }
+.dasha-crumb-sep { color: #475569; font-size: 0.72rem; padding: 0 2px; }

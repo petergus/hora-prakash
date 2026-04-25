@@ -139,7 +139,7 @@ export async function renderDasha() {
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
           ${renderYearMethodControls()}
-          <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) ? renderBreadcrumb(dasha) : ''}</div>
+          <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) ? renderBreadcrumb(dasha, ui) : ''}</div>
           <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.85rem">MD → AD → PD → SD → PrD — click any row to expand</p>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
@@ -182,6 +182,17 @@ export async function renderDasha() {
 
   panel.onclick = e => {
     const ui = d()
+    const crumbBtn = e.target.closest('[data-crumb-depth]')
+    if (crumbBtn) {
+      const depth = parseInt(crumbBtn.dataset.crumbDepth)
+      const ui = d()
+      ui.focusedPath = depth < 0 ? [] : (ui.focusedPath ?? []).slice(0, depth + 1)
+      buildDashaRows(state.dasha, ui).then(rows => {
+        document.querySelector('.dasha-table tbody').innerHTML = rows
+        document.getElementById('dasha-breadcrumb-wrap').innerHTML = renderBreadcrumb(state.dasha, ui)
+      }).catch(console.error)
+      return
+    }
     if (e.target.id === 'dasha-mode-btn') {
       const wasFocused = ui.focusedMode ?? true
       ui.focusedMode = !wasFocused
@@ -562,32 +573,36 @@ function getTzOffsetMs() {
   return (m[1] === '+' ? 1 : -1) * mins * 60000
 }
 
-function renderBreadcrumb(dasha) {
-  const now      = new Date()
-  const activeMD = dasha.find(m => isCurrentPeriod(m.start, m.end))
-  if (!activeMD) return ''
+function renderBreadcrumb(dasha, ui) {
+  const fp = ui.focusedPath ?? []
 
-  const activeAD = activeMD.children?.find(a => isCurrentPeriod(a.start, a.end))
-  const activePD = activeAD?.children?.find(p => isCurrentPeriod(p.start, p.end))
-
-  const mdAbbr = PLANET_ABBR[activeMD.planet] ?? activeMD.planet
-
-  const adAbbr = activeAD ? (PLANET_ABBR[activeAD.planet] ?? activeAD.planet) : null
-  const pdAbbr = activePD ? (PLANET_ABBR[activePD.planet] ?? activePD.planet) : null
-
+  // Build time-left annotation when the focused AD is the current period AD
   let timeLeft = ''
-  if (activeAD) {
-    const daysLeft = Math.round((activeAD.end - now) / 86400000)
-    if (daysLeft >= 30) timeLeft = `${Math.round(daysLeft / 30.4)} months left in AD`
-    else if (daysLeft > 0) timeLeft = `${daysLeft} days left in AD`
+  if (fp.length >= 2) {
+    const md = dasha.find(m => m.planet === fp[0])
+    const ad = md?.children?.find(a => a.planet === fp[1])
+    if (ad && isCurrentPeriod(ad.start, ad.end)) {
+      const daysLeft = Math.round((ad.end - new Date()) / 86400000)
+      if (daysLeft >= 30) timeLeft = `· ${Math.round(daysLeft / 30.4)}mo left in AD`
+      else if (daysLeft > 0) timeLeft = `· ${daysLeft}d left in AD`
+    }
   }
 
-  let crumb = `★ &nbsp;${mdAbbr} <span class="dasha-level-label">MD</span>`
-  if (adAbbr) crumb += ` &rsaquo; ${adAbbr} <span class="dasha-level-label">AD</span>`
-  if (pdAbbr) crumb += ` &rsaquo; ${pdAbbr} <span class="dasha-level-label">PD</span>`
-  if (timeLeft) crumb += ` <span class="dasha-breadcrumb-sep">·</span> ${timeLeft}`
+  const LEVEL_CRUMB = ['MD','AD','PD','SD','PrD']
 
-  return `<div class="dasha-breadcrumb">${crumb}</div>`
+  let chips = `<button class="dasha-crumb-btn${fp.length === 0 ? ' active' : ''}" data-crumb-depth="-1">All MDs</button>`
+
+  for (let i = 0; i < fp.length; i++) {
+    const abbr    = PLANET_ABBR[fp[i]] ?? fp[i]
+    const label   = LEVEL_CRUMB[i] ?? ''
+    const isLast  = i === fp.length - 1
+    chips += `<span class="dasha-crumb-sep">›</span>`
+    chips += `<button class="dasha-crumb-btn${isLast ? ' active' : ''}" data-crumb-depth="${i}">${abbr} <span class="dasha-level-label">${label}</span></button>`
+  }
+
+  if (timeLeft) chips += `<span class="dasha-crumb-sep">${timeLeft}</span>`
+
+  return `<div class="dasha-breadcrumb">${chips}</div>`
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']

@@ -9,8 +9,23 @@
   --muted: #64748b;
   --danger: #ef4444;
   --highlight: #fef9c3;
-  --radius: 10px;
-  --shadow: 0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
+}
+[data-theme="indigo"] {
+  --primary: #4f46e5; --primary-hover: #4338ca; --highlight: #fef9c3;
+}
+[data-theme="saffron"] {
+  --primary: #d97706; --primary-hover: #b45309; --highlight: #fef3c7;
+}
+[data-theme="forest"] {
+  --primary: #059669; --primary-hover: #047857; --highlight: #d1fae5;
+}
+[data-theme="rose"] {
+  --primary: #e11d48; --primary-hover: #be123c; --highlight: #ffe4e6;
+}
+[data-theme="midnight"] {
+  --primary: #7c3aed; --primary-hover: #6d28d9; --highlight: #ede9fe;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -171,10 +186,19 @@ nav::-webkit-scrollbar { display: none; }
 /* ── Card wrapper ── */
 .card {
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 1.5rem;
-  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.section-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
 }
 
 /* ── Form ── */
@@ -752,6 +776,55 @@ h3 {
   border-color: var(--primary);
 }
 
+/* ── Dasha ⋮ options popover ── */
+.dasha-options-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--muted);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1;
+  margin-left: auto;
+}
+.dasha-options-btn:hover { color: var(--text); background: var(--bg); }
+.dasha-options-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 0.75rem 1rem;
+  z-index: 200;
+  min-width: 220px;
+  display: none;
+}
+.dasha-options-popover.open { display: block; }
+.dasha-options-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+.dasha-options-row:last-child { margin-bottom: 0; }
+.dasha-options-row label { color: var(--text); font-size: 0.83rem; cursor: pointer; }
+.dasha-options-row select,
+.dasha-options-row input[type="number"] { font-size: 0.82rem; }
+.dasha-mode-radios { display: flex; gap: 0.5rem; }
+.dasha-mode-radios label { display: flex; align-items: center; gap: 0.25rem; }
+.dasha-options-info {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+
 /* ── Age stat chips ── */
 .age-stats {
   display: flex;
@@ -984,6 +1057,20 @@ h3 {
   .chart-dasha-tab-btn:last-child { border-right: none; }
   .chart-dasha-tab-btn.active { background: var(--primary); color: var(--primary-text); }
 }
+
+/* ── Theme swatches ── */
+.theme-swatches { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.theme-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  outline: none;
+}
+.theme-swatch:hover { transform: scale(1.15); }
+.theme-swatch.active { border-color: var(--text); }
 
 /* ── Saved Profiles ── */
 .btn-secondary {

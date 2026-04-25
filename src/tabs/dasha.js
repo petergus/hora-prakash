@@ -237,28 +237,45 @@ export async function renderDasha() {
   initDragReorder(document.getElementById('prog-drag-container'))
 
   // Dasha table row toggle — generic handler for all 5 levels
-  panel.querySelector('.dasha-table tbody').addEventListener('click', (e) => {
+  panel.querySelector('.dasha-table tbody').addEventListener('click', async (e) => {
     const row = e.target.closest('tr[data-toggle]')
     if (!row) return
     const ui    = d()
     const path  = row.dataset.path
     const depth = parseInt(row.dataset.depth)
-
-    // Find the node in state.dasha by path
     const parts = path.split('/')
+
+    if (ui.focusedMode ?? true) {
+      // ── FOCUSED MODE: update focusedPath and rebuild ──
+      const fp = ui.focusedPath ?? []
+      const isExpanded = fp.length > depth && fp[depth] === parts[depth]
+
+      if (isExpanded) {
+        // Collapse: pop back to this level (show siblings)
+        ui.focusedPath = fp.slice(0, depth)
+      } else {
+        // Expand: focus into this node
+        ui.focusedPath = parts.slice(0, depth + 1)
+      }
+
+      const rows = await buildDashaRows(state.dasha, ui)
+      document.querySelector('.dasha-table tbody').innerHTML = rows
+      document.getElementById('dasha-breadcrumb-wrap').innerHTML = renderBreadcrumb(state.dasha, ui)
+      return
+    }
+
+    // ── FULL MODE: existing DOM-mutation behaviour ──
     let node = state.dasha.find(m => m.planet === parts[0])
     for (let i = 1; i < parts.length; i++) {
       node = node?.children.find(c => c.planet === parts[i])
     }
     if (!node) return
 
-    // Determine if we're opening or closing by checking for existing child rows
     const tbody    = row.closest('tbody')
     const allRows  = Array.from(tbody.querySelectorAll('tr'))
     const nextIdx  = allRows.indexOf(row) + 1
     const hasChild = nextIdx < allRows.length && parseInt(allRows[nextIdx].dataset.depth ?? '-1') === depth + 1
-
-    const opening = !hasChild
+    const opening  = !hasChild
 
     if (opening) {
       insertChildRows(row, node, depth).catch(console.error)
@@ -267,7 +284,6 @@ export async function renderDasha() {
     }
     setArrow(row, opening)
 
-    // Update session state
     if (depth === 0) {
       const mahaName = path
       if (opening) ui.expandedMahas.add(mahaName)

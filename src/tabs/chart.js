@@ -124,6 +124,7 @@ export function renderChart() {
 
   const slots = viewMode === '1' ? 1 : viewMode === '2' ? 2 : 4
   const keys  = multiDivs.slice(0, slots)
+  const showDasha = ui.showDasha && viewMode !== '4'
 
   // Clamp tableDiv to one of the active slots (if not already)
   if (viewMode !== '1' && !keys.includes(_tableDiv)) ui.tableDiv = keys[0]
@@ -222,7 +223,7 @@ export function renderChart() {
 
     chartArea = `
       ${renderMultiTabNav(keys, ui.activeMultiTab)}
-      <div class="multi-chart-grid multi-chart-grid-${slots}">
+      <div class="multi-chart-grid multi-chart-grid-${slots}${slots === 2 && showDasha ? ' multi-chart-grid-2--dasha' : ''}">
         ${gridCells}
       </div>
       <div id="chart-container" class="multi-chart-mobile-view">
@@ -243,9 +244,7 @@ export function renderChart() {
     <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
     ${buildPlanetTable(divisional, planets, lagna)}` : ''
 
-  const ui2 = c()
-  const showDasha = ui2.showDasha && ui2.viewMode !== '4'
-  const splitRatio = ui2.splitRatio ?? 0.55
+  const splitRatio = ui.splitRatio ?? 0.55
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
   panel.innerHTML = `
@@ -272,23 +271,23 @@ export function renderChart() {
           <div class="dasha-toggle-btn" id="dasha-toggle-wrapper" style="position:relative">
             <button id="btn-dasha-toggle" class="chart-style-btn${showDasha ? ' active' : ''}" title="Show Dasha panel">Dasha</button>
             <div id="dasha-card-popover" class="dasha-card-popover" style="display:none">
-              <label><input type="checkbox" id="dasha-card-vimshottari" value="vimshottari" ${ui2.dashaCards.includes('vimshottari') ? 'checked' : ''}> Vimshottari</label>
-              <label><input type="checkbox" id="dasha-card-age" value="age" ${ui2.dashaCards.includes('age') ? 'checked' : ''}> Age Progression</label>
-              <label><input type="checkbox" id="dasha-card-progression" value="progression" ${ui2.dashaCards.includes('progression') ? 'checked' : ''}> Dasha Progression</label>
+              <label><input type="checkbox" id="dasha-card-vimshottari" value="vimshottari" ${ui.dashaCards.includes('vimshottari') ? 'checked' : ''}> Vimshottari</label>
+              <label><input type="checkbox" id="dasha-card-age" value="age" ${ui.dashaCards.includes('age') ? 'checked' : ''}> Age Progression</label>
+              <label><input type="checkbox" id="dasha-card-progression" value="progression" ${ui.dashaCards.includes('progression') ? 'checked' : ''}> Dasha Progression</label>
             </div>
           </div>
           ${showDasha ? `
             <div class="split-preset-group">
-              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.40) < 0.02 ? ' active' : ''}" data-ratio="0.4">40/60</button>
-              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.50) < 0.02 ? ' active' : ''}" data-ratio="0.5">50/50</button>
-              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.60) < 0.02 ? ' active' : ''}" data-ratio="0.6">60/40</button>
+              <button class="split-preset-btn${Math.abs((ui.splitRatio ?? 0.55) - 0.40) < 0.02 ? ' active' : ''}" data-ratio="0.4">40/60</button>
+              <button class="split-preset-btn${Math.abs((ui.splitRatio ?? 0.55) - 0.50) < 0.02 ? ' active' : ''}" data-ratio="0.5">50/50</button>
+              <button class="split-preset-btn${Math.abs((ui.splitRatio ?? 0.55) - 0.60) < 0.02 ? ' active' : ''}" data-ratio="0.6">60/40</button>
             </div>` : ''}
         ` : ''}
       </div>
       ${showDasha ? `
         <div class="chart-dasha-tabs" id="chart-dasha-tabs">
-          <button class="chart-dasha-tab-btn${ui2.mobileDashaTab !== 'dasha' ? ' active' : ''}" data-panel="chart">Chart</button>
-          <button class="chart-dasha-tab-btn${ui2.mobileDashaTab === 'dasha' ? ' active' : ''}" data-panel="dasha">Dasha</button>
+          <button class="chart-dasha-tab-btn${ui.mobileDashaTab !== 'dasha' ? ' active' : ''}" data-panel="chart">Chart</button>
+          <button class="chart-dasha-tab-btn${ui.mobileDashaTab === 'dasha' ? ' active' : ''}" data-panel="dasha">Dasha</button>
         </div>` : ''}
       <div class="chart-split-wrapper" id="chart-split-wrapper"${showDasha ? ` style="grid-template-columns:${gridCols}"` : ''}>
         <div class="chart-pane" id="chart-pane" data-mobile-panel="chart">
@@ -302,7 +301,7 @@ export function renderChart() {
 
   if (showDasha) {
     const dashaPane = panel.querySelector('#dasha-pane')
-    if (dashaPane) renderDashaCards(dashaPane, ui2.dashaCards).catch(console.error)
+    if (dashaPane) renderDashaCards(dashaPane, ui.dashaCards).catch(console.error)
   }
 
   const handle = panel.querySelector('#split-handle')

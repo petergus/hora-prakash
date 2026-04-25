@@ -2,7 +2,7 @@
 import { initTabs } from './ui/tabs.js'
 import { renderInputTab } from './tabs/input.js'
 import { initSwissEph } from './core/swisseph.js'
-import { loadSettings, applyAyanamsa } from './core/settings.js'
+import { loadSettings, applyAyanamsa, getSettings } from './core/settings.js'
 import { initSettingsModal } from './ui/settings-modal.js'
 import { createSession, switchSession } from './sessions.js'
 import { renderProfileTabs } from './ui/profile-tabs.js'
@@ -14,8 +14,7 @@ if ('serviceWorker' in navigator) {
 
 async function main() {
   loadSettings()
-  document.documentElement.dataset.theme =
-    (JSON.parse(localStorage.getItem('hora-prakash-settings') || '{}').theme) || 'indigo'
+  document.documentElement.dataset.theme = getSettings().theme || 'indigo'
 
   // Show UI immediately — don't block on 12MB ephemeris download
   document.getElementById('app-loader')?.remove()

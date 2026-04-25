@@ -309,62 +309,154 @@ async function buildDashaRows(dasha, ui) {
   const rows        = []
   const focusedMode = ui.focusedMode ?? true
 
-  const activeMaha        = dasha.find(m => isCurrentPeriod(m.start, m.end))
-  const activeMahaExpanded = activeMaha && ui.expandedMahas.has(activeMaha.planet)
+  if (!focusedMode) {
+    // ── FULL MODE: unchanged behaviour ──────────────────────────────────────
+    for (const maha of dasha) {
+      const isCur0    = isCurrentPeriod(maha.start, maha.end)
+      const expanded0 = ui.expandedMahas.has(maha.planet)
+      rows.push(makeMdRow(maha, expanded0, isCur0))
 
-  for (const maha of dasha) {
-    const isCur0 = isCurrentPeriod(maha.start, maha.end)
+      if (!expanded0) continue
+      await ensureChildren(maha, swe, flags)
+      for (const antar of maha.children) {
+        const path1     = `${maha.planet}/${antar.planet}`
+        const isCur1    = isCurrentPeriod(antar.start, antar.end)
+        const expanded1 = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
+        rows.push(makeRow(antar, path1, 1, expanded1, isCur1, isCur1))
 
-    // In focused mode with active MD expanded: skip non-active MDs
-    if (focusedMode && activeMahaExpanded && !isCur0) continue
+        if (!expanded1) continue
+        await ensureChildren(antar, swe, flags)
+        for (const prat of antar.children) {
+          const path2     = `${path1}/${prat.planet}`
+          const isCur2    = isCurrentPeriod(prat.start, prat.end)
+          const expanded2 = ui.expandedPaths.has(path2)
+          rows.push(makeRow(prat, path2, 2, expanded2, isCur2))
 
-    const expanded0 = ui.expandedMahas.has(maha.planet)
-    rows.push(makeMdRow(maha, expanded0, isCur0))
+          if (!expanded2) continue
+          await ensureChildren(prat, swe, flags)
+          for (const sook of prat.children) {
+            const path3     = `${path2}/${sook.planet}`
+            const isCur3    = isCurrentPeriod(sook.start, sook.end)
+            const expanded3 = ui.expandedPaths.has(path3)
+            rows.push(makeRow(sook, path3, 3, expanded3, isCur3))
 
-    if (!expanded0) continue
-    await ensureChildren(maha, swe, flags)
-    for (const antar of maha.children) {
-      const path1     = `${maha.planet}/${antar.planet}`
-      const isCur1    = isCurrentPeriod(antar.start, antar.end)
-      const expanded1 = ui.expandedAntars.get(maha.planet)?.has(antar.planet) ?? false
-      rows.push(makeRow(antar, path1, 1, expanded1, isCur1, isCur1))
+            if (!expanded3) continue
+            await ensureChildren(sook, swe, flags)
+            for (const prana of sook.children) {
+              const path4     = `${path3}/${prana.planet}`
+              const isCur4    = isCurrentPeriod(prana.start, prana.end)
+              const expanded4 = ui.expandedPaths.has(path4)
+              rows.push(makeRow(prana, path4, 4, expanded4, isCur4))
 
-      if (!expanded1) continue
-      await ensureChildren(antar, swe, flags)
-      for (const prat of antar.children) {
-        const path2     = `${path1}/${prat.planet}`
-        const isCur2    = isCurrentPeriod(prat.start, prat.end)
-        const expanded2 = ui.expandedPaths.has(path2)
-        rows.push(makeRow(prat, path2, 2, expanded2, isCur2))
-
-        if (!expanded2) continue
-        await ensureChildren(prat, swe, flags)
-        for (const sook of prat.children) {
-          const path3     = `${path2}/${sook.planet}`
-          const isCur3    = isCurrentPeriod(sook.start, sook.end)
-          const expanded3 = ui.expandedPaths.has(path3)
-          rows.push(makeRow(sook, path3, 3, expanded3, isCur3))
-
-          if (!expanded3) continue
-          await ensureChildren(sook, swe, flags)
-          for (const prana of sook.children) {
-            const path4     = `${path3}/${prana.planet}`
-            const isCur4    = isCurrentPeriod(prana.start, prana.end)
-            const expanded4 = ui.expandedPaths.has(path4)
-            rows.push(makeRow(prana, path4, 4, expanded4, isCur4))
-
-            if (!expanded4) continue
-            await ensureChildren(prana, swe, flags)
-            for (const deha of prana.children) {
-              const path5  = `${path4}/${deha.planet}`
-              const isCur5 = isCurrentPeriod(deha.start, deha.end)
-              const expanded5 = ui.expandedPaths.has(path5)
-              rows.push(makeLeafRow(deha, path5, isCur5))
+              if (!expanded4) continue
+              await ensureChildren(prana, swe, flags)
+              for (const deha of prana.children) {
+                const path5  = `${path4}/${deha.planet}`
+                const isCur5 = isCurrentPeriod(deha.start, deha.end)
+                rows.push(makeLeafRow(deha, path5, isCur5))
+              }
             }
           }
         }
       }
     }
+    return rows.join('')
+  }
+
+  // ── FOCUSED MODE ──────────────────────────────────────────────────────────
+  const fp = ui.focusedPath ?? []
+  // fp = []         → show all MDs collapsed
+  // fp = [md]       → show only that MD expanded (all its ADs)
+  // fp = [md, ad]   → show that MD (only that AD visible) + that AD expanded (all its PDs)
+  // etc.
+
+  if (fp.length === 0) {
+    // All MDs, all collapsed
+    for (const maha of dasha) {
+      rows.push(makeMdRow(maha, false, isCurrentPeriod(maha.start, maha.end)))
+    }
+    return rows.join('')
+  }
+
+  // Render the focused MD row (expanded)
+  const focusedMD = dasha.find(m => m.planet === fp[0])
+  if (!focusedMD) return rows.join('')
+  rows.push(makeMdRow(focusedMD, true, isCurrentPeriod(focusedMD.start, focusedMD.end)))
+
+  await ensureChildren(focusedMD, swe, flags)
+
+  if (fp.length === 1) {
+    // Show all ADs of this MD
+    for (const antar of focusedMD.children) {
+      const path1  = `${fp[0]}/${antar.planet}`
+      const isCur1 = isCurrentPeriod(antar.start, antar.end)
+      rows.push(makeRow(antar, path1, 1, false, isCur1, isCur1))
+    }
+    return rows.join('')
+  }
+
+  // Render the focused AD row (expanded), all other ADs hidden
+  const focusedAD = focusedMD.children.find(a => a.planet === fp[1])
+  if (!focusedAD) return rows.join('')
+  const path1AD = `${fp[0]}/${fp[1]}`
+  rows.push(makeRow(focusedAD, path1AD, 1, true, isCurrentPeriod(focusedAD.start, focusedAD.end), isCurrentPeriod(focusedAD.start, focusedAD.end)))
+
+  await ensureChildren(focusedAD, swe, flags)
+
+  if (fp.length === 2) {
+    for (const prat of focusedAD.children) {
+      const path2  = `${path1AD}/${prat.planet}`
+      const isCur2 = isCurrentPeriod(prat.start, prat.end)
+      rows.push(makeRow(prat, path2, 2, false, isCur2))
+    }
+    return rows.join('')
+  }
+
+  // Render focused PD row (expanded), all other PDs hidden
+  const focusedPD = focusedAD.children.find(p => p.planet === fp[2])
+  if (!focusedPD) return rows.join('')
+  const path2PD = `${path1AD}/${fp[2]}`
+  rows.push(makeRow(focusedPD, path2PD, 2, true, isCurrentPeriod(focusedPD.start, focusedPD.end)))
+
+  await ensureChildren(focusedPD, swe, flags)
+
+  if (fp.length === 3) {
+    for (const sook of focusedPD.children) {
+      const path3  = `${path2PD}/${sook.planet}`
+      const isCur3 = isCurrentPeriod(sook.start, sook.end)
+      rows.push(makeRow(sook, path3, 3, false, isCur3))
+    }
+    return rows.join('')
+  }
+
+  // Render focused SD row (expanded), all other SDs hidden
+  const focusedSD = focusedPD.children.find(s => s.planet === fp[3])
+  if (!focusedSD) return rows.join('')
+  const path3SD = `${path2PD}/${fp[3]}`
+  rows.push(makeRow(focusedSD, path3SD, 3, true, isCurrentPeriod(focusedSD.start, focusedSD.end)))
+
+  await ensureChildren(focusedSD, swe, flags)
+
+  if (fp.length === 4) {
+    for (const prana of focusedSD.children) {
+      const path4  = `${path3SD}/${prana.planet}`
+      const isCur4 = isCurrentPeriod(prana.start, prana.end)
+      rows.push(makeRow(prana, path4, 4, false, isCur4))
+    }
+    return rows.join('')
+  }
+
+  // Render focused PrD row (expanded), all other PrDs hidden
+  const focusedPrD = focusedSD.children.find(p => p.planet === fp[4])
+  if (!focusedPrD) return rows.join('')
+  const path4PrD = `${path3SD}/${fp[4]}`
+  rows.push(makeRow(focusedPrD, path4PrD, 4, true, isCurrentPeriod(focusedPrD.start, focusedPrD.end)))
+
+  await ensureChildren(focusedPrD, swe, flags)
+  for (const deha of focusedPrD.children) {
+    const path5  = `${path4PrD}/${deha.planet}`
+    const isCur5 = isCurrentPeriod(deha.start, deha.end)
+    rows.push(makeLeafRow(deha, path5, isCur5))
   }
 
   return rows.join('')

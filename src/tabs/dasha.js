@@ -81,7 +81,7 @@ function renderDashaOptionsPopover(ui, id = 'dasha') {
       const deg = Math.floor(raw)
       const min = Math.floor((raw - deg) * 60)
       const sec = ((raw - deg) * 60 - min) * 60
-      ayanamsaVal = ` (${deg}°${min}'${sec.toFixed(0)}")`
+      ayanamsaVal = ` (${deg}°${String(min).padStart(2,'0')}'${String(Math.round(sec)).padStart(2,'0')}")`
     }
   } catch (_) {}
 
@@ -192,6 +192,16 @@ export async function renderDasha() {
 
   panel.onchange = e => {
     const ui = d()
+    if (e.target.name === 'dasha-mode') {
+      ui.focusedMode = e.target.value === 'focused'
+      if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
+      buildDashaRows(dasha, ui).then(rows => {
+        document.querySelector('.dasha-table tbody').innerHTML = rows
+        document.getElementById('dasha-breadcrumb-wrap').innerHTML =
+          ui.focusedMode && ui.focusedPath?.length > 0 ? renderBreadcrumb(dasha, ui) : ''
+      }).catch(console.error)
+      return
+    }
     if (e.target.id === 'age-asof-input') {
       ui.ageAsOf    = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
       ui.ageNavCycle = null
@@ -234,16 +244,6 @@ export async function renderDasha() {
     if (e.target.id === 'dasha-options-btn') {
       const popover = document.getElementById('dasha-options-popover')
       if (popover) popover.classList.toggle('open')
-      return
-    }
-    if (e.target.name === 'dasha-mode') {
-      ui.focusedMode = e.target.value === 'focused'
-      if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
-      buildDashaRows(dasha, ui).then(rows => {
-        document.querySelector('.dasha-table tbody').innerHTML = rows
-        document.getElementById('dasha-breadcrumb-wrap').innerHTML =
-          ui.focusedMode && ui.focusedPath?.length > 0 ? renderBreadcrumb(dasha, ui) : ''
-      }).catch(console.error)
       return
     }
     if (e.target.id === 'dasha-toggle-btn') {

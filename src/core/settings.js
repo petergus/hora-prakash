@@ -9,6 +9,7 @@ const DEFAULTS = {
   customYearDays:  365.25,
   planetPositions: 'apparent',   // 'apparent' | 'true'
   observerType:    'geocentric', // 'geocentric' | 'topocentric'
+  theme:           'indigo',
 }
 
 let _settings = { ...DEFAULTS }
@@ -78,4 +79,12 @@ export const PLANET_POSITION_OPTIONS = [
 export const OBSERVER_TYPE_OPTIONS = [
   { label: 'Geocentric (default)', value: 'geocentric'  },
   { label: 'Topocentric',          value: 'topocentric' },
+]
+
+export const THEME_OPTIONS = [
+  { label: 'Indigo',   value: 'indigo',   color: '#4f46e5' },
+  { label: 'Saffron',  value: 'saffron',  color: '#d97706' },
+  { label: 'Forest',   value: 'forest',   color: '#059669' },
+  { label: 'Rose',     value: 'rose',     color: '#e11d48' },
+  { label: 'Midnight', value: 'midnight', color: '#7c3aed' },
 ]

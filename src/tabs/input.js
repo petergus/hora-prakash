@@ -16,6 +16,7 @@ const STORAGE_KEY = 'hora-prakash-profiles'
 
 let selectedLocation = null
 let autocompleteTimeout = null
+let editingProfileId = null
 
 // ── LocalStorage helpers ──────────────────────────────────────────────────────
 
@@ -92,7 +93,7 @@ async function importJhdFiles(files) {
   let failCount   = 0
   let dupCount    = 0
 
-  for (const file of files) {
+  for (const file of Array.from(files)) {
     try {
       const text    = await file.text()
       const profile = parseJhdFile(text, file.name)
@@ -259,6 +260,7 @@ export function renderInputTab() {
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
   document.getElementById('btn-new-entry').addEventListener('click', () => {
+    editingProfileId = null
     document.getElementById('inp-name').value = ''
     document.getElementById('inp-dob').value = todayStr()
     document.getElementById('inp-tob').value = nowTimeStr()
@@ -285,7 +287,7 @@ function renderSavedProfiles() {
             ↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" />
           </label>
           <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">
-            ↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd" multiple style="display:none" />
+            ↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd,.JHD" multiple style="display:none" />
           </label>
         </div>
       </div>`
@@ -306,7 +308,7 @@ function renderSavedProfiles() {
         <div style="display:flex;gap:0.4rem;align-items:center">
           <button type="button" id="btn-export-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem">↓ Export</button>
           <label id="lbl-import-profiles" class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ Import<input type="file" id="inp-import-file" accept=".json" style="display:none" /></label>
-          <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd" multiple style="display:none" /></label>
+          <label class="btn-secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;cursor:pointer;margin:0">↑ JHD<input type="file" id="inp-import-jhd" accept=".jhd,.JHD" multiple style="display:none" /></label>
           <button type="button" id="btn-clear-all" class="btn-danger-sm">Clear All</button>
         </div>
       </div>
@@ -328,9 +330,9 @@ function renderSavedProfiles() {
   sel.addEventListener('change', () => {
     const id = sel.value
     const preview = section.querySelector('#profile-preview')
-    if (!id) { preview.style.display = 'none'; return }
+    if (!id) { preview.style.display = 'none'; editingProfileId = null; return }
     const p = profiles.find(q => q.id === id)
-    if (!p) { preview.style.display = 'none'; return }
+    if (!p) { preview.style.display = 'none'; editingProfileId = null; return }
     preview.style.display = 'flex'
     preview.innerHTML = `
       <span class="pp-name">${escapeHtml(p.name)}</span>
@@ -341,6 +343,8 @@ function renderSavedProfiles() {
       <span class="pp-sep">·</span>
       <span class="pp-item pp-loc">${escapeHtml(p.location || p.lat + '°, ' + p.lon + '°')}</span>
     `
+    fillForm(p)
+    editingProfileId = p.id
   })
 
   section.querySelector('#btn-export-profiles').addEventListener('click', exportProfiles)
@@ -366,7 +370,7 @@ function renderSavedProfiles() {
     const id = sel.value
     if (!id) return
     const profile = profiles.find(p => p.id === id)
-    if (profile) fillForm(profile)
+    if (profile) { fillForm(profile); editingProfileId = profile.id }
   })
 
   section.querySelector('#btn-delete-profile').addEventListener('click', () => {
@@ -401,8 +405,9 @@ function onSaveProfile() {
     return
   }
 
-  const id = genId()
+  const id = editingProfileId || genId()
   saveProfile({ id, name, dob, tob, lat, lon, timezone, location, savedAt: new Date().toISOString() })
+  editingProfileId = id
   renderSavedProfiles()
 
   const btn = document.getElementById('btn-save-profile')

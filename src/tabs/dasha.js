@@ -94,12 +94,9 @@ export async function renderDasha() {
         <div class="prog-card-header">
           <div class="prog-card-title">
             <span class="drag-handle" title="Drag to reorder">⠿</span>
-            <div class="focus-toggle" id="dasha-focus-toggle">
-              <span class="${(ui.focusedMode ?? true) ? 'focus-on' : ''}" data-mode="focused">Focused</span>
-              <span class="${!(ui.focusedMode ?? true) ? 'focus-on' : ''}" data-mode="full">Full</span>
-            </div>
             <button id="dasha-toggle-btn" class="toggle-btn">${ui.dashaCollapsed ? '▶' : '▼'}</button>
             <h3>Vimshottari Dasha — ${birth.name}</h3>
+            <button id="dasha-mode-btn" class="dasha-mode-btn${(ui.focusedMode ?? true) ? ' focused-active' : ''}">${(ui.focusedMode ?? true) ? 'Focused' : 'Full'}</button>
           </div>
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">

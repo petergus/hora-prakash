@@ -21,6 +21,15 @@ function d() {
   return s.uiState.dasha
 }
 
+function chartD() {
+  const s = getActiveSession()
+  if (!s) return defaultDashaUI()
+  s.uiState ??= {}
+  s.uiState.chart ??= {}
+  s.uiState.chart.chartDasha ??= defaultDashaUI()
+  return s.uiState.chart.chartDasha
+}
+
 function inferFocusedPath(dasha, ui) {
   // Pick MD: current-period if expanded, else first expanded MD
   const currentMD = dasha.find(m => isCurrentPeriod(m.start, m.end))
@@ -317,7 +326,7 @@ export async function renderDasha() {
 export async function renderDashaCards(container, cards) {
   if (!state.dasha || !state.birth) return
   const { dasha, birth } = state
-  const ui = d()
+  const ui = chartD()
 
   if (ui.selectedProgLord === null) {
     const currentMaha = dasha.find(m => isCurrentPeriod(m.start, m.end)) ?? dasha[0]
@@ -325,14 +334,14 @@ export async function renderDashaCards(container, cards) {
     ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
   }
 
-  let html = ''
+  let html = renderYearMethodControls()
   if (cards.includes('vimshottari')) {
     const rows = await buildDashaRows(dasha, ui)
     html += `
       <div class="card" id="dasha-panel-vimshottari">
         <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
           <button id="dasha-panel-mode-btn" class="dasha-mode-btn${(ui.focusedMode ?? true) ? ' focused-active' : ''}">${(ui.focusedMode ?? true) ? 'Focused' : 'Full'}</button>
-          <h3 style="margin:0;font-size:0.95rem">Vimshottari Dasha — ${birth.name}</h3>
+          <h3 style="margin:0;font-size:0.95rem">Vimshottari Dasha</h3>
         </div>
         <div id="dasha-panel-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
         <div class="table-scroll"><table class="dasha-table">
@@ -384,7 +393,7 @@ export async function renderDashaCards(container, cards) {
     container.querySelector('.dasha-table tbody')?.addEventListener('click', async (e) => {
       const row = e.target.closest('tr[data-toggle]')
       if (!row) return
-      const ui    = d()
+      const ui    = chartD()
       const path  = row.dataset.path
       const depth = parseInt(row.dataset.depth)
       const parts = path.split('/')
@@ -454,13 +463,13 @@ export async function renderDashaCards(container, cards) {
 
   // Wire up toggle buttons for age and progression cards (collapse/expand)
   container.querySelector('#age-toggle-btn')?.addEventListener('click', e => {
-    const ui = d()
+    const ui = chartD()
     ui.ageCollapsed = !ui.ageCollapsed
     container.querySelector('#age-prog-body').style.display = ui.ageCollapsed ? 'none' : ''
     e.target.textContent = ui.ageCollapsed ? '▶' : '▼'
   })
   container.querySelector('#prog-toggle-btn')?.addEventListener('click', e => {
-    const ui = d()
+    const ui = chartD()
     ui.progCollapsed = !ui.progCollapsed
     container.querySelector('#prog-body').style.display = ui.progCollapsed ? 'none' : ''
     e.target.textContent = ui.progCollapsed ? '▶' : '▼'
@@ -468,7 +477,7 @@ export async function renderDashaCards(container, cards) {
   container.addEventListener('click', e => {
     const btn = e.target.closest('button')
     if (!btn) return
-    const ui = d()
+    const ui = chartD()
 
     if (btn.id === 'age-prev-btn') {
       const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
@@ -496,15 +505,25 @@ export async function renderDashaCards(container, cards) {
   })
   container.onchange = e => {
     if (e.target.id === 'age-asof-input') {
-      const ui = d()
+      const ui = chartD()
       ui.ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
       ui.ageNavCycle = null
       container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date()).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (e.target.id === 'prog-lord-select') {
-      const ui = d()
+      const ui = chartD()
       ui.selectedProgLord = e.target.value
       ui.progNavIndex = dasha.findIndex(m => m.planet === ui.selectedProgLord)
       container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    } else if (e.target.id === 'dasha-year-method') {
+      const yearMethod = e.target.value
+      saveSettings({ yearMethod })
+      if (yearMethod !== 'custom') renderDashaCards(container, cards).catch(console.error)
+    } else if (e.target.id === 'dasha-custom-days') {
+      clearTimeout(_customDaysTimer)
+      _customDaysTimer = setTimeout(() => {
+        const v = parseFloat(e.target.value)
+        if (v >= 300 && v <= 400) { saveSettings({ customYearDays: v }); renderDashaCards(container, cards).catch(console.error) }
+      }, 600)
     }
   }
 }

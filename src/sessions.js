@@ -42,6 +42,7 @@ export function defaultChartUI() {
     dashaCards:     ['vimshottari'],
     splitRatio:     0.55,
     mobileDashaTab: 'chart',
+    chartDasha:     null,
   }
 }
 

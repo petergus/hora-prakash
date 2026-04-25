@@ -500,7 +500,7 @@ h3 {
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
-.multi-chart-grid-2 { grid-template-columns: 1fr 1fr; }
+.multi-chart-grid-2 { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto 1rem; }
 .multi-chart-grid-4 { grid-template-columns: 1fr 1fr; }
 
 .multi-chart-cell {
@@ -535,6 +535,14 @@ h3 {
 .aspect-btns--multi { display: none; }
 /* Mobile single-chart view inside multi — hidden on desktop */
 .multi-chart-mobile-view { display: none; }
+
+/* Planet positions section — below split wrapper in single view */
+.planet-positions-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.planet-positions-section h3 { margin: 0 0 0.75rem; }
 
 /* Planet table section visibility */
 .multi-planet-desktop { display: block; }

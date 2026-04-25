@@ -136,8 +136,8 @@ export function renderChart() {
   }
 
   const heading = viewMode === '1'
-    ? (divisional === 'D1' ? `${esc(birth.name)} — Birth Chart` : `${esc(birth.name)} — ${divLabel(divisional)}`)
-    : `${esc(birth.name)} — Charts`
+    ? (divisional === 'D1' ? 'Birth Chart' : divLabel(divisional))
+    : 'Birth Charts'
 
   const maskedName    = privacyOn ? MASK : heading
   const maskedDetails = privacyOn
@@ -293,10 +293,10 @@ export function renderChart() {
       <div class="chart-split-wrapper" id="chart-split-wrapper"${showDasha ? ` style="grid-template-columns:${gridCols}"` : ''}>
         <div class="chart-pane" id="chart-pane" data-mobile-panel="chart">
           ${chartArea}
-          ${planetTable}
         </div>
         ${showDasha ? `<div class="split-handle" id="split-handle"></div><div class="dasha-pane" id="dasha-pane" data-mobile-panel="dasha"></div>` : ''}
       </div>
+      ${planetTable ? `<div class="planet-positions-section">${planetTable}</div>` : ''}
     </div>
   `
 

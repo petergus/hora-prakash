@@ -396,6 +396,7 @@ h3 {
 
 .split-handle {
   width: 6px;
+  align-self: stretch;
   cursor: col-resize;
   background: var(--border);
   border-radius: 3px;

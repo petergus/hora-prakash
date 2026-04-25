@@ -211,21 +211,6 @@ export function renderChart() {
       </div>`
     }).join('')
 
-    // Mobile: tab nav + active chart + active division's planet table
-    const mobileDivKey = keys[ui.activeMultiTab] ?? keys[0]
-    const mobileTable = buildPlanetTable(mobileDivKey, planets, lagna)
-
-    // Desktop: planet table heading with gear icon + select for choosing which division
-    const tableDivSelect = `<div class="multi-table-header">
-      <h3 style="margin:0">Planetary Positions — ${divLabel(tableDiv)}</h3>
-      <div class="multi-table-gear" id="multi-table-gear-wrapper">
-        <button id="btn-table-gear" class="chart-style-btn" title="Change division" style="padding:0.3rem 0.5rem;margin:0">${GEAR_ICON}</button>
-        <div id="multi-table-div-select" class="multi-table-gear-popover" style="display:none">
-          ${keys.map(k => `<button class="gear-div-opt${k === tableDiv ? ' active' : ''}" data-div="${k}">${k} — ${divLabel(k)}</button>`).join('')}
-        </div>
-      </div>
-    </div>`
-
     const mobileAP = multiActivePlanets[ui.activeMultiTab] ?? new Set()
     const activeAspects = activeDP
       .filter(p => mobileAP.has(p.abbr))
@@ -241,21 +226,27 @@ export function renderChart() {
       </div>
       <div id="chart-container" class="multi-chart-mobile-view">
         ${renderChartSVG(activeDP, activeDL, chartStyle, activeLabels, activeLabel, activeAspects, activePlanetColors)}
-      </div>
-      <div class="multi-planet-desktop">
-        ${tableDivSelect}
-        ${buildPlanetTable(tableDiv, planets, lagna)}
-      </div>
-      <div class="multi-planet-mobile">
-        <h3>Planetary Positions — ${divLabel(mobileDivKey)}</h3>
-        ${mobileTable}
       </div>`
   }
 
-  // ── Planet table (single view) ──
-  const planetTable = viewMode === '1' ? `
-    <h3>Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
-    ${buildPlanetTable(divisional, planets, lagna)}` : ''
+  // ── Planet table ──
+  const tableDivSelect = viewMode !== '1' ? `<div class="multi-table-header">
+    <h3 class="section-label">Planetary Positions — ${divLabel(tableDiv)}</h3>
+    <div class="multi-table-gear" id="multi-table-gear-wrapper">
+      <button id="btn-table-gear" class="chart-style-btn" title="Change division" style="padding:0.3rem 0.5rem;margin:0">${GEAR_ICON}</button>
+      <div id="multi-table-div-select" class="multi-table-gear-popover" style="display:none">
+        ${keys.map(k => `<button class="gear-div-opt${k === tableDiv ? ' active' : ''}" data-div="${k}">${k} — ${divLabel(k)}</button>`).join('')}
+      </div>
+    </div>
+  </div>` : ''
+
+  const planetCardInner = viewMode === '1'
+    ? `<h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
+       ${buildPlanetTable(divisional, planets, lagna)}`
+    : `${tableDivSelect}
+       ${buildPlanetTable(tableDiv, planets, lagna)}`
+
+  const planetCard = `<div class="card planet-positions-card">${planetCardInner}</div>`
 
   const splitRatio = ui.splitRatio ?? 0.55
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
@@ -309,7 +300,7 @@ export function renderChart() {
         ${showDasha ? `<div class="split-handle" id="split-handle"></div><div class="dasha-pane" id="dasha-pane" data-mobile-panel="dasha"></div>` : ''}
       </div>
     </div>
-  ${planetTable ? `<div class="card planet-positions-card" style="margin-top:1rem">${planetTable}</div>` : ''}
+  ${planetCard}
   `
 
   if (showDasha) {

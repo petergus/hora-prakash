@@ -285,6 +285,11 @@ export function renderChart() {
             </div>` : ''}
         ` : ''}
       </div>
+      ${showDasha ? `
+        <div class="chart-dasha-tabs" id="chart-dasha-tabs">
+          <button class="chart-dasha-tab-btn${ui2.mobileDashaTab !== 'dasha' ? ' active' : ''}" data-panel="chart">Chart</button>
+          <button class="chart-dasha-tab-btn${ui2.mobileDashaTab === 'dasha' ? ' active' : ''}" data-panel="dasha">Dasha</button>
+        </div>` : ''}
       <div class="chart-split-wrapper" id="chart-split-wrapper"${showDasha ? ` style="grid-template-columns:${gridCols}"` : ''}>
         <div class="chart-pane" id="chart-pane" data-mobile-panel="chart">
           ${chartArea}
@@ -393,6 +398,46 @@ export function renderChart() {
       panel.querySelectorAll('.split-preset-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.ratio) === ratio))
     })
   })
+
+  function applyMobilePanelVisibility() {
+    const isMobile = window.innerWidth <= 600
+    if (!isMobile || !c().showDasha) return
+    const active = c().mobileDashaTab ?? 'chart'
+    panel.querySelectorAll('[data-mobile-panel]').forEach(el => {
+      el.style.display = el.dataset.mobilePanel === active ? '' : 'none'
+    })
+  }
+  applyMobilePanelVisibility()
+
+  // Mobile pill tabs
+  panel.querySelectorAll('.chart-dasha-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      c().mobileDashaTab = btn.dataset.panel
+      panel.querySelectorAll('.chart-dasha-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.panel === btn.dataset.panel))
+      applyMobilePanelVisibility()
+    })
+  })
+
+  // Swipe gesture for chart/dasha split panel (mobile)
+  const splitWrapper = panel.querySelector('#chart-split-wrapper')
+  if (splitWrapper && showDasha) {
+    let touchStartX = 0, touchStartY = 0
+    splitWrapper.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].clientX
+      touchStartY = e.changedTouches[0].clientY
+    }, { passive: true })
+    splitWrapper.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchStartX
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY)
+      if (Math.abs(dx) < 50 || dy > 75) return
+      const current = c().mobileDashaTab ?? 'chart'
+      const next = dx < 0 ? 'dasha' : 'chart'
+      if (next === current) return
+      c().mobileDashaTab = next
+      panel.querySelectorAll('.chart-dasha-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.panel === next))
+      applyMobilePanelVisibility()
+    }, { passive: true })
+  }
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })

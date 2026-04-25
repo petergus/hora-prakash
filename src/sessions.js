@@ -38,9 +38,10 @@ export function defaultChartUI() {
     tableDiv:      'D1',
     activePlanets:      new Set(),
     multiActivePlanets: [new Set(), new Set(), new Set(), new Set()],
-    showDasha:   false,
-    dashaCards:  ['vimshottari'],
-    splitRatio:  0.55,
+    showDasha:      false,
+    dashaCards:     ['vimshottari'],
+    splitRatio:     0.55,
+    mobileDashaTab: 'chart',
   }
 }
 

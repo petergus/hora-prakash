@@ -267,6 +267,23 @@ export function renderChart() {
           <button id="btn-view-4" class="chart-style-btn${viewMode === '4' ? ' active' : ''}" title="Four charts">4</button>
         </div>
         ${aspectBtns}
+        ${viewMode !== '4' ? `
+          <span class="ctrl-sep"></span>
+          <div class="dasha-toggle-btn" id="dasha-toggle-wrapper" style="position:relative">
+            <button id="btn-dasha-toggle" class="chart-style-btn${showDasha ? ' active' : ''}" title="Show Dasha panel">Dasha</button>
+            <div id="dasha-card-popover" class="dasha-card-popover" style="display:none">
+              <label><input type="checkbox" id="dasha-card-vimshottari" value="vimshottari" ${ui2.dashaCards.includes('vimshottari') ? 'checked' : ''}> Vimshottari</label>
+              <label><input type="checkbox" id="dasha-card-age" value="age" ${ui2.dashaCards.includes('age') ? 'checked' : ''}> Age Progression</label>
+              <label><input type="checkbox" id="dasha-card-progression" value="progression" ${ui2.dashaCards.includes('progression') ? 'checked' : ''}> Dasha Progression</label>
+            </div>
+          </div>
+          ${showDasha ? `
+            <div class="split-preset-group">
+              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.40) < 0.02 ? ' active' : ''}" data-ratio="0.4">40/60</button>
+              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.50) < 0.02 ? ' active' : ''}" data-ratio="0.5">50/50</button>
+              <button class="split-preset-btn${Math.abs((ui2.splitRatio ?? 0.55) - 0.60) < 0.02 ? ' active' : ''}" data-ratio="0.6">60/40</button>
+            </div>` : ''}
+        ` : ''}
       </div>
       <div class="chart-split-wrapper" id="chart-split-wrapper"${showDasha ? ` style="grid-template-columns:${gridCols}"` : ''}>
         <div class="chart-pane" id="chart-pane" data-mobile-panel="chart">
@@ -312,12 +329,70 @@ export function renderChart() {
         ratio = Math.round(ratio * 1000) / 1000
         c().splitRatio = ratio
         wrapper.style.gridTemplateColumns = `${ratio}fr 6px ${1 - ratio}fr`
+        panel.querySelectorAll('.split-preset-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.ratio) === ratio))
       }
 
       document.addEventListener('mousemove', onMove)
       document.addEventListener('mouseup', onUp)
     })
   }
+
+  // Dasha toggle button
+  const dashaToggleBtn = panel.querySelector('#btn-dasha-toggle')
+  const dashaPopover   = panel.querySelector('#dasha-card-popover')
+  const dashaWrapper   = panel.querySelector('#dasha-toggle-wrapper')
+
+  if (dashaToggleBtn) {
+    dashaToggleBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      c().showDasha = !c().showDasha
+      renderChart()
+    })
+  }
+
+  if (dashaPopover && dashaWrapper) {
+    dashaWrapper.addEventListener('contextmenu', e => {
+      e.preventDefault()
+      const opening = dashaPopover.style.display === 'none'
+      dashaPopover.style.display = opening ? 'flex' : 'none'
+      if (opening) {
+        document.addEventListener('click', function closePop(ev) {
+          if (!dashaWrapper?.contains(ev.target)) {
+            if (dashaPopover) dashaPopover.style.display = 'none'
+            document.removeEventListener('click', closePop)
+          }
+        })
+      }
+    })
+
+    dashaPopover.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', e => {
+        e.stopPropagation()
+        const ui3 = c()
+        const val = e.target.value
+        if (e.target.checked) {
+          if (!ui3.dashaCards.includes(val)) ui3.dashaCards = [...ui3.dashaCards, val]
+        } else {
+          const next = ui3.dashaCards.filter(v => v !== val)
+          if (next.length === 0) { e.target.checked = true; return }
+          ui3.dashaCards = next
+        }
+        const dashaPane = panel.querySelector('#dasha-pane')
+        if (dashaPane) renderDashaCards(dashaPane, ui3.dashaCards).catch(console.error)
+      })
+    })
+  }
+
+  // Split preset buttons
+  panel.querySelectorAll('.split-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ratio = parseFloat(btn.dataset.ratio)
+      c().splitRatio = ratio
+      const w = panel.querySelector('#chart-split-wrapper')
+      if (w) w.style.gridTemplateColumns = `${ratio}fr 6px ${1 - ratio}fr`
+      panel.querySelectorAll('.split-preset-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.ratio) === ratio))
+    })
+  })
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })

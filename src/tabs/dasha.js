@@ -185,7 +185,6 @@ export async function renderDasha() {
     const crumbBtn = e.target.closest('[data-crumb-depth]')
     if (crumbBtn) {
       const depth = parseInt(crumbBtn.dataset.crumbDepth)
-      const ui = d()
       ui.focusedPath = depth < 0 ? [] : (ui.focusedPath ?? []).slice(0, depth + 1)
       buildDashaRows(state.dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows

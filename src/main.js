@@ -7,6 +7,11 @@ import { initSettingsModal } from './ui/settings-modal.js'
 import { createSession, switchSession } from './sessions.js'
 import { renderProfileTabs } from './ui/profile-tabs.js'
 
+// Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
+}
+
 async function main() {
   loadSettings()
 

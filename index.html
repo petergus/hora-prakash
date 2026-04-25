@@ -6,6 +6,9 @@
   <title>Hora Prakash</title>
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="apple-touch-icon" href="/icon.svg" />
+  <!-- Preload the large ephemeris files so the browser fetches them in parallel with JS -->
+  <link rel="preload" href="/hora-prakash/wasm/swisseph.wasm" as="fetch" crossorigin>
+  <link rel="preload" href="/hora-prakash/wasm/swisseph.data" as="fetch" crossorigin>
   <link rel="stylesheet" href="/src/style.css" />
   <!-- Inline loader styles — render before any JS or external CSS -->
   <style>
@@ -54,15 +57,6 @@
     <section id="tab-dasha" class="tab-panel"></section>
     <section id="tab-panchang" class="tab-panel"></section>
   </main>
-  <script>
-    // Unregister any previously installed service workers and clear their caches
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-      });
-      caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-    }
-  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ export function initSwissEph() {
   if (initPromise) return initPromise
   initPromise = (async () => {
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Ephemeris load timed out (30s). Check your connection and reload.')), 30000)
+      setTimeout(() => reject(new Error('Ephemeris load timed out. Check your connection and reload.')), 90000)
     )
     const load = (async () => {
       const mod = await import('swisseph-wasm')

@@ -14,6 +14,8 @@ if ('serviceWorker' in navigator) {
 
 async function main() {
   loadSettings()
+  document.documentElement.dataset.theme =
+    (JSON.parse(localStorage.getItem('hora-prakash-settings') || '{}').theme) || 'indigo'
 
   // Show UI immediately — don't block on 12MB ephemeris download
   document.getElementById('app-loader')?.remove()

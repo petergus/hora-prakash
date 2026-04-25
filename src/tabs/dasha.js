@@ -397,6 +397,57 @@ export async function renderDashaCards(container, cards) {
         container.querySelector('.dasha-table tbody').innerHTML = rows
         container.querySelector('#dasha-panel-breadcrumb-wrap').innerHTML =
           ui.focusedPath?.length > 0 ? renderBreadcrumb(state.dasha, ui) : ''
+        return
+      }
+
+      // Full mode: DOM-mutation behaviour
+      let node = state.dasha.find(m => m.planet === parts[0])
+      for (let i = 1; i < parts.length; i++) {
+        node = node?.children.find(c => c.planet === parts[i])
+      }
+      if (!node) return
+
+      const tbody    = row.closest('tbody')
+      const allRows  = Array.from(tbody.querySelectorAll('tr'))
+      const nextIdx  = allRows.indexOf(row) + 1
+      const hasChild = nextIdx < allRows.length && parseInt(allRows[nextIdx].dataset.depth ?? '-1') === depth + 1
+      const opening  = !hasChild
+
+      if (opening) {
+        insertChildRows(row, node, depth).catch(console.error)
+      } else {
+        removeChildRows(row)
+      }
+      setArrow(row, opening)
+
+      if (depth === 0) {
+        const mahaName = path
+        if (opening) ui.expandedMahas.add(mahaName)
+        else {
+          ui.expandedMahas.delete(mahaName)
+          ui.expandedAntars.delete(mahaName)
+          for (const p of ui.expandedPaths) {
+            if (p.startsWith(mahaName + '/')) ui.expandedPaths.delete(p)
+          }
+        }
+      } else if (depth === 1) {
+        const mahaName = parts[0]
+        if (!ui.expandedAntars.has(mahaName)) ui.expandedAntars.set(mahaName, new Set())
+        if (opening) ui.expandedAntars.get(mahaName).add(parts[1])
+        else {
+          ui.expandedAntars.get(mahaName).delete(parts[1])
+          for (const p of ui.expandedPaths) {
+            if (p.startsWith(path + '/')) ui.expandedPaths.delete(p)
+          }
+        }
+      } else {
+        if (opening) ui.expandedPaths.add(path)
+        else {
+          ui.expandedPaths.delete(path)
+          for (const p of ui.expandedPaths) {
+            if (p.startsWith(path + '/')) ui.expandedPaths.delete(p)
+          }
+        }
       }
     })
   }

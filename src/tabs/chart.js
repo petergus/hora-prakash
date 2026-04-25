@@ -423,10 +423,12 @@ export function renderChart() {
   if (splitWrapper && showDasha) {
     let touchStartX = 0, touchStartY = 0
     splitWrapper.addEventListener('touchstart', e => {
+      e.stopPropagation()
       touchStartX = e.changedTouches[0].clientX
       touchStartY = e.changedTouches[0].clientY
     }, { passive: true })
     splitWrapper.addEventListener('touchend', e => {
+      e.stopPropagation()
       const dx = e.changedTouches[0].clientX - touchStartX
       const dy = Math.abs(e.changedTouches[0].clientY - touchStartY)
       if (Math.abs(dx) < 50 || dy > 75) return

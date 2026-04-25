@@ -387,10 +387,11 @@ export async function renderDashaCards(container, cards) {
     const popover = container.querySelector('#dasha-panel-options-popover')
     if (optBtn && popover) {
       optBtn.addEventListener('click', () => popover.classList.toggle('open'))
-      const closeHandler = e => {
+      if (container._closeChartPopover) document.removeEventListener('mousedown', container._closeChartPopover)
+      container._closeChartPopover = e => {
         if (!popover.contains(e.target) && e.target !== optBtn) popover.classList.remove('open')
       }
-      document.addEventListener('mousedown', closeHandler)
+      document.addEventListener('mousedown', container._closeChartPopover)
     }
 
     const vimsCard = container.querySelector('#dasha-panel-vimshottari')
@@ -409,16 +410,25 @@ export async function renderDashaCards(container, cards) {
         if (e.target.id === 'dasha-panel-year-method') {
           const yearMethod = e.target.value
           saveSettings({ yearMethod })
-          if (yearMethod !== 'custom') renderDashaCards(container, cards).catch(console.error)
-        }
-        if (e.target.id === 'dasha-panel-custom-days') {
-          clearTimeout(_customDaysTimer)
-          _customDaysTimer = setTimeout(() => {
-            const v = parseFloat(e.target.value)
-            if (v >= 300 && v <= 400) { saveSettings({ customYearDays: v }); renderDashaCards(container, cards).catch(console.error) }
-          }, 600)
+          if (yearMethod !== 'custom') {
+            import('../tabs/input.js').then(m => m.recalcAll()).catch(console.error)
+          }
         }
       })
+
+      const customDaysInput = container.querySelector('#dasha-panel-custom-days')
+      if (customDaysInput) {
+        customDaysInput.addEventListener('input', () => {
+          clearTimeout(_customDaysTimer)
+          _customDaysTimer = setTimeout(() => {
+            const v = parseFloat(customDaysInput.value)
+            if (v >= 300 && v <= 400) {
+              saveSettings({ customYearDays: v })
+              import('../tabs/input.js').then(m => m.recalcAll()).catch(console.error)
+            }
+          }, 600)
+        })
+      }
     }
 
     container.querySelector('#dasha-panel-breadcrumb-wrap')?.addEventListener('click', e => {

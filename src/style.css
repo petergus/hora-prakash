@@ -604,6 +604,21 @@ h3 {
 }
 .planet-table tbody tr:hover { background: #f8fafc; }
 .planet-table tbody tr:last-child td { border-bottom: none; }
+.planet-table tr.row-exalt td { background: #f0fdf4; }
+.planet-table tr.row-debil  td { background: #fff7f7; }
+
+.planet-name-cell { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+
+.planet-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.1rem 0.38rem; border-radius: 4px; line-height: 1.4;
+  white-space: nowrap;
+}
+.chip-retro   { background: #fee2e2; color: #b91c1c; }
+.chip-combust { background: #fef3c7; color: #92400e; }
+.chip-exalt   { background: #dcfce7; color: #166534; }
+.chip-debil   { background: #ffe4e6; color: #9f1239; }
 
 /* ── Dasha table ── */
 .dasha-table {

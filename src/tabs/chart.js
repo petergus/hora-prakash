@@ -10,6 +10,10 @@ import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
+// Parashari exaltation/debilitation signs (1-based)
+const EXALT_SIGN  = { Sun:1, Moon:2, Mars:10, Mercury:6, Jupiter:4, Venus:12, Saturn:7 }
+const DEBIL_SIGN  = { Sun:7, Moon:8, Mars:4,  Mercury:12, Jupiter:10, Venus:6,  Saturn:1 }
+
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
 function fmtDeg(dec) {
@@ -64,8 +68,17 @@ function buildPlanetTable(key, planets, lagna) {
         ${dPlanets.map(p => {
           const signLabel = isChalit ? `H${p.sign}` : SIGN_NAMES[p.sign - 1]
           const orig = origByName[p.name]
-          return `<tr>
-            <td>${esc(p.name)}${p.retrograde ? ' <span style="color:#c00;font-size:0.8em">(R)</span>' : ''}${p.combust ? ' <span style="color:#b45309;font-size:0.8em">(C)</span>' : ''}</td>
+          const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
+          const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
+          const rowCls = isExalt ? ' class="row-exalt"' : isDebil ? ' class="row-debil"' : ''
+          const badges = [
+            p.retrograde ? '<span class="planet-chip chip-retro">R</span>' : '',
+            p.combust    ? '<span class="planet-chip chip-combust">C</span>' : '',
+            isExalt      ? '<span class="planet-chip chip-exalt">Exalt</span>' : '',
+            isDebil      ? '<span class="planet-chip chip-debil">Debil</span>' : '',
+          ].join('')
+          return `<tr${rowCls}>
+            <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
             <td>${signLabel}</td>
             <td>${fmtDeg(p.degree)}</td>
             <td>${orig?.house ?? '—'}</td>

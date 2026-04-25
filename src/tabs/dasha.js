@@ -68,6 +68,49 @@ function inferFocusedPath(dasha, ui) {
   return [md, ad, ...path]
 }
 
+function renderDashaOptionsPopover(ui, id = 'dasha') {
+  const { yearMethod, customYearDays, ayanamsa } = getSettings()
+  const focused = ui.focusedMode ?? true
+  const ayanamsaName = AYANAMSA_OPTIONS.find(a => a.value === ayanamsa)?.label ?? 'Lahiri'
+  let ayanamsaVal = ''
+  try {
+    const { dob, tob, timezone } = state.birth ?? {}
+    if (dob && tob && timezone) {
+      const jd  = toJulianDay(dob, tob, timezone)
+      const raw = getSwe().get_ayanamsa_ut(jd)
+      const deg = Math.floor(raw)
+      const min = Math.floor((raw - deg) * 60)
+      const sec = ((raw - deg) * 60 - min) * 60
+      ayanamsaVal = ` (${deg}°${min}'${sec.toFixed(0)}")`
+    }
+  } catch (_) {}
+
+  const yearOptions = YEAR_METHOD_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === yearMethod ? ' selected' : ''}>${o.label}</option>`
+  ).join('')
+
+  return `
+    <div class="dasha-options-popover" id="${id}-options-popover">
+      <div class="dasha-options-row">
+        <span>Mode:</span>
+        <div class="dasha-mode-radios">
+          <label><input type="radio" name="${id}-mode" value="focused" ${focused ? 'checked' : ''}> Focused</label>
+          <label><input type="radio" name="${id}-mode" value="full"    ${!focused ? 'checked' : ''}> Full</label>
+        </div>
+      </div>
+      <div class="dasha-options-row">
+        <span>Year:</span>
+        <select id="${id}-year-method">${yearOptions}</select>
+      </div>
+      ${yearMethod === 'custom' ? `
+      <div class="dasha-options-row">
+        <span>Days/yr:</span>
+        <input id="${id}-custom-days" type="number" min="300" max="400" step="0.001" value="${customYearDays}" style="width:6rem">
+      </div>` : ''}
+      <div class="dasha-options-info">Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal} · TZ: ${state.birth?.timezone ?? 'UTC'}</div>
+    </div>`
+}
+
 function renderYearMethodControls() {
   const { yearMethod, customYearDays, ayanamsa } = getSettings()
   const options = YEAR_METHOD_OPTIONS.map(o =>
@@ -126,15 +169,15 @@ export async function renderDasha() {
     <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
       <div class="card prog-draggable" id="dasha-section" draggable="true">
         <div class="prog-card-header">
-          <div class="prog-card-title">
+          <div class="prog-card-title" style="position:relative">
             <span class="drag-handle" title="Drag to reorder">⠿</span>
             <button id="dasha-toggle-btn" class="toggle-btn">${ui.dashaCollapsed ? '▶' : '▼'}</button>
             <h3>Vimshottari Dasha — ${birth.name}</h3>
-            <button id="dasha-mode-btn" class="dasha-mode-btn${(ui.focusedMode ?? true) ? ' focused-active' : ''}">${(ui.focusedMode ?? true) ? 'Focused' : 'Full'}</button>
+            <button id="dasha-options-btn" class="dasha-options-btn" title="Options">⋮</button>
+            ${renderDashaOptionsPopover(ui, 'dasha')}
           </div>
         </div>
         <div id="dasha-body" style="display:${ui.dashaCollapsed ? 'none' : ''}">
-          ${renderYearMethodControls()}
           <div id="dasha-breadcrumb-wrap">${(ui.focusedMode ?? true) && (ui.focusedPath?.length > 0) ? renderBreadcrumb(dasha, ui) : ''}</div>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
@@ -188,22 +231,22 @@ export async function renderDasha() {
       }).catch(console.error)
       return
     }
-    if (e.target.id === 'dasha-mode-btn') {
-      const wasFocused = ui.focusedMode ?? true
-      ui.focusedMode = !wasFocused
-      if (ui.focusedMode) {
-        // Infer focusedPath from full-mode expansion state
-        ui.focusedPath = inferFocusedPath(dasha, ui)
-      }
-      e.target.textContent = ui.focusedMode ? 'Focused' : 'Full'
-      e.target.classList.toggle('focused-active', ui.focusedMode)
+    if (e.target.id === 'dasha-options-btn') {
+      const popover = document.getElementById('dasha-options-popover')
+      if (popover) popover.classList.toggle('open')
+      return
+    }
+    if (e.target.name === 'dasha-mode') {
+      ui.focusedMode = e.target.value === 'focused'
+      if (ui.focusedMode) ui.focusedPath = inferFocusedPath(dasha, ui)
       buildDashaRows(dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows
         document.getElementById('dasha-breadcrumb-wrap').innerHTML =
-          (ui.focusedMode && (ui.focusedPath?.length > 0)) ? renderBreadcrumb(dasha, ui) : ''
+          ui.focusedMode && ui.focusedPath?.length > 0 ? renderBreadcrumb(dasha, ui) : ''
       }).catch(console.error)
       return
-    } else if (e.target.id === 'dasha-toggle-btn') {
+    }
+    if (e.target.id === 'dasha-toggle-btn') {
       ui.dashaCollapsed = !ui.dashaCollapsed
       document.getElementById('dasha-body').style.display = ui.dashaCollapsed ? 'none' : ''
       e.target.textContent = ui.dashaCollapsed ? '▶' : '▼'
@@ -321,6 +364,16 @@ export async function renderDasha() {
       }
     }
   })
+
+  if (panel._closeDashaPopover) document.removeEventListener('mousedown', panel._closeDashaPopover)
+  panel._closeDashaPopover = e => {
+    const popover = document.getElementById('dasha-options-popover')
+    const btn     = document.getElementById('dasha-options-btn')
+    if (popover && !popover.contains(e.target) && e.target !== btn) {
+      popover.classList.remove('open')
+    }
+  }
+  document.addEventListener('mousedown', panel._closeDashaPopover)
 }
 
 export async function renderDashaCards(container, cards) {

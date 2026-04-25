@@ -295,8 +295,8 @@ export function renderChart() {
         </div>
         ${showDasha ? `<div class="split-handle" id="split-handle"></div><div class="dasha-pane" id="dasha-pane" data-mobile-panel="dasha"></div>` : ''}
       </div>
-      ${planetTable ? `<div class="planet-positions-section">${planetTable}</div>` : ''}
     </div>
+  ${planetTable ? `<div class="card planet-positions-card" style="margin-top:1rem">${planetTable}</div>` : ''}
   `
 
   if (showDasha) {

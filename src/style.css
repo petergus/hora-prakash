@@ -538,14 +538,6 @@ h3 {
 /* Mobile single-chart view inside multi — hidden on desktop */
 .multi-chart-mobile-view { display: none; }
 
-/* Planet positions section — below split wrapper in single view */
-.planet-positions-section {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-.planet-positions-section h3 { margin: 0 0 0.75rem; }
-
 /* Planet table section visibility */
 .multi-planet-desktop { display: block; }
 .multi-planet-mobile  { display: none; }

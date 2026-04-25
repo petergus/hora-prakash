@@ -24,6 +24,7 @@ export function defaultDashaUI() {
     expandedAntars:  new Map(),          // Map<mahaName, Set<antarName>>
     expandedPaths:   new Set(),          // Set<"maha/antar/prat"> for levels 3-4
     focusedMode:     true,
+    focusedPath:     [],
   }
 }
 

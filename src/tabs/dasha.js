@@ -26,6 +26,44 @@ function d() {
   return s.uiState.dasha
 }
 
+function inferFocusedPath(dasha, ui) {
+  // Pick MD: current-period if expanded, else first expanded MD
+  const currentMD = dasha.find(m => isCurrentPeriod(m.start, m.end))
+  let md = null
+  if (currentMD && ui.expandedMahas.has(currentMD.planet)) {
+    md = currentMD.planet
+  } else {
+    for (const m of dasha) {
+      if (ui.expandedMahas.has(m.planet)) { md = m.planet; break }
+    }
+  }
+  if (!md) return []
+
+  // Pick AD within MD
+  const antarSet = ui.expandedAntars.get(md)
+  if (!antarSet || antarSet.size === 0) return [md]
+  const mdNode = dasha.find(m => m.planet === md)
+  const currentAD = mdNode?.children?.find(a => isCurrentPeriod(a.start, a.end))
+  let ad = null
+  if (currentAD && antarSet.has(currentAD.planet)) {
+    ad = currentAD.planet
+  } else {
+    ad = [...antarSet][0] ?? null
+  }
+  if (!ad) return [md]
+
+  // Pick PD and deeper via expandedPaths
+  const path = []
+  for (let depth = 2; depth <= 4; depth++) {
+    const prefix = [md, ad, ...path].join('/')
+    const match = [...ui.expandedPaths].find(p => p.startsWith(prefix + '/') && p.split('/').length === depth + 1)
+    if (!match) break
+    path.push(match.split('/')[depth])
+  }
+
+  return [md, ad, ...path]
+}
+
 function renderYearMethodControls() {
   const { yearMethod, customYearDays, ayanamsa } = getSettings()
   const options = YEAR_METHOD_OPTIONS.map(o =>
@@ -144,17 +182,20 @@ export async function renderDasha() {
 
   panel.onclick = e => {
     const ui = d()
-    if (e.target.closest('#dasha-focus-toggle')) {
-      const span = e.target.closest('span[data-mode]')
-      if (!span) return
-      ui.focusedMode = span.dataset.mode === 'focused'
-      document.querySelectorAll('#dasha-focus-toggle span').forEach(s => {
-        s.classList.toggle('focus-on', s.dataset.mode === (ui.focusedMode ? 'focused' : 'full'))
-      })
+    if (e.target.id === 'dasha-mode-btn') {
+      const wasFocused = ui.focusedMode ?? true
+      ui.focusedMode = !wasFocused
+      if (ui.focusedMode) {
+        // Infer focusedPath from full-mode expansion state
+        ui.focusedPath = inferFocusedPath(dasha, ui)
+      }
+      const btn = document.getElementById('dasha-mode-btn')
+      btn.textContent = ui.focusedMode ? 'Focused' : 'Full'
+      btn.classList.toggle('focused-active', ui.focusedMode)
       buildDashaRows(dasha, ui).then(rows => {
         document.querySelector('.dasha-table tbody').innerHTML = rows
         document.getElementById('dasha-breadcrumb-wrap').innerHTML =
-          ui.focusedMode ? renderBreadcrumb(dasha) : ''
+          ui.focusedMode ? renderBreadcrumb(dasha, ui) : ''
       })
       return
     } else if (e.target.id === 'dasha-toggle-btn') {

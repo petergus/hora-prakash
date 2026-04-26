@@ -29,6 +29,9 @@
 [data-theme="midnight"] {
   --primary: #7c3aed; --primary-hover: #6d28d9; --highlight: #ede9fe;
 }
+[data-theme="crimson"] {
+  --primary: #c0392b; --primary-hover: #a93226; --highlight: #fef3c7;
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

@@ -87,4 +87,5 @@ export const THEME_OPTIONS = [
   { label: 'Forest',   value: 'forest',   color: '#059669' },
   { label: 'Rose',     value: 'rose',     color: '#e11d48' },
   { label: 'Midnight', value: 'midnight', color: '#7c3aed' },
+  { label: 'Crimson',  value: 'crimson',  color: '#c0392b' },
 ]

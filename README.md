@@ -19,6 +19,7 @@ A Vedic astrology web app that runs entirely in the browser — no backend, no A
 - **Location autocomplete** — type any city name, powered by OpenStreetMap Nominatim; manual entry supported with auto-detect timezone button
 - **Saved Profiles** — save multiple birth charts to browser localStorage; ▶ load & calculate instantly, ✎ edit in form, 🗑 delete with confirmation
 - **Smart defaults** — pre-filled with today's date, current time, and New Delhi as default location
+- **Themes** — 6 colour themes selectable in Settings: Indigo, Saffron, Forest, Rose, Midnight, Crimson; default theme configurable via `public/branding.json`
 
 ---
 

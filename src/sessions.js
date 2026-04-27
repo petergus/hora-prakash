@@ -43,6 +43,7 @@ export function defaultChartUI() {
     splitRatio:     0.55,
     mobileDashaTab: 'chart',
     chartDasha:     null,
+    fromHouseSign:  null,
   }
 }
 

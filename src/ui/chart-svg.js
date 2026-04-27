@@ -140,7 +140,7 @@ export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects =
 
   for (let cell = 1; cell <= 12; cell++) {
     const poly = NI_POLYS[cell]
-    parts.push(`<polygon points="${toPts(poly)}" fill="none" stroke="#94a3b8" stroke-width="1.2"/>`)
+    parts.push(`<polygon points="${toPts(poly)}" fill="none" stroke="#94a3b8" stroke-width="1.2" data-sign="${cellToSign[cell]}" style="cursor:context-menu"/>`)
 
     // Always use true centroid for X — bbox midpoint is wrong for asymmetric triangles
     const [cx, cy] = centroid(poly)
@@ -200,7 +200,7 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
     const house = ((sign - lagnaSign + 12) % 12) + 1
     const isLagnaCell = sign === lagnaSign
 
-    parts.push(`<rect x="${x}" y="${y}" width="${cs}" height="${cs}" fill="${isLagnaCell ? '#fff7ed' : '#fafafa'}" stroke="#94a3b8" stroke-width="1.2"/>`)
+    parts.push(`<rect x="${x}" y="${y}" width="${cs}" height="${cs}" fill="${isLagnaCell ? '#fff7ed' : '#fafafa'}" stroke="#94a3b8" stroke-width="1.2" data-sign="${sign}" style="cursor:context-menu"/>`)
 
     // Sign abbr top-left, house number top-right — fixed header row height = 24px
     const headerH = 24

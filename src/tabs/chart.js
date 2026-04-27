@@ -100,7 +100,9 @@ function buildPlanetTable(key, planets, lagna) {
 
 function renderSVGOnly() {
   if (!_dPlanets) return
-  const { chartStyle, activePlanets } = c()
+  const { chartStyle, activePlanets, fromHouseSign } = c()
+  const planets = fromHouseSign ? _dPlanets : _dPlanets
+  const lagna   = fromHouseSign ? { ..._dLagna, sign: fromHouseSign } : _dLagna
   const activeAspects = _dPlanets
     .filter(p => activePlanets.has(p.abbr))
     .map(p => ({ fromSign: p.sign, toSigns: getAspectedSigns(p.sign, p.abbr), color: PLANET_COLORS[p.abbr] }))
@@ -108,7 +110,11 @@ function renderSVGOnly() {
     _dPlanets.filter(p => activePlanets.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
   )
   document.getElementById('chart-container').innerHTML =
-    renderChartSVG(_dPlanets, _dLagna, chartStyle, _signLabels, _centerLabel, activeAspects, activePlanetColors)
+    renderChartSVG(planets, lagna, chartStyle, _signLabels, _centerLabel, activeAspects, activePlanetColors)
+
+  // Show/hide the "from house" reset chip
+  const chip = document.getElementById('from-house-chip')
+  if (chip) chip.style.display = fromHouseSign ? 'inline-flex' : 'none'
 }
 
 function divSelectHtml(id, selected) {
@@ -270,6 +276,7 @@ export function renderChart() {
           <button id="btn-view-4" class="chart-style-btn${viewMode === '4' ? ' active' : ''}" title="Four charts">4</button>
         </div>
         ${aspectBtns}
+        <span id="from-house-chip" style="display:${ui.fromHouseSign ? 'inline-flex' : 'none'};align-items:center;gap:0.3rem;background:var(--accent,#6366f1);color:#fff;font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:999px;cursor:pointer" title="Reset to natal lagna">H${ui.fromHouseSign ? ((ui.fromHouseSign - (state.lagna?.sign ?? 1) + 12) % 12) + 1 : ''} view &times;</span>
         ${viewMode !== '4' ? `
           <span class="ctrl-sep"></span>
           <div class="dasha-toggle-btn" id="dasha-toggle-wrapper" style="position:relative">
@@ -533,6 +540,38 @@ export function renderChart() {
     const ap = getActiveAP()
     const abbr = el.dataset.planet
     if (ap.has(abbr)) { ap.delete(abbr) } else { ap.add(abbr) }
+    renderSVGOnly()
+  })
+
+  // Right-click context menu on chart cells
+  document.getElementById('chart-container')?.addEventListener('contextmenu', e => {
+    if (c().viewMode !== '1') return
+    const cell = e.target.closest('[data-sign]')
+    if (!cell) return
+    e.preventDefault()
+    document.getElementById('chart-ctx-menu')?.remove()
+    const sign = parseInt(cell.dataset.sign, 10)
+    const lagnaSign = state.lagna?.sign ?? 1
+    const house = ((sign - lagnaSign + 12) % 12) + 1
+    const menu = document.createElement('div')
+    menu.id = 'chart-ctx-menu'
+    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:180px;font-size:0.85rem`
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px'
+    menu.style.top  = Math.min(e.clientY, window.innerHeight - 60) + 'px'
+    menu.innerHTML = `<div style="padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);border-radius:4px" id="ctx-from-house">Show chart from House ${house}</div>`
+    document.body.appendChild(menu)
+    menu.querySelector('#ctx-from-house').addEventListener('click', () => {
+      menu.remove()
+      c().fromHouseSign = sign
+      renderSVGOnly()
+    })
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close) } }
+    setTimeout(() => document.addEventListener('click', close), 0)
+  })
+
+  // Reset chip click
+  document.getElementById('from-house-chip')?.addEventListener('click', () => {
+    c().fromHouseSign = null
     renderSVGOnly()
   })
 

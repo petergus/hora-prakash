@@ -140,7 +140,7 @@ export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects =
 
   for (let cell = 1; cell <= 12; cell++) {
     const poly = NI_POLYS[cell]
-    parts.push(`<polygon points="${toPts(poly)}" fill="none" stroke="#94a3b8" stroke-width="1.2" data-sign="${cellToSign[cell]}" style="cursor:context-menu"/>`)
+    parts.push(`<polygon points="${toPts(poly)}" fill="transparent" stroke="#94a3b8" stroke-width="1.2" data-sign="${cellToSign[cell]}" style="cursor:context-menu" pointer-events="all"/>`)
 
     // Always use true centroid for X — bbox midpoint is wrong for asymmetric triangles
     const [cx, cy] = centroid(poly)

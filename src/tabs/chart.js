@@ -268,6 +268,8 @@ export function renderChart() {
   const splitRatio = ui.splitRatio ?? 0.55
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
+  panel.classList.toggle('has-dasha', showDasha)
+
   panel.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">

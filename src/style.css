@@ -941,16 +941,20 @@ h3 {
 @media (min-width: 1200px) {
   body { padding: 1.5rem 2rem; }
 
-  /* Chart tab: chart card sticky left, planet positions right */
-  #tab-chart.active {
+  /* Chart tab (no dasha): chart card sticky left, planet positions right */
+  #tab-chart.active:not(.has-dasha) {
     display: grid !important;
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     gap: 1.25rem;
     align-items: start;
   }
-  #tab-chart.active > .card:first-child {
+  #tab-chart.active:not(.has-dasha) > .card:first-child {
     position: sticky;
     top: 1rem;
+  }
+  /* Chart tab (dasha active): chart card full width, planet table below */
+  #tab-chart.active.has-dasha {
+    display: block !important;
   }
   /* Allow a bigger chart in the wider left column */
   #chart-container { max-width: 540px; }
@@ -973,8 +977,7 @@ h3 {
   [data-age-section]  { grid-column: 2; }
   [data-prog-section] { grid-column: 2; }
 
-  /* 4-chart view: show all 4 in a single row */
-  .multi-chart-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  /* 4-chart view: keep 2×2 grid */
 }
 
 /* ── Responsive tables ── */

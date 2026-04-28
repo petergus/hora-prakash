@@ -683,18 +683,22 @@ h3 {
 
 /* Depth rows — left accent + subtle tint. No nth-child override to avoid conflicts. */
 .dasha-d0 { border-left: 3px solid #6366f1; }
-.dasha-d1 { border-left: 3px solid #0ea5e9; background: #f8fafc; font-size: 0.83rem; }
-.dasha-d2 { border-left: 3px solid #10b981; background: #f4faf8; font-size: 0.8rem; }
-.dasha-d3 { border-left: 3px solid #f59e0b; background: #fefdf4; font-size: 0.77rem; }
-.dasha-d4 { border-left: 3px solid #ef4444; background: #fff7f7; font-size: 0.74rem; }
-.dasha-d5 { border-left: 3px solid #a78bfa; background: #faf7ff; font-size: 0.72rem; }
+/* MD  → Indigo  |  AD → Sky  |  PD → Violet  |  SD → Rose  |  PrD → Orange  |  DeD → Teal */
+.dasha-d1 { border-left: 3px solid #0ea5e9; background: #f0f9ff; font-size: 0.83rem; }
+.dasha-d2 { border-left: 3px solid #7c3aed; background: #f5f3ff; font-size: 0.8rem; }
+.dasha-d3 { border-left: 3px solid #e11d48; background: #fff1f2; font-size: 0.77rem; }
+.dasha-d4 { border-left: 3px solid #ea580c; background: #fff7ed; font-size: 0.74rem; }
+.dasha-d5 { border-left: 3px solid #0d9488; background: #f0fdfa; font-size: 0.72rem; }
 .dasha-table tbody tr:hover { background: #eef2ff !important; }
 
+/* Active dasha — clearly visible at any depth */
 .current-period {
-  background: linear-gradient(90deg, #fffbeb 0%, #fff 100%) !important;
-  font-weight: 600;
-  box-shadow: inset 4px 0 0 #f59e0b;
+  background: linear-gradient(90deg, #fef9c3 0%, #fefce8 60%, var(--surface) 100%) !important;
+  font-weight: 700;
+  box-shadow: inset 5px 0 0 #eab308;
+  color: #713f12;
 }
+.current-period .dasha-time { color: #a16207; }
 
 /* Level depth badges */
 .dasha-level-label {
@@ -707,12 +711,12 @@ h3 {
   margin-left: 4px;
   vertical-align: middle;
 }
-.dasha-d0 .dasha-level-label { background: #e0e7ff; color: #4338ca; }
+.dasha-d0 .dasha-level-label { background: #e0e7ff; color: #3730a3; }
 .dasha-d1 .dasha-level-label { background: #e0f2fe; color: #0369a1; }
-.dasha-d2 .dasha-level-label { background: #d1fae5; color: #065f46; }
-.dasha-d3 .dasha-level-label { background: #fef3c7; color: #92400e; }
-.dasha-d4 .dasha-level-label { background: #fee2e2; color: #991b1b; }
-.dasha-d5 .dasha-level-label { background: #ede9fe; color: #5b21b6; }
+.dasha-d2 .dasha-level-label { background: #ede9fe; color: #5b21b6; }
+.dasha-d3 .dasha-level-label { background: #ffe4e6; color: #9f1239; }
+.dasha-d4 .dasha-level-label { background: #ffedd5; color: #9a3412; }
+.dasha-d5 .dasha-level-label { background: #ccfbf1; color: #0f766e; }
 
 .dasha-now-badge {
   display: inline-block;
@@ -1027,6 +1031,19 @@ h3 {
   [data-prog-section] .dasha-table td { padding: 0.22rem 0.5rem; }
   [data-age-section] .dasha-table th,
   [data-prog-section] .dasha-table th { padding: 0.35rem 0.5rem; }
+
+  /* Vimshottari (full-width top card) — larger font + roomier rows */
+  [data-vims-card] .dasha-table           { font-size: 0.95rem; }
+  [data-vims-card] .dasha-table th        { font-size: 0.72rem; padding: 0.55rem 0.85rem; }
+  [data-vims-card] .dasha-table td        { padding: 0.42rem 0.85rem; }
+  [data-vims-card] .dasha-level-label     { font-size: 0.62rem; padding: 2px 6px; }
+  [data-vims-card] .dasha-d1              { font-size: 0.91rem; }
+  [data-vims-card] .dasha-d2              { font-size: 0.88rem; }
+  [data-vims-card] .dasha-d3              { font-size: 0.85rem; }
+  [data-vims-card] .dasha-d4              { font-size: 0.82rem; }
+  [data-vims-card] .dasha-d5              { font-size: 0.79rem; }
+  [data-vims-card] .dasha-now-badge       { font-size: 0.68rem; padding: 2px 7px; }
+  [data-vims-card] .dasha-time            { font-size: 0.78rem; }
 
   /* 4-chart view: keep 2×2 grid */
 }

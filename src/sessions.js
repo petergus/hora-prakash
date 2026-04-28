@@ -14,8 +14,8 @@ function emptySnap() {
 export function defaultDashaUI() {
   return {
     dashaCollapsed:  false,
-    ageCollapsed:    true,
-    progCollapsed:   true,
+    ageCollapsed:    false,
+    progCollapsed:   false,
     selectedProgLord: null,
     ageNavCycle:     null,
     ageAsOf:         null,

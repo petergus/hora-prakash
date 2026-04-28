@@ -3,8 +3,8 @@ import { state } from '../state.js'
 import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
-import { getActiveSession, defaultChartUI } from '../sessions.js'
-import { renderDashaCards } from './dasha.js'
+import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
+import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -27,6 +27,16 @@ function fmtDeg(dec) {
 let privacyOn = false   // global UI pref, not per-session
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
 let _splitDragRatio = null
+let _chartDashaPanel = null
+
+function getChartDashaState() {
+  const s = getActiveSession()
+  if (!s) return defaultDashaUI()
+  s.uiState ??= {}
+  s.uiState.chart ??= defaultChartUI()
+  s.uiState.chart.chartDasha ??= defaultDashaUI()
+  return s.uiState.chart.chartDasha
+}
 
 function c() {
   const s = getActiveSession()
@@ -133,6 +143,7 @@ export function renderChart() {
   const panel = document.getElementById('tab-chart')
   const { planets, lagna, birth } = state
   if (!planets || !lagna || !birth) return
+  if (_chartDashaPanel) { _chartDashaPanel.destroy(); _chartDashaPanel = null }
 
   const ui = c()
   const { chartStyle, viewMode, divisional, multiDivs, activeMultiTab, tableDiv: _tableDiv,
@@ -312,7 +323,11 @@ export function renderChart() {
 
   if (showDasha) {
     const dashaPane = panel.querySelector('#dasha-pane')
-    if (dashaPane) renderDashaCards(dashaPane, ui.dashaCards).catch(console.error)
+    if (dashaPane && state.dasha && state.birth) {
+      if (_chartDashaPanel) _chartDashaPanel.destroy()
+      _chartDashaPanel = new DashaPanel(dashaPane, getChartDashaState)
+      _chartDashaPanel.render(state.dasha, state.birth, { cards: ui.dashaCards }).catch(console.error)
+    }
   }
 
   const handle = panel.querySelector('#split-handle')
@@ -393,7 +408,11 @@ export function renderChart() {
           ui3.dashaCards = next
         }
         const dashaPane = panel.querySelector('#dasha-pane')
-        if (dashaPane) renderDashaCards(dashaPane, ui3.dashaCards).catch(console.error)
+        if (dashaPane && state.dasha && state.birth) {
+          if (_chartDashaPanel) _chartDashaPanel.destroy()
+          _chartDashaPanel = new DashaPanel(dashaPane, getChartDashaState)
+          _chartDashaPanel.render(state.dasha, state.birth, { cards: ui3.dashaCards }).catch(console.error)
+        }
       })
     })
   }

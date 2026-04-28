@@ -127,9 +127,9 @@ export async function renderDasha() {
 
   const rows = await buildDashaRows(dasha, ui)
 
-  const progressionHtml = renderProgression(birth.dob, dasha)
+  const progressionHtml = renderProgression(birth.dob, dasha, ui)
   const ageRef = ui.ageAsOf ?? (ui.ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12) : new Date())
-  const ageHtml = renderAgeProgression(birth.dob, ageRef)
+  const ageHtml = renderAgeProgression(birth.dob, ageRef, ui)
 
   panel.innerHTML = `
     <div id="prog-drag-container" style="display:flex;flex-direction:column;gap:0">
@@ -171,11 +171,11 @@ export async function renderDasha() {
     if (e.target.id === 'age-asof-input') {
       ui.ageAsOf    = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
       ui.ageNavCycle = null
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date())
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date(), ui)
     } else if (e.target.id === 'prog-lord-select') {
       ui.selectedProgLord = e.target.value
       ui.progNavIndex     = dasha.findIndex(m => m.planet === ui.selectedProgLord)
-      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha, ui)
     } else if (e.target.id === 'dasha-year-method') {
       const yearMethod = e.target.value
       saveSettings({ yearMethod })
@@ -228,24 +228,24 @@ export async function renderDasha() {
       const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
       ui.ageNavCycle = Math.max(0, curCycle - 1)
       ui.ageAsOf = null
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12))
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12), ui)
     } else if (e.target.id === 'age-next-btn') {
       const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
       ui.ageNavCycle = Math.min(9, curCycle + 1)
       ui.ageAsOf = null
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12))
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12), ui)
     } else if (e.target.id === 'age-reset-today') {
       ui.ageNavCycle = null
       ui.ageAsOf = null
-      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date())
+      document.getElementById('age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date(), ui)
     } else if (e.target.id === 'prog-prev-btn') {
       ui.progNavIndex     = Math.max(0, (ui.progNavIndex ?? 0) - 1)
       ui.selectedProgLord = dasha[ui.progNavIndex].planet
-      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha, ui)
     } else if (e.target.id === 'prog-next-btn') {
       ui.progNavIndex     = Math.min(dasha.length - 1, (ui.progNavIndex ?? 0) + 1)
       ui.selectedProgLord = dasha[ui.progNavIndex].planet
-      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha)
+      document.getElementById('prog-section').outerHTML = renderProgression(birth.dob, dasha, ui)
     }
   }
 
@@ -372,10 +372,10 @@ export async function renderDashaCards(container, cards) {
   }
   if (cards.includes('age')) {
     const ageRef = ui.ageAsOf ?? (ui.ageNavCycle !== null ? offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12) : new Date())
-    html += renderAgeProgression(birth.dob, ageRef).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    html += renderAgeProgression(birth.dob, ageRef, ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
   }
   if (cards.includes('progression')) {
-    html += renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+    html += renderProgression(birth.dob, dasha, ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
   }
 
   container.innerHTML = html
@@ -536,24 +536,24 @@ export async function renderDashaCards(container, cards) {
       const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
       ui.ageNavCycle = Math.max(0, curCycle - 1)
       ui.ageAsOf = null
-      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12)).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12), ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (btn.id === 'age-next-btn') {
       const curCycle = ui.ageNavCycle ?? Math.floor(calcAgeYearsFromDob(birth.dob) / 12)
       ui.ageNavCycle = Math.min(9, curCycle + 1)
       ui.ageAsOf = null
-      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12)).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, offsetYearsFromDob(birth.dob, ui.ageNavCycle * 12), ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (btn.id === 'age-reset-today') {
       ui.ageNavCycle = null
       ui.ageAsOf = null
-      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date()).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, new Date(), ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (btn.id === 'prog-prev-btn') {
       ui.progNavIndex = Math.max(0, (ui.progNavIndex ?? 0) - 1)
       ui.selectedProgLord = dasha[ui.progNavIndex].planet
-      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha, ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (btn.id === 'prog-next-btn') {
       ui.progNavIndex = Math.min(dasha.length - 1, (ui.progNavIndex ?? 0) + 1)
       ui.selectedProgLord = dasha[ui.progNavIndex].planet
-      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha, ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     }
   })
   container.onchange = e => {
@@ -561,12 +561,12 @@ export async function renderDashaCards(container, cards) {
       const ui = chartD()
       ui.ageAsOf = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
       ui.ageNavCycle = null
-      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date()).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#age-prog-section').outerHTML = renderAgeProgression(birth.dob, ui.ageAsOf ?? new Date(), ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     } else if (e.target.id === 'prog-lord-select') {
       const ui = chartD()
       ui.selectedProgLord = e.target.value
       ui.progNavIndex = dasha.findIndex(m => m.planet === ui.selectedProgLord)
-      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
+      container.querySelector('#prog-section').outerHTML = renderProgression(birth.dob, dasha, ui).replace(' draggable="true"', '').replace('<span class="drag-handle" title="Drag to reorder">⠿</span>', '')
     }
   }
 }
@@ -870,8 +870,8 @@ function calcAgeYearsFromDob(dobStr) {
   return Math.max(0, years)
 }
 
-function renderAgeProgression(dobStr, asOf) {
-  const ui = d()
+function renderAgeProgression(dobStr, asOf, ui) {
+  ui ??= d()
   const { years, months, days } = calcAgeComponents(dobStr, asOf)
   const houseActive = calcHouseActiveFromAge(dobStr, asOf)
   const todayStr = new Date().toISOString().slice(0, 10)
@@ -930,8 +930,8 @@ function renderAgeProgression(dobStr, asOf) {
     </div>`
 }
 
-function renderProgression(dobStr, dashaSeq) {
-  const ui = d()
+function renderProgression(dobStr, dashaSeq, ui) {
+  ui ??= d()
   const rashiByName = Object.fromEntries((state.planets ?? []).map(p => [p.name, p]))
   const lordHouse   = rashiByName[ui.selectedProgLord]?.house ?? 1
   const mdYears     = DASHA_YEARS[ui.selectedProgLord] ?? 1

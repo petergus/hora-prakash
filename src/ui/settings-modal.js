@@ -60,7 +60,7 @@ export function initSettingsModal() {
   gearBtn.addEventListener('click', () => {
     const s = getSettings()
     overlay.style.display = 'flex'
-    const currentTheme = s.theme || 'indigo'
+    const currentTheme = document.documentElement.dataset.theme || s.theme || 'indigo'
     overlay.querySelectorAll('.theme-swatch').forEach(sw => {
       sw.classList.toggle('active', sw.dataset.theme === currentTheme)
     })

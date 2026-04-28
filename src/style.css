@@ -39,7 +39,7 @@ body {
   font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  max-width: 960px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
   font-size: 0.95rem;
@@ -937,6 +937,46 @@ h3 {
 .panchang-table tr:last-child th,
 .panchang-table tr:last-child td { border-bottom: none; }
 
+/* ── Large-screen layout (≥ 1200px) ── */
+@media (min-width: 1200px) {
+  body { padding: 1.5rem 2rem; }
+
+  /* Chart tab: chart card sticky left, planet positions right */
+  #tab-chart.active {
+    display: grid !important;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  #tab-chart.active > .card:first-child {
+    position: sticky;
+    top: 1rem;
+  }
+  /* Allow a bigger chart in the wider left column */
+  #chart-container { max-width: 540px; }
+
+  /* Dasha tab: vimshottari left (sticky), age + progression stacked right */
+  .prog-drag-container {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  [data-vims-card] {
+    grid-column: 1;
+    grid-row: 1 / span 99;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+  }
+  [data-age-section]  { grid-column: 2; }
+  [data-prog-section] { grid-column: 2; }
+
+  /* 4-chart view: show all 4 in a single row */
+  .multi-chart-grid-4 { grid-template-columns: repeat(4, 1fr); }
+}
+
 /* ── Responsive tables ── */
 @media (max-width: 600px) {
   body { padding: 0.75rem 0.5rem; }
@@ -984,14 +1024,14 @@ h3 {
     gap: 0.4rem;
   }
   /* Date input fills available space */
-  #age-asof-input {
+  [data-age-asof] {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
     max-width: 160px;
   }
   /* MD Lord select fills row */
-  #prog-lord-select {
+  [data-prog-lord] {
     flex: 1 1 auto;
     min-width: 0;
     max-width: 200px;

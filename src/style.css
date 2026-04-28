@@ -69,16 +69,16 @@ header {
 #profile-tab-bar {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  align-self: flex-end;
 }
 
 .ptab-scroll {
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   overflow-x: auto;
   scrollbar-width: none;
-  gap: 0;
-  min-height: 34px;
+  gap: 2px;
+  height: 36px;
 }
 .ptab-scroll::-webkit-scrollbar { display: none; }
 
@@ -86,28 +86,53 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0 0.75rem;
+  padding: 0 0.85rem;
   min-width: 0;
   max-width: 160px;
-  height: 34px;
-  border: none;
-  border-right: 1px solid var(--border);
-  background: transparent;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  background: var(--bg);
   cursor: pointer;
   font-size: 0.8rem;
   font-family: inherit;
   color: var(--muted);
   white-space: nowrap;
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.12s, color 0.12s, height 0.1s;
   flex-shrink: 0;
+  position: relative;
 }
-.ptab:first-child { border-left: 1px solid var(--border); }
-.ptab:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+.ptab:hover { background: #e8ecf3; color: var(--text); }
 .ptab.active {
-  background: rgba(0,0,0,0.04);
+  background: var(--surface);
   color: var(--primary);
   font-weight: 600;
-  border-bottom: 2px solid var(--primary);
+  height: 36px;
+  border-color: var(--border);
+  border-bottom: 1px solid var(--surface);
+  box-shadow: 0 -2px 6px rgba(0,0,0,0.06);
+  z-index: 1;
+}
+/* curved feet on active tab */
+.ptab.active::before,
+.ptab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+.ptab.active::before {
+  left: -8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: 3px 1px 0 0 var(--surface);
+}
+.ptab.active::after {
+  right: -8px;
+  border-bottom-left-radius: 8px;
+  box-shadow: -3px 1px 0 0 var(--surface);
 }
 
 .ptab-icon { opacity: 0.6; display: flex; align-items: center; flex-shrink: 0; }
@@ -139,17 +164,19 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: var(--muted);
   flex-shrink: 0;
-  border-radius: 0;
+  border-radius: 50%;
   transition: background 0.12s, color 0.12s;
+  align-self: center;
+  margin-left: 2px;
 }
-.ptab-new:hover { background: rgba(0,0,0,0.04); color: var(--primary); }
+.ptab-new:hover { background: rgba(0,0,0,0.07); color: var(--primary); }
 
 h1 {
   font-size: 1.35rem;

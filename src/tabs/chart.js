@@ -171,6 +171,7 @@ export function renderChart() {
     : 'Birth Charts'
 
   const maskedName    = privacyOn ? MASK : heading
+  const maskedPerson  = privacyOn ? MASK : (birth.name ? esc(birth.name) : '')
   const maskedDetails = privacyOn
     ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
     : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || fmtLat(birth.lat) + ' ' + fmtLon(birth.lon)} &nbsp;·&nbsp; ${ianaToOffset(birth.timezone)}`
@@ -273,7 +274,10 @@ export function renderChart() {
   panel.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
-        <h2 style="margin:0;font-size:1.1rem;font-weight:600">${maskedName}</h2>
+        <div style="display:flex;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
+          <h2 style="margin:0;font-size:1.1rem;font-weight:600">${maskedName}</h2>
+          ${maskedPerson ? `<span style="font-size:0.9rem;font-weight:500;color:var(--muted)">${maskedPerson}</span>` : ''}
+        </div>
         <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2rem;margin-top:0.1rem;border-radius:4px;line-height:1;display:flex;align-items:center" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
       </div>
       <p style="color:var(--muted);font-size:0.8rem;margin-top:0.15rem;margin-bottom:1rem;line-height:1.5">${maskedDetails}</p>

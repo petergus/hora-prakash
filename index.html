@@ -11,6 +11,9 @@
   <!-- Preload the large ephemeris files so the browser fetches them in parallel with JS -->
   <link rel="preload" href="/hora-prakash/wasm/swisseph.wasm" as="fetch" crossorigin>
   <link rel="preload" href="/hora-prakash/wasm/swisseph.data" as="fetch" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css" />
   <!-- Inline loader styles — render before any JS or external CSS -->
   <style>
@@ -34,7 +37,7 @@
     .app-loader-text {
       color: #94a3b8;
       font-size: 0.88rem;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       letter-spacing: 0.02em;
     }
   </style>

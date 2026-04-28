@@ -28,12 +28,8 @@ export function activateInnerTab(tab) {
 }
 
 export function renderProfileTabs() {
-  let bar = document.getElementById('profile-tab-bar')
-  if (!bar) {
-    bar = document.createElement('div')
-    bar.id = 'profile-tab-bar'
-    document.querySelector('header').after(bar)
-  }
+  const bar = document.getElementById('profile-tab-bar')
+  if (!bar) return
 
   const sessions = getSessions()
   const curId    = getActiveId()

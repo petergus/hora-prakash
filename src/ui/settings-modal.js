@@ -5,14 +5,13 @@ import {
 } from '../core/settings.js'
 
 export function initSettingsModal() {
-  const nav = document.getElementById('tab-nav')
   const gearBtn = document.createElement('button')
   gearBtn.id = 'settings-btn'
   gearBtn.type = 'button'
   gearBtn.title = 'Calculation Settings'
   gearBtn.textContent = '⚙'
-  gearBtn.style.cssText = 'margin-left:auto;background:none;border:none;cursor:pointer;font-size:1.15rem;padding:0.3rem 0.6rem;color:var(--muted);line-height:1;'
-  nav.appendChild(gearBtn)
+  gearBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.15rem;padding:0.3rem 0.6rem;color:var(--muted);line-height:1;flex-shrink:0;'
+  document.querySelector('header').appendChild(gearBtn)
 
   const overlay = document.createElement('div')
   overlay.id = 'settings-modal'

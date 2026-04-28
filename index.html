@@ -42,13 +42,14 @@
 <body>
   <header>
     <h1><img src="/icon.svg" alt="" style="width:36px;height:36px;vertical-align:middle;margin-right:0.5rem;border-radius:8px" />Hora Prakash</h1>
-    <nav id="tab-nav">
-      <button data-tab="input" class="tab-btn active">Birth Details</button>
-      <button data-tab="chart" class="tab-btn" disabled>Birth Chart</button>
-      <button data-tab="dasha" class="tab-btn" disabled>Dasha</button>
-      <button data-tab="panchang" class="tab-btn" disabled>Panchang</button>
-    </nav>
+    <div id="profile-tab-bar"></div>
   </header>
+  <nav id="tab-nav">
+    <button data-tab="input" class="tab-btn active">Birth Details</button>
+    <button data-tab="chart" class="tab-btn" disabled>Birth Chart</button>
+    <button data-tab="dasha" class="tab-btn" disabled>Dasha</button>
+    <button data-tab="panchang" class="tab-btn" disabled>Panchang</button>
+  </nav>
   <main>
     <div id="app-loader">
       <div class="app-spinner"></div>

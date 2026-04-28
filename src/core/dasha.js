@@ -154,6 +154,8 @@ async function calcDashaSolarReturn(jd, swe, flags, dashaStartIndex, balanceYear
     const end        = new Date(jdToMs(endJd))
     const displayYrs = i === 0 ? balanceYears : seq.years
 
+    const children = await calcSubPeriodsTSSY(idx, startJd, seq.years, 1, swe, flags)
+
     tree.push({
       planet:        seq.name,
       start,
@@ -161,7 +163,7 @@ async function calcDashaSolarReturn(jd, swe, flags, dashaStartIndex, balanceYear
       seqIndex:      idx,
       durationYears: displayYrs,
       tssy:          true,
-      children:      await calcSubPeriodsTSSY(idx, startJd, seq.years, 1, swe, flags),
+      children,
     })
   }
 
@@ -213,13 +215,27 @@ export async function calcDasha(moon, dobStr, options = {}) {
     const yrs  = i === 0 ? balanceYears : seq.years
     const ms   = yrs * msPerYear
     const end  = cur + ms
+
+    let children
+    if (i === 0) {
+      // Full dasha started before birth — compute sub-periods from actual dasha start, clip to birth
+      const fullMs       = seq.years * msPerYear
+      const dashaStartMs = birthMs - fractionElapsed * fullMs
+      const all = calcSubPeriods(idx, new Date(dashaStartMs), seq.years, 1, fullMs)
+      children = all
+        .filter(c => c.end.getTime() > birthMs)
+        .map((c, j) => j === 0 ? { ...c, start: new Date(birthMs) } : c)
+    } else {
+      children = calcSubPeriods(idx, new Date(cur), yrs, 1, ms)
+    }
+
     tree.push({
       planet:        seq.name,
       start:         new Date(cur),
       end:           new Date(end),
       seqIndex:      idx,
       durationYears: yrs,
-      children:      calcSubPeriods(idx, new Date(cur), yrs, 1, ms),
+      children,
     })
     cur = end
   }

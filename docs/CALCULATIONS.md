@@ -283,7 +283,7 @@ tithiNum = floor(diff / 12) + 1             // 1–30
 - 16–30: Krishna Paksha (waning), 30 = Amavasya
 
 ### Vara (Weekday)
-Derived from UTC date: `date.getUTCDay()` → 0=Sunday … 6=Saturday. Lord assigned by traditional order (Sun/Mon/Mars/Mer/Jup/Ven/Sat).
+Derived from the birth location's local civil date (`YYYY-MM-DD` from the input profile), not the UTC date. Lord assigned by traditional order (Sun/Mon/Mars/Mer/Jup/Ven/Sat).
 
 ### Nakshatra of the Day
 Sidereal Moon longitude → nakshatra index and pada (same formula as birth chart).
@@ -304,6 +304,7 @@ karanaNum = floor(diff / 6)     // 0–59 (half-tithis)
 
 ### Sunrise / Sunset
 ```
+dayStartJD = JD of 00:00 at the birth location on the profile's local date
 swe.rise_trans(dayStartJD, body=0 (Sun), lon, lat, flags=0, type=1/2)
 ```
 - `type=1` = rise, `type=2` = set

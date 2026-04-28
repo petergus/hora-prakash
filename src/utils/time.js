@@ -14,7 +14,7 @@ export function toJulianDay(dateStr, timeStr, timezone) {
   return dateToJD(utcDate)
 }
 
-function localToUTC(localISO, timezone) {
+export function localToUTC(localISO, timezone) {
   const parts = localISO.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
   if (!parts) throw new Error(`Invalid date/time string: "${localISO}"`)
   const [, y, mo, d, h, m] = parts.map(Number)
@@ -26,7 +26,7 @@ function localToUTC(localISO, timezone) {
   return new Date(probe.getTime() - tzOffset2 * 60000)
 }
 
-function getTZOffsetMinutes(date, timezone) {
+export function getTZOffsetMinutes(date, timezone) {
   // Handle numeric offset strings like "+05:30" or "-04:00"
   const offsetMatch = timezone.match(/^([+-])(\d{1,2}):(\d{2})$/)
   if (offsetMatch) {
@@ -36,6 +36,49 @@ function getTZOffsetMinutes(date, timezone) {
   const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' })
   const tzStr  = date.toLocaleString('en-US', { timeZone: timezone })
   return (new Date(tzStr) - new Date(utcStr)) / 60000
+}
+
+export function getLocalDateParts(date, timezone) {
+  const offsetMatch = timezone?.match(/^([+-])(\d{1,2}):(\d{2})$/)
+  if (offsetMatch) {
+    const offsetMin = getTZOffsetMinutes(date, timezone)
+    const local = new Date(date.getTime() + offsetMin * 60000)
+    return {
+      year: local.getUTCFullYear(),
+      month: local.getUTCMonth() + 1,
+      day: local.getUTCDate(),
+      weekday: local.getUTCDay(),
+      hour: local.getUTCHours(),
+      minute: local.getUTCMinutes(),
+    }
+  }
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const val = type => parts.find(p => p.type === type)?.value
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return {
+    year: parseInt(val('year'), 10),
+    month: parseInt(val('month'), 10),
+    day: parseInt(val('day'), 10),
+    weekday: weekdayMap[val('weekday')],
+    hour: parseInt(val('hour'), 10) % 24,
+    minute: parseInt(val('minute'), 10),
+  }
+}
+
+export function formatTimeInZone(date, timezone) {
+  if (!date) return '—'
+  const { hour, minute } = getLocalDateParts(date, timezone)
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
 function dateToJD(date) {

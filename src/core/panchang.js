@@ -2,7 +2,7 @@
 // Vedic panchang (calendar) calculations: tithi, vara, nakshatra, yoga, karana, kalam
 import { getSwe } from './swisseph.js'
 import { getNakshatraInfo } from './calculations.js'
-import { jdToDate } from '../utils/time.js'
+import { getLocalDateParts, jdToDate, toJulianDay } from '../utils/time.js'
 
 const TITHI_NAMES = [
   'Pratipada','Dvitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami',
@@ -41,10 +41,12 @@ const GULIKA_ORDER      = [6, 5, 4, 3, 2, 1, 7]
  * @param {number} jd   Julian Day (UT)
  * @param {number} lat  Latitude
  * @param {number} lon  Longitude
+ * @param {object} [options] { dateStr: "YYYY-MM-DD", timezone: IANA or "+05:30" }
  * @returns {object}
  */
-export function calcPanchang(jd, lat, lon) {
+export function calcPanchang(jd, lat, lon, options = {}) {
   const swe = getSwe()
+  const timezone = options.timezone || '+00:00'
 
   // Use tropical longitudes for tithi/yoga (standard Vedic panchang practice)
   const TROPICAL_SPEED_FLAG = 2 | 256   // SEFLG_SWIEPH | SEFLG_SPEED
@@ -67,9 +69,11 @@ export function calcPanchang(jd, lat, lon) {
     tithiName = TITHI_NAMES[tithiNum - 16] + ' (Krishna)'
   }
 
-  // Vara (weekday from UTC date)
-  const date = jdToDate(jd)
-  const vara = VARA_NAMES[date.getUTCDay()]
+  // Vara is based on the local civil date at the birth location.
+  const localDate = options.dateStr
+    ? parseDateStr(options.dateStr)
+    : getLocalDateParts(jdToDate(jd), timezone)
+  const vara = VARA_NAMES[localDate.weekday]
 
   // Nakshatra: sidereal Moon longitude
   const sidMoonResult = swe.calc_ut(jd, 1, 2 | 65536 | 256)  // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
@@ -95,7 +99,9 @@ export function calcPanchang(jd, lat, lon) {
   // Known swisseph-wasm v0.0.5 bug: wrapper may throw WebAssembly.RuntimeError
   // (memory access out of bounds) for some locations, especially western longitudes.
   // Wrap in try-catch; guard also handles the "returns JD ≈ 0" failure mode.
-  const dayStart = Math.floor(jd - 0.5) + 0.5  // midnight UT
+  const dayStart = options.dateStr
+    ? toJulianDay(options.dateStr, '00:00', timezone)
+    : Math.floor(jd - 0.5) + 0.5
   let riseResult = null, setResult = null
   try { riseResult = swe.rise_trans(dayStart, 0, lon, lat, 0, 1) } catch { /* wrapper bug */ }
   try { setResult  = swe.rise_trans(dayStart, 0, lon, lat, 0, 2) } catch { /* wrapper bug */ }
@@ -106,7 +112,7 @@ export function calcPanchang(jd, lat, lon) {
   // Rahu Kalam and Gulika Kalam (8 equal parts of daytime)
   const dayDuration = (sunrise && sunset) ? (sunset.getTime() - sunrise.getTime()) : 43200000
   const partMs = dayDuration / 8
-  const dayOfWeek = date.getUTCDay()
+  const dayOfWeek = localDate.weekday
   const rahuPeriod  = RAHU_KALAM_ORDER[dayOfWeek] - 1   // 0-indexed period
   const gulikaPeriod = GULIKA_ORDER[dayOfWeek] - 1
   const rahuStart   = sunrise ? new Date(sunrise.getTime() + rahuPeriod  * partMs) : null
@@ -124,5 +130,20 @@ export function calcPanchang(jd, lat, lon) {
     sunset,
     rahuKalam:   { start: rahuStart,  end: rahuEnd   },
     gulikaKalam: { start: gulikaStart, end: gulikaEnd },
+  }
+}
+
+function parseDateStr(dateStr) {
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return getLocalDateParts(new Date(), '+00:00')
+  const [, y, mo, d] = m.map(Number)
+  const utcDate = new Date(Date.UTC(y, mo - 1, d))
+  return {
+    year: y,
+    month: mo,
+    day: d,
+    weekday: utcDate.getUTCDay(),
+    hour: 0,
+    minute: 0,
   }
 }

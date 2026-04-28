@@ -1,5 +1,8 @@
 // src/tabs/panchang.js
 import { state } from '../state.js'
+import { formatTimeInZone } from '../utils/time.js'
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
 export function renderPanchang() {
   const panel = document.getElementById('tab-panchang')
@@ -7,17 +10,12 @@ export function renderPanchang() {
   const { panchang, birth } = state
   const p = panchang
 
-  const fmtTime = (d) => {
-    if (!d) return '—'
-    const hh = String(d.getUTCHours()).padStart(2, '0')
-    const mm = String(d.getUTCMinutes()).padStart(2, '0')
-    return `${hh}:${mm} UTC`
-  }
+  const fmtTime = (d) => d ? `${formatTimeInZone(d, birth.timezone)} ${esc(birth.timezone)}` : '—'
 
   panel.innerHTML = `
     <div class="card">
-      <h2>Panchang — ${birth.dob}</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${birth.location || birth.lat + ', ' + birth.lon}</p>
+      <h2>Panchang — ${esc(birth.dob)}</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${esc(birth.location || birth.lat + ', ' + birth.lon)}</p>
       <div class="table-scroll"><table class="panchang-table">
         <tbody>
           <tr><th>Tithi</th><td>${p.tithi.name} (${p.tithi.num}/30)</td></tr>

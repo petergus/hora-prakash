@@ -397,7 +397,7 @@ function onSaveProfile() {
   const tob      = document.getElementById('inp-tob').value
   const lat      = Math.round(readLat() * 10000) / 10000
   const lon      = Math.round(readLon() * 10000) / 10000
-  const timezone = readTz()
+  const timezone = readTimezone()
   const location = document.getElementById('inp-location').value.trim()
 
   if (!name || !dob || !tob || !timezone) {
@@ -431,6 +431,13 @@ async function onFetchTz() {
     document.getElementById('inp-tz-sign').value = p.sign
     document.getElementById('inp-tz-h').value    = p.h
     document.getElementById('inp-tz-m').value    = p.m
+    selectedLocation = {
+      ...(selectedLocation || {}),
+      displayName: document.getElementById('inp-location').value.trim(),
+      lat,
+      lon,
+      timezone: tz,
+    }
     document.getElementById('calc-error').textContent = ''
   } catch {
     document.getElementById('calc-error').textContent = 'Could not fetch timezone. Enter it manually.'
@@ -490,7 +497,7 @@ async function onFormSubmit(e) {
   const tob  = document.getElementById('inp-tob').value
   const lat  = Math.round(readLat() * 10000) / 10000
   const lon  = Math.round(readLon() * 10000) / 10000
-  const tz   = readTz()
+  const tz   = readTimezone()
 
   if (!name || !dob || !tob || !tz) {
     errEl.textContent = 'Please fill Name, Date, Time and select a location.'
@@ -514,7 +521,7 @@ async function onFormSubmit(e) {
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
     const dasha    = await calcDasha(moon, dob, { settings, swe, jd })
-    const panchang = calcPanchang(jd, lat, lon)
+    const panchang = calcPanchang(jd, lat, lon, { dateStr: dob, timezone: tz })
 
     const location = document.getElementById('inp-location').value.trim()
     state.birth    = { name, dob, tob, lat, lon, timezone: tz, location }
@@ -573,6 +580,18 @@ function readTz() {
   return offsetStr({ sign, h, m })
 }
 
+function readTimezone() {
+  const offset = readTz()
+  const selectedTz = selectedLocation?.timezone
+  if (!selectedTz || /^([+-])(\d{1,2}):(\d{2})$/.test(selectedTz)) return offset
+  if (offsetStr(offsetParts(selectedTz)) !== offset) return offset
+  const lat = readLat()
+  const lon = readLon()
+  const sameCoords = Math.abs((selectedLocation.lat ?? NaN) - lat) < 0.01 &&
+    Math.abs((selectedLocation.lon ?? NaN) - lon) < 0.01
+  return sameCoords ? selectedTz : offset
+}
+
 function fillCoords(lat, lon, timezone) {
   const ld = decToDMS(lat);  const lDir = lat  >= 0 ? 'N' : 'S'
   const od = decToDMS(lon);  const oDir = lon  >= 0 ? 'E' : 'W'
@@ -607,7 +626,10 @@ export async function recalcAll() {
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
     const dasha    = await calcDasha(moon, state.birth.dob, { settings, swe, jd })
-    const panchang = calcPanchang(jd, state.birth.lat, state.birth.lon)
+    const panchang = calcPanchang(jd, state.birth.lat, state.birth.lon, {
+      dateStr: state.birth.dob,
+      timezone: state.birth.timezone,
+    })
 
     state.planets  = planets
     state.lagna    = lagna

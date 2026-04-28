@@ -23,6 +23,7 @@ const YEAR_MS = {
 
 function yearMs(settings) {
   if (!settings || settings.yearMethod === 'sidereal')  return YEAR_MS.sidereal
+  if (settings.yearMethod === 'julian')   return YEAR_MS.julian
   if (settings.yearMethod === 'tropical') return YEAR_MS.tropical
   if (settings.yearMethod === 'savana')   return YEAR_MS.savana
   if (settings.yearMethod === 'custom')   return (settings.customYearDays || 365.25) * 86400000

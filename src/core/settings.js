@@ -64,11 +64,12 @@ export const AYANAMSA_OPTIONS = [
 ]
 
 export const YEAR_METHOD_OPTIONS = [
-  { label: 'Mean Sidereal (365.2564)', value: 'sidereal'   },
-  { label: 'Tropical (365.2422)',      value: 'tropical'   },
-  { label: 'Savana (360)',             value: 'savana'     },
-  { label: 'True Solar Return',        value: 'true-solar' },
-  { label: 'Custom',                   value: 'custom'     },
+  { label: 'Julian (365.25) — JHora default', value: 'julian'     },
+  { label: 'Mean Sidereal (365.2564)',         value: 'sidereal'   },
+  { label: 'Tropical (365.2422)',              value: 'tropical'   },
+  { label: 'Savana (360)',                     value: 'savana'     },
+  { label: 'True Solar Return',                value: 'true-solar' },
+  { label: 'Custom',                           value: 'custom'     },
 ]
 
 export const PLANET_POSITION_OPTIONS = [

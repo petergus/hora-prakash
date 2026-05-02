@@ -1,34 +1,107 @@
-// src/tabs/panchang.js
 import { state } from '../state.js'
-import { formatTimeInZone } from '../utils/time.js'
 
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
+function fmtPct(n) { return n != null ? `${n.toFixed(1)}% left` : '' }
+
+function fmtTimeFull(d, timezone) {
+  if (!d) return '—'
+  try {
+    const tz = timezone?.match(/^[+-]/) ? undefined : timezone
+    const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }
+    if (tz) opts.timeZone = tz
+    return d.toLocaleTimeString('en-US', opts).toLowerCase()
+  } catch {
+    // fallback for numeric offset strings — approximate via UTC offset
+    try {
+      const m = timezone?.match(/^([+-])(\d{1,2}):(\d{2})$/)
+      if (m) {
+        const sign = m[1] === '+' ? 1 : -1
+        const offsetMs = sign * (parseInt(m[2]) * 60 + parseInt(m[3])) * 60000
+        const local = new Date(d.getTime() + offsetMs)
+        const hh = local.getUTCHours()
+        const mm = String(local.getUTCMinutes()).padStart(2,'0')
+        const ss = String(local.getUTCSeconds()).padStart(2,'0')
+        const period = hh >= 12 ? 'pm' : 'am'
+        const h12 = hh % 12 || 12
+        return `${String(h12).padStart(2,'0')}:${mm}:${ss} ${period}`
+      }
+    } catch {}
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toLowerCase()
+  }
+}
+
+function renderRow(label, value) {
+  return `<tr><th>${esc(label)}</th><td>${value}</td></tr>`
+}
+
+function renderPanchangCard(panchang, meta, { title, showRefresh = false } = {}) {
+  const p = panchang
+  const tz = meta.timezone || '+00:00'
+  const loc = meta.location || (meta.lat != null ? `${meta.lat}, ${meta.lon}` : '')
+
+  const dateStr = meta.dob || (p.sunrise ? p.sunrise.toISOString().slice(0,10) : '—')
+  const timeStr = meta.tob || ''
+
+  const rows = [
+    p.lunarYearMonth ? renderRow('Lunar Year-Month', `${esc(p.lunarYearMonth.year)} — ${esc(p.lunarYearMonth.month)}`) : null,
+    renderRow('Tithi', `${esc(p.tithi.name)} · ${fmtPct(p.tithi.percentLeft)}`),
+    renderRow('Vedic Weekday', `${esc(p.vara.name)} (${esc(p.vara.lord.slice(0,2))})`),
+    renderRow('Nakshatra', `${esc(p.nakshatra.name)} Pada ${p.nakshatra.pada} (${esc(p.nakshatra.lord.slice(0,2))}) · ${fmtPct(p.nakshatra.percentLeft)}`),
+    renderRow('Yoga', `${esc(p.yoga.name)} · ${fmtPct(p.yoga.percentLeft)}`),
+    renderRow('Karana', `${esc(p.karana.name)} · ${fmtPct(p.karana.percentLeft)}`),
+    p.horaLord ? renderRow('Hora Lord', esc(p.horaLord)) : null,
+    p.kaalaLord ? renderRow('Kaala Lord', esc(p.kaalaLord)) : null,
+    renderRow('Sunrise', fmtTimeFull(p.sunrise, tz)),
+    renderRow('Sunset', fmtTimeFull(p.sunset, tz)),
+    renderRow('Rahu Kalam', `${fmtTimeFull(p.rahuKalam.start, tz)} – ${fmtTimeFull(p.rahuKalam.end, tz)}`),
+    renderRow('Gulika Kalam', `${fmtTimeFull(p.gulikaKalam.start, tz)} – ${fmtTimeFull(p.gulikaKalam.end, tz)}`),
+    p.ghatisSinceSunrise != null ? renderRow(meta.isToday ? 'Ghatis Since Sunrise' : 'Janma Ghatis', p.ghatisSinceSunrise.toFixed(4)) : null,
+    p.ayanamsa ? renderRow('Ayanamsa', esc(p.ayanamsa.formatted)) : null,
+    p.siderealTime ? renderRow('Sidereal Time', esc(p.siderealTime)) : null,
+  ].filter(Boolean).join('\n')
+
+  const refreshBtn = showRefresh
+    ? `<button id="panchang-refresh" style="margin-left:auto;font-size:0.8rem;padding:0.2rem 0.6rem;">↻ Refresh</button>`
+    : ''
+
+  return `
+    <div class="card" style="margin-bottom:1.2rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+        <h2 style="margin:0">${esc(title)}</h2>
+        ${refreshBtn}
+      </div>
+      <p style="color:var(--muted);font-size:0.85rem;margin:0.2rem 0 0.3rem">
+        ${esc(dateStr)}${timeStr ? ' · ' + esc(timeStr) : ''} · ${esc(tz)}
+      </p>
+      <p style="color:var(--muted);font-size:0.85rem;margin:0 0 1rem">${esc(loc)}</p>
+      <div class="table-scroll"><table class="panchang-table"><tbody>
+        ${rows}
+      </tbody></table></div>
+    </div>
+  `
+}
+
+export { renderPanchangCard }
 
 export function renderPanchang() {
   const panel = document.getElementById('tab-panchang')
-  if (!state.panchang || !state.birth) return
-  const { panchang, birth } = state
-  const p = panchang
+  let html = ''
 
-  const fmtTime = (d) => d ? `${formatTimeInZone(d, birth.timezone)} ${esc(birth.timezone)}` : '—'
+  // Placeholder for today's panchang (populated by initTodayPanchang)
+  html += `<div id="today-panchang-section"></div>`
 
-  panel.innerHTML = `
-    <div class="card">
-      <h2>Panchang — ${esc(birth.dob)}</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem;margin-bottom:1rem">${esc(birth.location || birth.lat + ', ' + birth.lon)}</p>
-      <div class="table-scroll"><table class="panchang-table">
-        <tbody>
-          <tr><th>Tithi</th><td>${p.tithi.name} (${p.tithi.num}/30)</td></tr>
-          <tr><th>Vara</th><td>${p.vara.name} — Lord: ${p.vara.lord}</td></tr>
-          <tr><th>Nakshatra</th><td>${p.nakshatra.name} Pada ${p.nakshatra.pada} — Lord: ${p.nakshatra.lord}</td></tr>
-          <tr><th>Yoga</th><td>${p.yoga}</td></tr>
-          <tr><th>Karana</th><td>${p.karana}</td></tr>
-          <tr><th>Sunrise</th><td>${fmtTime(p.sunrise)}</td></tr>
-          <tr><th>Sunset</th><td>${fmtTime(p.sunset)}</td></tr>
-          <tr><th>Rahu Kalam</th><td>${fmtTime(p.rahuKalam.start)} – ${fmtTime(p.rahuKalam.end)}</td></tr>
-          <tr><th>Gulika Kalam</th><td>${fmtTime(p.gulikaKalam.start)} – ${fmtTime(p.gulikaKalam.end)}</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-  `
+  // Birth panchang card (only shown after chart is calculated)
+  if (state.panchang && state.birth) {
+    const birthMeta = {
+      dob: state.birth.dob,
+      tob: state.birth.tob,
+      timezone: state.birth.timezone,
+      location: state.birth.location || `${state.birth.lat}, ${state.birth.lon}`,
+    }
+    const title = `Birth Panchang — ${state.birth.name || state.birth.dob}`
+    html += renderPanchangCard(state.panchang, birthMeta, { title })
+  }
+
+  panel.innerHTML = html
 }

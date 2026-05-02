@@ -34,7 +34,16 @@ export function saveSettings(patch) {
 
 /** Must be called after initSwissEph() has resolved. */
 export function applyAyanamsa() {
-  getSwe().set_sid_mode(_settings.ayanamsa, 0, 0)
+  const swe = getSwe()
+  if (_settings.ayanamsa === 'lahiri-jhora') {
+    const J2000 = 2451545.0
+    swe.set_sid_mode(1, 0, 0)
+    const lahiriAtJ2000 = swe.get_ayanamsa_ut(J2000)
+    // JHora's internal Lahiri calibration is 0.824" smaller than swisseph's
+    swe.set_sid_mode(255, J2000, lahiriAtJ2000 - 0.824 / 3600)
+  } else {
+    swe.set_sid_mode(_settings.ayanamsa, 0, 0)
+  }
 }
 
 /**
@@ -49,7 +58,8 @@ export function buildCalcFlags(settings) {
 }
 
 export const AYANAMSA_OPTIONS = [
-  { label: 'Lahiri',                  value: 1  },
+  { label: 'Lahiri',                  value: 1              },
+  { label: 'Lahiri (JHora)',          value: 'lahiri-jhora' },
   { label: 'Raman',                   value: 3  },
   { label: 'Krishnamurti (KP)',       value: 5  },
   { label: 'Yukteshwar',              value: 7  },

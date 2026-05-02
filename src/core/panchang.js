@@ -48,22 +48,25 @@ const LUNAR_MONTH_NAMES = [
   'Ashwina','Kartika','Margashirsha','Pausha','Magha','Phalguna'
 ]
 
-// Chaldean hora order: Sun=0, Venus=1, Mercury=2, Moon=3, Saturn=4, Jupiter=5, Mars=6
-const CHALDEAN = ['Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars']
+// Classical Chaldean hora sequence (Sun→Moon→Mars→Mercury→Jupiter→Venus→Saturn, cycles)
+// Each subsequent hora uses the next planet in this order
+const CHALDEAN = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
 
-// Each weekday's day-lord position in the CHALDEAN array (0=Sun weekday)
-const DAY_LORD_CHALDEAN = [0, 3, 6, 2, 5, 1, 4]
+// Day lord index in CHALDEAN for each weekday (0=Sun..6=Sat)
+// Sun=0,Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6 — maps directly
+const DAY_LORD_CHALDEAN = [0, 1, 2, 3, 4, 5, 6]
 
-// Kaala lord table: [weekday][part 0-7]
-// 8 equal daytime parts, lords from standard Muhurta texts
+// Kaala lord table: [weekday][part 0-7], 8 equal daytime parts
+// Cycles through REVERSED Chaldean order (Saturn,Venus,Jupiter,Mercury,Mars,Moon,Sun)
+// starting from each day's lord — verified against JHora
 const KAALA_TABLE = [
-  ['Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars','Sun'],    // Sunday
-  ['Moon','Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon'],   // Monday
-  ['Mars','Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars'],   // Tuesday
-  ['Mercury','Moon','Saturn','Jupiter','Mars','Sun','Venus','Mercury'],// Wednesday
-  ['Jupiter','Mars','Sun','Venus','Mercury','Moon','Saturn','Jupiter'],// Thursday
-  ['Venus','Mercury','Moon','Saturn','Jupiter','Mars','Sun','Venus'],  // Friday
-  ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon','Saturn'], // Saturday
+  ['Sun','Saturn','Venus','Jupiter','Mercury','Mars','Moon','Sun'],    // Sunday
+  ['Moon','Sun','Saturn','Venus','Jupiter','Mercury','Mars','Moon'],   // Monday
+  ['Mars','Moon','Sun','Saturn','Venus','Jupiter','Mercury','Mars'],   // Tuesday
+  ['Mercury','Mars','Moon','Sun','Saturn','Venus','Jupiter','Mercury'],// Wednesday
+  ['Jupiter','Mercury','Mars','Moon','Sun','Saturn','Venus','Jupiter'],// Thursday
+  ['Venus','Jupiter','Mercury','Mars','Moon','Sun','Saturn','Venus'],  // Friday
+  ['Saturn','Venus','Jupiter','Mercury','Mars','Moon','Sun','Saturn'], // Saturday
 ]
 
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.

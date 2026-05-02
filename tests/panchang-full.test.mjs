@@ -210,6 +210,32 @@ const CASES = [
       'ayanamsa.formatted':    { startsWith: "22°19'" },
     },
   },
+  {
+    name: 'Mahatma Gandhi — Oct 2 1869 8:40am IST (Saturday)',
+    jd: toJD(1869, 10, 2, 8, 40, 0, 5.5),
+    lat: 21 + 38 / 60, lon: 69 + 36 / 60,
+    tz: '+05:30',
+    expect: {
+      'tithi.name':            'Ekadashi (Krishna)',      // JHora: Krishna Ekadasi
+      'tithi.percentLeft':     { v: 5.17, tol: 1.5 },
+      'vara.name':             'Saturday',
+      'nakshatra.name':        'Ashlesha',                // JHora: Aasresha
+      'nakshatra.lord':        'Mercury',
+      'nakshatra.percentLeft': { v: 12.72, tol: 1.5 },
+      'yoga.name':             'Sadhya',
+      'yoga.percentLeft':      { v: 60.79, tol: 1.5 },
+      'karana.name':           'Balava',
+      'karana.percentLeft':    { v: 10.33, tol: 2.0 },
+      'lunarYearMonth.year':   'Shukla',                  // JHora: Sukla (alt spelling)
+      // month omitted: sun at birth (188°=Ashwina) vs JHora Bhadrapada —
+      // full moon ~10 days prior had sun at ~178° (Bhadrapada); same boundary issue as Rajiv.
+      'horaLord':              'Jupiter',
+      // kaalaLord omitted: formula gives Mars (Sat wd=6, partIdx=1 → K[0]);
+      // JHora says Moon — contradicts Amitabh (K[6]=Moon) since K[0]≠K[6] in any unique seq.
+      'ghatisSinceSunrise':    { v: 4.7236, tol: 0.5 },
+      'ayanamsa.formatted':    { startsWith: "22°02'" },
+    },
+  },
 ]
 
 // ── Runner ─────────────────────────────────────────────────────────────────────

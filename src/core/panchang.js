@@ -141,27 +141,46 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   }
   const karanaPctLeft = (1 - (diff % 6) / 6) * 100
 
-  // Sunrise and Sunset via rise_trans
-  // Known swisseph-wasm v0.0.5 bug: wrapper may throw WebAssembly.RuntimeError
-  // (memory access out of bounds) for some locations, especially western longitudes.
-  // Wrap in try-catch; guard also handles the "returns JD ≈ 0" failure mode.
+  // Sunrise and Sunset via direct swe_rise_trans C call.
+  // The swisseph-wasm v0.0.5 rise_trans() wrapper has wrong arg mapping (passes lon/lat as
+  // individual numbers instead of allocating a geopos pointer array). Bypass it entirely.
   const dayStart = options.dateStr
     ? toJulianDay(options.dateStr, '00:00', timezone)
     : Math.floor(jd - 0.5) + 0.5
-  let riseResult = null, setResult = null
-  try { riseResult = swe.rise_trans(dayStart, 0, lon, lat, 0, 1) } catch { /* wrapper bug */ }
-  try { setResult  = swe.rise_trans(dayStart, 0, lon, lat, 0, 2) } catch { /* wrapper bug */ }
-  const isValidJd = (r) => r && r[0] > 1000000
-  const sunrise = isValidJd(riseResult) ? jdToDate(riseResult[0]) : null
-  const sunset  = isValidJd(setResult)  ? jdToDate(setResult[0])  : null
+
+  function riseTrans(rsmi) {
+    try {
+      const M = swe.SweModule
+      const geoPtr  = M._malloc(3 * 8)   // double[3]: lon, lat, alt
+      const tretPtr = M._malloc(8)        // double: return JD
+      const serrPtr = M._malloc(256)      // char[256]: error string
+      M.HEAPF64[geoPtr >> 3]       = lon
+      M.HEAPF64[(geoPtr >> 3) + 1] = lat
+      M.HEAPF64[(geoPtr >> 3) + 2] = 0
+      // swe_rise_trans(tjd_ut, ipl, *starname, epheflag, rsmi, *geopos, atpress, attemp, *tret, *serr)
+      const flag = M.ccall('swe_rise_trans', 'number',
+        ['number','number','number','number','number','number','number','number','number','number'],
+        [dayStart, 0, 0, 2, rsmi, geoPtr, 1013.25, 15, tretPtr, serrPtr])
+      const tret = M.HEAPF64[tretPtr >> 3]
+      M._free(geoPtr); M._free(tretPtr); M._free(serrPtr)
+      return flag >= 0 && tret > 1000000 ? tret : null
+    } catch { return null }
+  }
+
+  const sunriseJd = riseTrans(1)
+  const sunsetJd  = riseTrans(2)
+  const isValidJd = (r) => r && r[0] > 1000000  // kept for hora lord compat below
+  const riseResult = sunriseJd ? [sunriseJd] : null
+  const setResult  = sunsetJd  ? [sunsetJd]  : null
+  const sunrise = sunriseJd ? jdToDate(sunriseJd) : null
+  const sunset  = sunsetJd  ? jdToDate(sunsetJd)  : null
 
   // DayOfweek for hora/kaala/rahu calculations
   const dayOfWeek = localDate.weekday
 
   // Hora lord (Chaldean hora system — 1 hora = 1 hour from sunrise)
   let horaLord = null
-  if (isValidJd(riseResult)) {
-    const sunriseJd = riseResult[0]
+  if (sunriseJd) {
     const hoursElapsed = (jd - sunriseJd) * 24
     const horaNum = Math.floor(hoursElapsed)
     const startIdx = DAY_LORD_CHALDEAN[dayOfWeek]
@@ -169,17 +188,17 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   }
 
   let kaalaLord = null
-  if (sunrise && sunset) {
-    const elapsed = jd - riseResult[0]
-    const totalDay = setResult[0] - riseResult[0]
+  if (sunriseJd && sunsetJd) {
+    const elapsed = jd - sunriseJd
+    const totalDay = sunsetJd - sunriseJd
     const partIdx = Math.min(7, Math.floor((elapsed / totalDay) * 8))
     kaalaLord = KAALA_TABLE[dayOfWeek][Math.max(0, partIdx)]
   }
 
   // Ghatis since sunrise (1 ghati = 24 minutes)
   let ghatisSinceSunrise = null
-  if (sunrise) {
-    const diffMs = jdToDate(jd).getTime() - sunrise.getTime()
+  if (sunriseJd) {
+    const diffMs = jdToDate(jd).getTime() - jdToDate(sunriseJd).getTime()
     ghatisSinceSunrise = diffMs / (24 * 60 * 1000)
   }
 

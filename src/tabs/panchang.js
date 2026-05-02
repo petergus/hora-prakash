@@ -147,6 +147,7 @@ function renderLocationInput() {
   `
 }
 
+// Called only after innerHTML replacement, so listeners are always attached to fresh elements.
 function wireLocationForm() {
   document.getElementById('today-loc-search')?.addEventListener('click', searchTodayLocation)
   document.getElementById('today-loc-input')?.addEventListener('keydown', e => {
@@ -225,6 +226,7 @@ function renderTodaySection() {
       <a href="#" id="change-today-location" style="color:var(--muted)">Change location</a>
     </div>
   `
+  // No listener accumulation: section.innerHTML is replaced above, so these are always fresh elements.
   document.getElementById('panchang-refresh')?.addEventListener('click', refreshTodayPanchang)
   document.getElementById('change-today-location')?.addEventListener('click', e => {
     e.preventDefault()

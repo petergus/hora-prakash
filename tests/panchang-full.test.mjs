@@ -162,6 +162,30 @@ const CASES = [
       'ayanamsa.formatted':    { startsWith: "23°05'" },
     },
   },
+  {
+    name: 'Narendra Modi — Sep 17 1950 9:34am IST (Sunday)',
+    jd: toJD(1950, 9, 17, 9, 34, 0, 5.5),
+    lat: 23 + 47 / 60, lon: 72 + 38 / 60,
+    tz: '+05:30',
+    expect: {
+      'tithi.name':            'Shashthi (Shukla)',       // JHora: Sukla Shashthi
+      'tithi.percentLeft':     { v: 38.25, tol: 1.5 },
+      'vara.name':             'Sunday',
+      'nakshatra.name':        'Anuradha',                // JHora: Anuraadha
+      'nakshatra.lord':        'Saturn',
+      'nakshatra.percentLeft': { v: 65.38, tol: 1.5 },
+      'yoga.name':             'Vishkambha',
+      'yoga.percentLeft':      { v: 36.33, tol: 1.5 },
+      'karana.name':           'Taitila',                 // JHora: Taitula
+      'karana.percentLeft':    { v: 76.49, tol: 2.0 },
+      'lunarYearMonth.year':   'Vikruti',                 // JHora: Vikriti (alt spelling)
+      'lunarYearMonth.month':  'Bhadrapada',
+      'horaLord':              'Moon',
+      'kaalaLord':             'Jupiter',
+      'ghatisSinceSunrise':    { v: 7.6742, tol: 0.5 },
+      'ayanamsa.formatted':    { startsWith: "23°10'" },
+    },
+  },
 ]
 
 // ── Runner ─────────────────────────────────────────────────────────────────────

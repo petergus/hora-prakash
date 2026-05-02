@@ -48,6 +48,24 @@ const LUNAR_MONTH_NAMES = [
   'Ashwina','Kartika','Margashirsha','Pausha','Magha','Phalguna'
 ]
 
+// Chaldean hora order: Sun=0, Venus=1, Mercury=2, Moon=3, Saturn=4, Jupiter=5, Mars=6
+const CHALDEAN = ['Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars']
+
+// Each weekday's day-lord position in the CHALDEAN array (0=Sun weekday)
+const DAY_LORD_CHALDEAN = [0, 3, 6, 2, 5, 1, 4]
+
+// Kaala lord table: [weekday][part 0-7]
+// 8 equal daytime parts, lords from standard Muhurta texts
+const KAALA_TABLE = [
+  ['Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars','Sun'],    // Sunday
+  ['Moon','Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon'],   // Monday
+  ['Mars','Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars'],   // Tuesday
+  ['Mercury','Moon','Saturn','Jupiter','Mars','Sun','Venus','Mercury'],// Wednesday
+  ['Jupiter','Mars','Sun','Venus','Mercury','Moon','Saturn','Jupiter'],// Thursday
+  ['Venus','Mercury','Moon','Saturn','Jupiter','Mars','Sun','Venus'],  // Friday
+  ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon','Saturn'], // Saturday
+]
+
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
 const GULIKA_ORDER      = [6, 5, 4, 3, 2, 1, 7]
@@ -137,6 +155,24 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   const sunrise = isValidJd(riseResult) ? jdToDate(riseResult[0]) : null
   const sunset  = isValidJd(setResult)  ? jdToDate(setResult[0])  : null
 
+  // Hora lord (Chaldean hora system — 1 hora = 1 hour from sunrise)
+  let horaLord = null
+  if (isValidJd(riseResult)) {
+    const sunriseJd = riseResult[0]
+    const hoursElapsed = (jd - sunriseJd) * 24
+    const horaNum = Math.floor(hoursElapsed)
+    const startIdx = DAY_LORD_CHALDEAN[dayOfWeek]
+    horaLord = CHALDEAN[((startIdx + horaNum) % 7 + 7) % 7]
+  }
+
+  let kaalaLord = null
+  if (sunrise && sunset) {
+    const elapsed = jd - riseResult[0]
+    const totalDay = setResult[0] - riseResult[0]
+    const partIdx = Math.min(7, Math.floor((elapsed / totalDay) * 8))
+    kaalaLord = KAALA_TABLE[dayOfWeek][Math.max(0, partIdx)]
+  }
+
   // Rahu Kalam and Gulika Kalam (8 equal parts of daytime)
   const dayDuration = (sunrise && sunset) ? (sunset.getTime() - sunrise.getTime()) : 43200000
   const partMs = dayDuration / 8
@@ -159,6 +195,8 @@ export function calcPanchang(jd, lat, lon, options = {}) {
     sunset,
     rahuKalam:   { start: rahuStart,  end: rahuEnd   },
     gulikaKalam: { start: gulikaStart, end: gulikaEnd },
+    horaLord,
+    kaalaLord,
   }
 }
 

@@ -184,6 +184,8 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   }
 
   // Ayanamsa (precession offset)
+  // Note: get_ayanamsa_ut is available in swisseph-wasm v0.0.5 and returns accurate values (~24.2° for 2026).
+  // The fallback formula (Lahiri linear approximation) is a reasonable backup (accurate to ~1 arcmin for modern dates).
   let ayanamsaDeg
   try {
     ayanamsaDeg = swe.get_ayanamsa_ut(jd)

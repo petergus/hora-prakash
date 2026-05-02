@@ -68,6 +68,7 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   } else {
     tithiName = TITHI_NAMES[tithiNum - 16] + ' (Krishna)'
   }
+  const tithiPctLeft = (1 - (diff % 12) / 12) * 100
 
   // Vara is based on the local civil date at the birth location.
   const localDate = options.dateStr
@@ -77,11 +78,14 @@ export function calcPanchang(jd, lat, lon, options = {}) {
 
   // Nakshatra: sidereal Moon longitude
   const sidMoonResult = swe.calc_ut(jd, 1, 2 | 65536 | 256)  // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
-  const nakshatra = getNakshatraInfo(sidMoonResult[0])
+  const sidMoonLon = sidMoonResult[0]
+  const nakshatra = getNakshatraInfo(sidMoonLon)
+  const nakshatraPctLeft = (1 - (sidMoonLon % (360 / 27)) / (360 / 27)) * 100
 
   // Yoga: (Sun + Moon tropical) / (360/27)
   const yogaVal = ((sunLon + moonLon) % 360) / (360 / 27)
   const yogaName = YOGA_NAMES[Math.floor(yogaVal)]
+  const yogaPctLeft = (1 - (yogaVal % 1)) * 100
 
   // Karana: 60-karana cycle — position 0 = Kimstughna (fixed),
   // positions 1-56 = 7 moveable karanas cycling, positions 57-59 = Shakuni/Chatushpada/Naga (fixed)
@@ -94,6 +98,7 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   } else {
     karanaName = KARANA_NAMES[(karanaNum - 1) % 7]
   }
+  const karanaPctLeft = (1 - (diff % 6) / 6) * 100
 
   // Sunrise and Sunset via rise_trans
   // Known swisseph-wasm v0.0.5 bug: wrapper may throw WebAssembly.RuntimeError
@@ -121,11 +126,11 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   const gulikaEnd   = gulikaStart ? new Date(gulikaStart.getTime() + partMs) : null
 
   return {
-    tithi:       { num: tithiNum, name: tithiName },
+    tithi:       { num: tithiNum, name: tithiName, percentLeft: tithiPctLeft },
     vara,
-    nakshatra:   { name: nakshatra.name, pada: nakshatra.pada, lord: nakshatra.lord },
-    yoga:        yogaName,
-    karana:      karanaName,
+    nakshatra:   { name: nakshatra.name, pada: nakshatra.pada, lord: nakshatra.lord, percentLeft: nakshatraPctLeft },
+    yoga:        { name: yogaName, percentLeft: yogaPctLeft },
+    karana:      { name: karanaName, percentLeft: karanaPctLeft },
     sunrise,
     sunset,
     rahuKalam:   { start: rahuStart,  end: rahuEnd   },

@@ -49,12 +49,12 @@ const LUNAR_MONTH_NAMES = [
 ]
 
 // Classical Chaldean hora sequence (Sun→Moon→Mars→Mercury→Jupiter→Venus→Saturn, cycles)
-// Each subsequent hora uses the next planet in this order
-const CHALDEAN = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
+// Chaldean hora order: slowest to fastest planet
+const CHALDEAN = ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon']
 
 // Day lord index in CHALDEAN for each weekday (0=Sun..6=Sat)
-// Sun=0,Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6 — maps directly
-const DAY_LORD_CHALDEAN = [0, 1, 2, 3, 4, 5, 6]
+// Sun→3, Mon→6, Tue→2, Wed→5, Thu→1, Fri→4, Sat→0
+const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]
 
 // Kaala lord table: [weekday][part 0-7], 8 equal daytime parts
 // Cycles through REVERSED Chaldean order (Saturn,Venus,Jupiter,Mercury,Mars,Moon,Sun)

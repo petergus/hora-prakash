@@ -82,12 +82,15 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   const swe = getSwe()
   const timezone = options.timezone || '+00:00'
 
-  // Use tropical longitudes for tithi/yoga (standard Vedic panchang practice)
-  const TROPICAL_SPEED_FLAG = 2 | 256   // SEFLG_SWIEPH | SEFLG_SPEED
-  const sunResult  = swe.calc_ut(jd, 0, TROPICAL_SPEED_FLAG)
-  const moonResult = swe.calc_ut(jd, 1, TROPICAL_SPEED_FLAG)
+  // Tropical longitudes for tithi/karana (moon-sun diff, ayanamsa cancels out)
+  const TROPICAL_FLAG  = 2 | 256           // SEFLG_SWIEPH | SEFLG_SPEED
+  const SIDEREAL_FLAG  = 2 | 65536 | 256   // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
+  const sunResult  = swe.calc_ut(jd, 0, TROPICAL_FLAG)
+  const moonResult = swe.calc_ut(jd, 1, TROPICAL_FLAG)
   const sunLon  = sunResult[0]
   const moonLon = moonResult[0]
+  // Sidereal Sun for yoga (yoga uses sidereal positions per Vedic tradition)
+  const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL_FLAG)[0]
 
   // Tithi: 12° of Moon-Sun difference = 1 tithi (30 tithis total in lunation)
   const diff = ((moonLon - sunLon) + 360) % 360
@@ -118,13 +121,13 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   const lunarYear = SAMVAT_NAMES[samvatIdx]
 
   // Nakshatra: sidereal Moon longitude
-  const sidMoonResult = swe.calc_ut(jd, 1, 2 | 65536 | 256)  // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
+  const sidMoonResult = swe.calc_ut(jd, 1, SIDEREAL_FLAG)
   const sidMoonLon = sidMoonResult[0]
   const nakshatra = getNakshatraInfo(sidMoonLon)
   const nakshatraPctLeft = (1 - (sidMoonLon % (360 / 27)) / (360 / 27)) * 100
 
-  // Yoga: (Sun + Moon tropical) / (360/27)
-  const yogaVal = ((sunLon + moonLon) % 360) / (360 / 27)
+  // Yoga: sidereal Sun + sidereal Moon (Vedic standard)
+  const yogaVal = ((sidSunLon + sidMoonLon) % 360) / (360 / 27)
   const yogaName = YOGA_NAMES[Math.floor(yogaVal)]
   const yogaPctLeft = (1 - (yogaVal % 1)) * 100
 
@@ -157,10 +160,13 @@ export function calcPanchang(jd, lat, lon, options = {}) {
       M.HEAPF64[geoPtr >> 3]       = lon
       M.HEAPF64[(geoPtr >> 3) + 1] = lat
       M.HEAPF64[(geoPtr >> 3) + 2] = 0
+      // SE_BIT_DISC_CENTER=256, SE_BIT_NO_REFRACTION=512 → Hindu rising (disc center, no refraction)
+      // matches JHora's Vedic sunrise definition
+      const hinduRsmi = rsmi | 256 | 512
       // swe_rise_trans(tjd_ut, ipl, *starname, epheflag, rsmi, *geopos, atpress, attemp, *tret, *serr)
       const flag = M.ccall('swe_rise_trans', 'number',
         ['number','number','number','number','number','number','number','number','number','number'],
-        [dayStart, 0, 0, 2, rsmi, geoPtr, 1013.25, 15, tretPtr, serrPtr])
+        [dayStart, 0, 0, 2, hinduRsmi, geoPtr, 1013.25, 15, tretPtr, serrPtr])
       const tret = M.HEAPF64[tretPtr >> 3]
       M._free(geoPtr); M._free(tretPtr); M._free(serrPtr)
       return flag >= 0 && tret > 1000000 ? tret : null

@@ -56,10 +56,9 @@ const CHALDEAN = ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon']
 // Sun→3, Mon→6, Tue→2, Wed→5, Thu→1, Fri→4, Sat→0
 const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]
 
-// Kaala lord uses weekday-order sequence, 1-hour periods from sunrise (same as hora)
-// Starting index per weekday (0=Sun..6=Sat) shifts +2 each day; Sun starts at Venus(5)
+// Kaala lord: WEEKDAY_PLANETS[(weekday + 4 + horaNum) % 7]
+// Same horaNum as hora lord (1-hour periods from sunrise). Verified against JHora/pyjhora.
 const WEEKDAY_PLANETS = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
-const KAALA_DAY_START = [5, 0, 2, 4, 6, 1, 3]  // Venus,Sun,Mars,Jupiter,Saturn,Moon,Mercury
 
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
@@ -190,9 +189,8 @@ export function calcPanchang(jd, lat, lon, options = {}) {
 
   let kaalaLord = null
   if (sunriseJd) {
-    const hoursElapsedKaala = (jd - sunriseJd) * 24
-    const kaalaHoraNum = Math.floor(hoursElapsedKaala)
-    kaalaLord = WEEKDAY_PLANETS[((KAALA_DAY_START[dayOfWeek] + kaalaHoraNum) % 7 + 7) % 7]
+    const kaalaHoraNum = Math.floor((jd - sunriseJd) * 24)
+    kaalaLord = WEEKDAY_PLANETS[((dayOfWeek + 4 + kaalaHoraNum) % 7 + 7) % 7]
   }
 
   // Ghatis since sunrise (1 ghati = 24 minutes)

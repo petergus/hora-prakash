@@ -64,6 +64,12 @@ const KAALA_SEQ = ['Venus','Sun','Jupiter','Mars','Saturn','Mercury','Moon']
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
 const GULIKA_ORDER      = [6, 5, 4, 3, 2, 1, 7]
 
+function parseTzOffsetHours(timezone) {
+  const m = String(timezone).match(/^([+-])(\d{1,2}):(\d{2})$/)
+  if (!m) return 0
+  return (m[1] === '+' ? 1 : -1) * (parseInt(m[2]) + parseInt(m[3]) / 60)
+}
+
 /**
  * Calculate panchang for a given Julian Day and location.
  * @param {number} jd   Julian Day (UT)
@@ -72,8 +78,8 @@ const GULIKA_ORDER      = [6, 5, 4, 3, 2, 1, 7]
  * @param {object} [options] { dateStr: "YYYY-MM-DD", timezone: IANA or "+05:30" }
  * @returns {object}
  */
-export function calcPanchang(jd, lat, lon, options = {}) {
-  const swe = getSwe()
+export function calcPanchang(jd, lat, lon, options = {}, _swe) {
+  const swe = _swe || getSwe()
   const timezone = options.timezone || '+00:00'
 
   // Tropical longitudes for tithi/karana (moon-sun diff, ayanamsa cancels out)
@@ -110,7 +116,10 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   // Lunar year-month (samvat)
   const lunarMonthIdx = Math.floor(sunLon / 30) % 12
   const lunarMonth = LUNAR_MONTH_NAMES[lunarMonthIdx]
-  const kaliYear = localDate.year + 3101
+  // Hindu lunar year starts in Chaitra (≈April). For dates before Hindu New Year
+  // (roughly months Jan–Mar), the samvat year still belongs to the prior Gregorian year.
+  const samvatBaseYear = localDate.month >= 4 ? localDate.year : localDate.year - 1
+  const kaliYear = samvatBaseYear + 3101
   const samvatIdx = (kaliYear + 12) % 60
   const lunarYear = SAMVAT_NAMES[samvatIdx]
 
@@ -141,9 +150,17 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   // Sunrise and Sunset via direct swe_rise_trans C call.
   // The swisseph-wasm v0.0.5 rise_trans() wrapper has wrong arg mapping (passes lon/lat as
   // individual numbers instead of allocating a geopos pointer array). Bypass it entirely.
-  const dayStart = options.dateStr
-    ? toJulianDay(options.dateStr, '00:00', timezone)
-    : Math.floor(jd - 0.5) + 0.5
+  //
+  // dayStart must be local midnight (in UT). Using UTC midnight (jd-0.5+0.5) fails for
+  // timezones like IST where local sunrise falls just before UTC midnight, causing
+  // swe_rise_trans to skip to the next day. Shift to local midnight instead.
+  let dayStart
+  if (options.dateStr) {
+    dayStart = toJulianDay(options.dateStr, '00:00', timezone)
+  } else {
+    const tzOffsetDays = parseTzOffsetHours(timezone) / 24
+    dayStart = Math.floor(jd - 0.5 + tzOffsetDays) + 0.5 - tzOffsetDays
+  }
 
   function riseTrans(rsmi) {
     try {
@@ -178,11 +195,10 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   // DayOfweek for hora/kaala/rahu calculations
   const dayOfWeek = localDate.weekday
 
-  // Hora lord (Chaldean hora system — 1 hora = 1 hour from sunrise)
+  // Hora lord (Chaldean hora system — 1 hora = 1 fixed hour from sunrise)
   let horaLord = null
   if (sunriseJd) {
-    const hoursElapsed = (jd - sunriseJd) * 24
-    const horaNum = Math.floor(hoursElapsed)
+    const horaNum = Math.floor((jd - sunriseJd) * 24)
     const startIdx = DAY_LORD_CHALDEAN[dayOfWeek]
     horaLord = CHALDEAN[((startIdx + horaNum) % 7 + 7) % 7]
   }

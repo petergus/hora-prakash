@@ -176,6 +176,41 @@ export function calcPanchang(jd, lat, lon, options = {}) {
     kaalaLord = KAALA_TABLE[dayOfWeek][Math.max(0, partIdx)]
   }
 
+  // Ghatis since sunrise (1 ghati = 24 minutes)
+  let ghatisSinceSunrise = null
+  if (sunrise) {
+    const diffMs = jdToDate(jd).getTime() - sunrise.getTime()
+    ghatisSinceSunrise = diffMs / (24 * 60 * 1000)
+  }
+
+  // Ayanamsa (precession offset)
+  let ayanamsaDeg
+  try {
+    ayanamsaDeg = swe.get_ayanamsa_ut(jd)
+    if (typeof ayanamsaDeg !== 'number') throw new Error('unavailable')
+  } catch {
+    // Lahiri ayanamsa linear approximation (accurate to ~1 arcmin for modern dates)
+    ayanamsaDeg = 22.460148 + (jd - 2396758.5) * (50.2564 / 3600 / 365.25)
+  }
+  const ayDeg = Math.floor(ayanamsaDeg)
+  const ayMinFrac = (ayanamsaDeg - ayDeg) * 60
+  const ayMin = Math.floor(ayMinFrac)
+  const aySec = Math.round((ayMinFrac - ayMin) * 60)
+  const ayanamsa = {
+    deg: ayDeg, min: ayMin, sec: aySec,
+    formatted: `${ayDeg}°${String(ayMin).padStart(2,'0')}'${String(aySec).padStart(2,'0')}"`
+  }
+
+  // Local sidereal time (LST)
+  // swe.sidtime returns Greenwich Sidereal Time in decimal hours
+  const gst = swe.sidtime(jd)
+  const lst = ((gst + lon / 15) % 24 + 24) % 24
+  const lstH = Math.floor(lst)
+  const lstMFrac = (lst - lstH) * 60
+  const lstM = Math.floor(lstMFrac)
+  const lstS = Math.round((lstMFrac - lstM) * 60)
+  const siderealTime = `${String(lstH).padStart(2,'0')}:${String(lstM).padStart(2,'0')}:${String(lstS).padStart(2,'0')}`
+
   // Rahu Kalam and Gulika Kalam (8 equal parts of daytime)
   const dayDuration = (sunrise && sunset) ? (sunset.getTime() - sunrise.getTime()) : 43200000
   const partMs = dayDuration / 8
@@ -199,6 +234,9 @@ export function calcPanchang(jd, lat, lon, options = {}) {
     gulikaKalam: { start: gulikaStart, end: gulikaEnd },
     horaLord,
     kaalaLord,
+    ghatisSinceSunrise,
+    ayanamsa,
+    siderealTime,
   }
 }
 

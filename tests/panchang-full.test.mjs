@@ -186,6 +186,30 @@ const CASES = [
       'ayanamsa.formatted':    { startsWith: "23°10'" },
     },
   },
+  {
+    name: 'Jawaharlal Nehru — Nov 14 1889 11:05pm IST (Thursday)',
+    jd: toJD(1889, 11, 14, 23, 5, 0, 5.5),
+    lat: 25 + 27 / 60, lon: 81 + 51 / 60,
+    tz: '+05:30',
+    expect: {
+      'tithi.name':            'Saptami (Krishna)',       // JHora: Krishna Sapthami
+      'tithi.percentLeft':     { v: 53.30, tol: 1.5 },
+      'vara.name':             'Thursday',
+      'nakshatra.name':        'Ashlesha',                // JHora: Aasresha
+      'nakshatra.lord':        'Mercury',
+      'nakshatra.percentLeft': { v: 90.95, tol: 1.5 },
+      'yoga.name':             'Shukla',                  // JHora: Sukla
+      'yoga.percentLeft':      { v: 13.93, tol: 1.5 },
+      'karana.name':           'Vishti',
+      'karana.percentLeft':    { v: 6.61, tol: 2.0 },
+      'lunarYearMonth.year':   'Virodhi',
+      'lunarYearMonth.month':  'Kartika',                 // JHora: Karthika
+      'horaLord':              'Sun',
+      'kaalaLord':             'Mars',
+      'ghatisSinceSunrise':    { v: 41.7382, tol: 0.5 },
+      'ayanamsa.formatted':    { startsWith: "22°19'" },
+    },
+  },
 ]
 
 // ── Runner ─────────────────────────────────────────────────────────────────────

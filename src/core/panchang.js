@@ -58,7 +58,7 @@ const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]
 
 // Kaala lord: K[(weekday + partIdx) % 7]
 // Day or night is split into 8 equal parts. K is a fixed sequence verified against 4 JHora charts.
-const KAALA_SEQ = ['Venus','Sun','Jupiter','Mars','Saturn','Mercury','Moon']
+const KAALA_SEQ = ['Mars','Sun','Jupiter','Venus','Saturn','Mercury','Moon']
 
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period

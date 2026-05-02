@@ -11,7 +11,7 @@ const CHALDEAN = ['Saturn', 'Jupiter', 'Mars', 'Sun', 'Venus', 'Mercury', 'Moon'
 const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]  // Sun→3, Mon→6, Tue→2, Wed→5, Thu→1, Fri→4, Sat→0
 
 // Kaala sequence — K[(weekday + partIdx) % 7]. Derived from 4 verified JHora charts.
-const KAALA_SEQ = ['Venus', 'Sun', 'Jupiter', 'Mars', 'Saturn', 'Mercury', 'Moon']
+const KAALA_SEQ = ['Mars', 'Sun', 'Jupiter', 'Venus', 'Saturn', 'Mercury', 'Moon']
 
 function horaLord(weekday, horaNum) {
   return CHALDEAN[((DAY_LORD_CHALDEAN[weekday] + horaNum) % 7 + 7) % 7]

@@ -11,7 +11,7 @@
  */
 export function toJulianDay(dateStr, timeStr, timezone) {
   const utcDate = localToUTC(`${dateStr}T${timeStr}:00`, timezone)
-  return dateToJD(utcDate)
+  return dateToJd(utcDate)
 }
 
 export function localToUTC(localISO, timezone) {
@@ -81,7 +81,7 @@ export function formatTimeInZone(date, timezone) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
-function dateToJD(date) {
+export function dateToJd(date) {
   const y = date.getUTCFullYear()
   const m = date.getUTCMonth() + 1
   const d = date.getUTCDate()

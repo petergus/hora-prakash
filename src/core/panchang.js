@@ -56,9 +56,9 @@ const CHALDEAN = ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon']
 // Sun→3, Mon→6, Tue→2, Wed→5, Thu→1, Fri→4, Sat→0
 const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]
 
-// Kaala lord: WEEKDAY_PLANETS[(weekday + 4 + horaNum) % 7]
-// Same horaNum as hora lord (1-hour periods from sunrise). Verified against JHora/pyjhora.
-const WEEKDAY_PLANETS = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
+// Kaala lord: K[(weekday + partIdx) % 7]
+// Day or night is split into 8 equal parts. K is a fixed sequence verified against 4 JHora charts.
+const KAALA_SEQ = ['Venus','Sun','Jupiter','Mars','Saturn','Mercury','Moon']
 
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
@@ -188,9 +188,17 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   }
 
   let kaalaLord = null
-  if (sunriseJd) {
-    const kaalaHoraNum = Math.floor((jd - sunriseJd) * 24)
-    kaalaLord = WEEKDAY_PLANETS[((dayOfWeek + 4 + kaalaHoraNum) % 7 + 7) % 7]
+  if (sunriseJd && sunsetJd) {
+    const dayDurJd = sunsetJd - sunriseJd
+    const nightDurJd = (1 - dayDurJd)  // fraction of a day
+    let kaalaPart
+    if (jd >= sunriseJd && jd < sunsetJd) {
+      kaalaPart = Math.min(7, Math.floor((jd - sunriseJd) / (dayDurJd / 8)))
+    } else {
+      const elapsedNight = jd >= sunsetJd ? jd - sunsetJd : jd - sunriseJd + (1 - dayDurJd)
+      kaalaPart = Math.min(7, Math.floor(elapsedNight / (nightDurJd / 8)))
+    }
+    kaalaLord = KAALA_SEQ[(dayOfWeek + kaalaPart) % 7]
   }
 
   // Ghatis since sunrise (1 ghati = 24 minutes)

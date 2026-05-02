@@ -56,18 +56,10 @@ const CHALDEAN = ['Saturn','Jupiter','Mars','Sun','Venus','Mercury','Moon']
 // Sun→3, Mon→6, Tue→2, Wed→5, Thu→1, Fri→4, Sat→0
 const DAY_LORD_CHALDEAN = [3, 6, 2, 5, 1, 4, 0]
 
-// Kaala lord table: [weekday][part 0-7], 8 equal daytime parts
-// Cycles through REVERSED Chaldean order (Saturn,Venus,Jupiter,Mercury,Mars,Moon,Sun)
-// starting from each day's lord — verified against JHora
-const KAALA_TABLE = [
-  ['Sun','Saturn','Venus','Jupiter','Mercury','Mars','Moon','Sun'],    // Sunday
-  ['Moon','Sun','Saturn','Venus','Jupiter','Mercury','Mars','Moon'],   // Monday
-  ['Mars','Moon','Sun','Saturn','Venus','Jupiter','Mercury','Mars'],   // Tuesday
-  ['Mercury','Mars','Moon','Sun','Saturn','Venus','Jupiter','Mercury'],// Wednesday
-  ['Jupiter','Mercury','Mars','Moon','Sun','Saturn','Venus','Jupiter'],// Thursday
-  ['Venus','Jupiter','Mercury','Mars','Moon','Sun','Saturn','Venus'],  // Friday
-  ['Saturn','Venus','Jupiter','Mercury','Mars','Moon','Sun','Saturn'], // Saturday
-]
+// Kaala lord uses weekday-order sequence, 1-hour periods from sunrise (same as hora)
+// Starting index per weekday (0=Sun..6=Sat) shifts +2 each day; Sun starts at Venus(5)
+const WEEKDAY_PLANETS = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
+const KAALA_DAY_START = [5, 0, 2, 4, 6, 1, 3]  // Venus,Sun,Mars,Jupiter,Saturn,Moon,Mercury
 
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
@@ -197,11 +189,10 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   }
 
   let kaalaLord = null
-  if (sunriseJd && sunsetJd) {
-    const elapsed = jd - sunriseJd
-    const totalDay = sunsetJd - sunriseJd
-    const partIdx = Math.min(7, Math.floor((elapsed / totalDay) * 8))
-    kaalaLord = KAALA_TABLE[dayOfWeek][Math.max(0, partIdx)]
+  if (sunriseJd) {
+    const hoursElapsedKaala = (jd - sunriseJd) * 24
+    const kaalaHoraNum = Math.floor(hoursElapsedKaala)
+    kaalaLord = WEEKDAY_PLANETS[((KAALA_DAY_START[dayOfWeek] + kaalaHoraNum) % 7 + 7) % 7]
   }
 
   // Ghatis since sunrise (1 ghati = 24 minutes)

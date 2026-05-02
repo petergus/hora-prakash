@@ -1,6 +1,18 @@
 import { state } from '../state.js'
+import { calcPanchang } from '../core/panchang.js'
+import { dateToJd } from '../utils/time.js'
+import { getTimezone } from '../utils/geocoding.js'
 
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
+let todayLocation = null   // { lat, lon, locationName, timezone }
+let lastTodayCalc = 0      // ms timestamp of last calculation
+let todayPanchang = null
+
+try {
+  const saved = localStorage.getItem('hora-prakash-today-location')
+  if (saved) todayLocation = JSON.parse(saved)
+} catch {}
 
 function fmtPct(n) { return n != null ? `${n.toFixed(1)}% left` : '' }
 
@@ -82,6 +94,144 @@ function renderPanchangCard(panchang, meta, { title, showRefresh = false } = {})
   `
 }
 
+async function getTodayTimezone(lat, lon) {
+  try {
+    return await getTimezone(lat, lon)
+  } catch {
+    return '+00:00'
+  }
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    const j = await r.json()
+    return j.display_name?.split(',').slice(0,2).join(', ') || `${lat.toFixed(2)}, ${lon.toFixed(2)}`
+  } catch {
+    return `${lat.toFixed(2)}, ${lon.toFixed(2)}`
+  }
+}
+
+async function setupTodayLocation(lat, lon) {
+  const [locationName, timezone] = await Promise.all([
+    reverseGeocode(lat, lon),
+    getTodayTimezone(lat, lon),
+  ])
+  todayLocation = { lat, lon, locationName, timezone }
+  localStorage.setItem('hora-prakash-today-location', JSON.stringify(todayLocation))
+  await refreshTodayPanchang()
+}
+
+async function refreshTodayPanchang() {
+  if (!todayLocation) return
+  const now = new Date()
+  const jd = dateToJd(now)
+  todayPanchang = calcPanchang(jd, todayLocation.lat, todayLocation.lon, {
+    timezone: todayLocation.timezone
+  })
+  lastTodayCalc = Date.now()
+  renderTodaySection()
+}
+
+function renderLocationInput() {
+  return `
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+      <input id="today-loc-input" type="text" placeholder="Enter city name…"
+        style="flex:1;min-width:160px;padding:0.3rem 0.5rem;font-size:0.9rem">
+      <button id="today-loc-search" style="padding:0.3rem 0.7rem;font-size:0.9rem">Search</button>
+    </div>
+    <div id="today-loc-results" style="margin-top:0.4rem"></div>
+  `
+}
+
+function wireLocationForm() {
+  document.getElementById('today-loc-search')?.addEventListener('click', searchTodayLocation)
+  document.getElementById('today-loc-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchTodayLocation()
+  })
+}
+
+async function searchTodayLocation() {
+  const q = document.getElementById('today-loc-input')?.value?.trim()
+  if (!q) return
+  const resultsEl = document.getElementById('today-loc-results')
+  if (resultsEl) resultsEl.textContent = 'Searching…'
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    const results = await r.json()
+    if (!resultsEl) return
+    if (!results.length) { resultsEl.textContent = 'No results.'; return }
+    resultsEl.innerHTML = results.map(loc =>
+      `<div style="padding:0.2rem 0;cursor:pointer;font-size:0.85rem" data-lat="${loc.lat}" data-lon="${loc.lon}">
+        📍 ${esc(loc.display_name.split(',').slice(0,3).join(', '))}
+      </div>`
+    ).join('')
+    resultsEl.querySelectorAll('div[data-lat]').forEach(el => {
+      el.addEventListener('click', () => {
+        setupTodayLocation(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon))
+      })
+    })
+  } catch {
+    if (resultsEl) resultsEl.textContent = 'Search failed.'
+  }
+}
+
+function showLocationOverride() {
+  const section = document.getElementById('today-panchang-section')
+  if (!section) return
+  section.innerHTML = `
+    <div class="card" style="margin-bottom:1.2rem">
+      <h2>Today's Panchang — Change Location</h2>
+      ${renderLocationInput()}
+    </div>
+  `
+  wireLocationForm()
+}
+
+function renderTodaySection() {
+  const section = document.getElementById('today-panchang-section')
+  if (!section) return
+
+  if (!todayLocation) {
+    section.innerHTML = `
+      <div class="card" style="margin-bottom:1.2rem">
+        <h2>Today's Panchang</h2>
+        <p style="color:var(--muted);font-size:0.85rem">Detecting location…</p>
+        <div id="today-location-form" style="margin-top:0.8rem">${renderLocationInput()}</div>
+      </div>
+    `
+    wireLocationForm()
+    return
+  }
+
+  const meta = {
+    dob: new Date().toISOString().slice(0, 10),
+    timezone: todayLocation.timezone,
+    location: todayLocation.locationName,
+    isToday: true,
+  }
+  const cardHtml = todayPanchang
+    ? renderPanchangCard(todayPanchang, meta, { title: "Today's Panchang", showRefresh: true })
+    : `<div class="card" style="margin-bottom:1.2rem"><p style="color:var(--muted)">Calculating…</p></div>`
+
+  section.innerHTML = cardHtml + `
+    <div style="font-size:0.8rem;color:var(--muted);margin:-0.8rem 0 1rem;padding:0 0.2rem">
+      <a href="#" id="change-today-location" style="color:var(--muted)">Change location</a>
+    </div>
+  `
+  document.getElementById('panchang-refresh')?.addEventListener('click', refreshTodayPanchang)
+  document.getElementById('change-today-location')?.addEventListener('click', e => {
+    e.preventDefault()
+    showLocationOverride()
+  })
+}
+
 export { renderPanchangCard }
 
 export function renderPanchang() {
@@ -104,4 +254,23 @@ export function renderPanchang() {
   }
 
   panel.innerHTML = html
+  initTodayPanchang()
+}
+
+export async function initTodayPanchang() {
+  // Auto-refresh if stale (> 5 min)
+  if (todayLocation && Date.now() - lastTodayCalc > 5 * 60 * 1000) {
+    await refreshTodayPanchang()
+    return
+  }
+  if (todayLocation && todayPanchang) {
+    renderTodaySection()
+    return
+  }
+  // First time — render placeholder then try geolocation
+  renderTodaySection()
+  navigator.geolocation?.getCurrentPosition(
+    pos => setupTodayLocation(pos.coords.latitude, pos.coords.longitude),
+    () => { /* user denied — leave manual form visible */ }
+  )
 }

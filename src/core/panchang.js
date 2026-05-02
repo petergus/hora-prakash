@@ -32,6 +32,22 @@ const KARANA_NAMES = [
   'Shakuni','Chatushpada','Naga','Kimstughna'
 ]
 
+const SAMVAT_NAMES = [
+  'Prabhava','Vibhava','Shukla','Pramoda','Prajapati','Angirasa','Shrimukha','Bhava',
+  'Yuvan','Dhatri','Ishvara','Bahudhanya','Pramathi','Vikrama','Vrisha','Chitrabhanu',
+  'Subhanu','Tarana','Parthiva','Vyaya','Sarvajit','Sarvadharin','Virodhi','Vikruti',
+  'Khara','Nandana','Vijaya','Jaya','Manmatha','Durmukhi','Hevilambi','Vilambi',
+  'Vikari','Sharvari','Plava','Shubhakrit','Shobhana','Krodhi','Vishvavasu','Parabhava',
+  'Plavanga','Kilaka','Saumya','Sadharana','Virodhikrit','Paridhavin','Pramadicha',
+  'Ananda','Rakshasa','Nala','Pingala','Kalayukti','Siddharthi','Raudra','Durmati',
+  'Dundubhi','Rudhirodgarin','Raktakshi','Krodhana','Akshaya'
+]
+
+const LUNAR_MONTH_NAMES = [
+  'Chaitra','Vaisakha','Jyeshtha','Ashadha','Shravana','Bhadrapada',
+  'Ashwina','Kartika','Margashirsha','Pausha','Magha','Phalguna'
+]
+
 // Rahu Kalam period index (1-8) by weekday (0=Sun). Period 1 = first 1/8 of day.
 const RAHU_KALAM_ORDER  = [8, 2, 7, 5, 6, 4, 3]  // index=weekday, value=which 1/8 period
 const GULIKA_ORDER      = [6, 5, 4, 3, 2, 1, 7]
@@ -75,6 +91,13 @@ export function calcPanchang(jd, lat, lon, options = {}) {
     ? parseDateStr(options.dateStr)
     : getLocalDateParts(jdToDate(jd), timezone)
   const vara = VARA_NAMES[localDate.weekday]
+
+  // Lunar year-month (samvat)
+  const lunarMonthIdx = Math.floor(sunLon / 30) % 12
+  const lunarMonth = LUNAR_MONTH_NAMES[lunarMonthIdx]
+  const kaliYear = localDate.year + 3101
+  const samvatIdx = (kaliYear + 12) % 60
+  const lunarYear = SAMVAT_NAMES[samvatIdx]
 
   // Nakshatra: sidereal Moon longitude
   const sidMoonResult = swe.calc_ut(jd, 1, 2 | 65536 | 256)  // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
@@ -131,6 +154,7 @@ export function calcPanchang(jd, lat, lon, options = {}) {
     nakshatra:   { name: nakshatra.name, pada: nakshatra.pada, lord: nakshatra.lord, percentLeft: nakshatraPctLeft },
     yoga:        { name: yogaName, percentLeft: yogaPctLeft },
     karana:      { name: karanaName, percentLeft: karanaPctLeft },
+    lunarYearMonth: { year: lunarYear, month: lunarMonth },
     sunrise,
     sunset,
     rahuKalam:   { start: rahuStart,  end: rahuEnd   },

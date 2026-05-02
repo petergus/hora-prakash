@@ -82,8 +82,7 @@ export function initSettingsModal() {
   })
 
   document.getElementById('settings-apply').addEventListener('click', async () => {
-    const ayanamsaRaw     = document.getElementById('settings-ayanamsa').value
-    const ayanamsa        = isNaN(Number(ayanamsaRaw)) ? ayanamsaRaw : parseInt(ayanamsaRaw, 10)
+    const ayanamsa        = parseInt(document.getElementById('settings-ayanamsa').value, 10)
     const planetPositions = document.getElementById('settings-planet-positions').value
     const observerType    = document.getElementById('settings-observer-type').value
     const activeThemeSwatch = overlay.querySelector('.theme-swatch.active')

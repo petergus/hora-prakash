@@ -209,10 +209,10 @@ export function calcPanchang(jd, lat, lon, options = {}, _swe) {
     const nightDurJd = (1 - dayDurJd)  // fraction of a day
     let kaalaPart
     if (jd >= sunriseJd && jd < sunsetJd) {
-      kaalaPart = Math.min(7, Math.floor((jd - sunriseJd) / (dayDurJd / 8)))
+      kaalaPart = Math.max(1, Math.floor((jd - sunriseJd) / (dayDurJd / 8)))
     } else {
       const elapsedNight = jd >= sunsetJd ? jd - sunsetJd : jd - sunriseJd + (1 - dayDurJd)
-      kaalaPart = Math.min(7, Math.floor(elapsedNight / (nightDurJd / 8)))
+      kaalaPart = Math.max(1, Math.floor(elapsedNight / (nightDurJd / 8)))
     }
     kaalaLord = KAALA_SEQ[(dayOfWeek + kaalaPart) % 7]
   }

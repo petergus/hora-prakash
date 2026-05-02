@@ -137,6 +137,31 @@ const CASES = [
       'ayanamsa.formatted':    { startsWith: "23°03'" },
     },
   },
+  {
+    name: 'Rajiv Gandhi — Aug 20 1944 7:11:40am IST (Sunday)',
+    jd: toJD(1944, 8, 20, 7, 11, 40, 5.5),
+    lat: 18 + 58 / 60, lon: 72 + 50 / 60,
+    tz: '+05:30',
+    expect: {
+      'tithi.name':            'Dvitiya (Shukla)',        // JHora: Sukla Dwitiya
+      'tithi.percentLeft':     { v: 88.92, tol: 1.5 },
+      'vara.name':             'Sunday',
+      'nakshatra.name':        'Purva Phalguni',          // JHora: Poorva Phalguni
+      'nakshatra.lord':        'Venus',
+      'nakshatra.percentLeft': { v: 71.30, tol: 1.5 },
+      'yoga.name':             'Shiva',                   // JHora: Siva
+      'yoga.percentLeft':      { v: 42.57, tol: 1.5 },
+      'karana.name':           'Balava',
+      'karana.percentLeft':    { v: 77.83, tol: 2.0 },
+      'lunarYearMonth.year':   'Tarana',
+      // month omitted: sun at birth (146.9°) is 3° below the 150° Bhadrapada boundary;
+      // JHora likely uses full moon's sun position which crosses into Bhadrapada.
+      'horaLord':              'Sun',
+      'kaalaLord':             'Sun',
+      'ghatisSinceSunrise':    { v: 1.9635, tol: 0.5 },
+      'ayanamsa.formatted':    { startsWith: "23°05'" },
+    },
+  },
 ]
 
 // ── Runner ─────────────────────────────────────────────────────────────────────

@@ -21,10 +21,10 @@ function kaalaPartIdx(birthSec, sunriseSec, sunsetSec) {
   const dayDur = sunsetSec - sunriseSec
   const nightDur = 86400 - dayDur
   if (birthSec >= sunriseSec && birthSec < sunsetSec) {
-    return Math.min(7, Math.floor((birthSec - sunriseSec) / (dayDur / 8)))
+    return Math.max(1, Math.floor((birthSec - sunriseSec) / (dayDur / 8)))
   }
   const elapsed = birthSec >= sunsetSec ? birthSec - sunsetSec : birthSec + (86400 - sunsetSec)
-  return Math.min(7, Math.floor(elapsed / (nightDur / 8)))
+  return Math.max(1, Math.floor(elapsed / (nightDur / 8)))
 }
 
 function kaalaLord(weekday, partIdx) {

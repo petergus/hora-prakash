@@ -155,6 +155,9 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   const sunrise = isValidJd(riseResult) ? jdToDate(riseResult[0]) : null
   const sunset  = isValidJd(setResult)  ? jdToDate(setResult[0])  : null
 
+  // DayOfweek for hora/kaala/rahu calculations
+  const dayOfWeek = localDate.weekday
+
   // Hora lord (Chaldean hora system — 1 hora = 1 hour from sunrise)
   let horaLord = null
   if (isValidJd(riseResult)) {
@@ -176,7 +179,6 @@ export function calcPanchang(jd, lat, lon, options = {}) {
   // Rahu Kalam and Gulika Kalam (8 equal parts of daytime)
   const dayDuration = (sunrise && sunset) ? (sunset.getTime() - sunrise.getTime()) : 43200000
   const partMs = dayDuration / 8
-  const dayOfWeek = localDate.weekday
   const rahuPeriod  = RAHU_KALAM_ORDER[dayOfWeek] - 1   // 0-indexed period
   const gulikaPeriod = GULIKA_ORDER[dayOfWeek] - 1
   const rahuStart   = sunrise ? new Date(sunrise.getTime() + rahuPeriod  * partMs) : null

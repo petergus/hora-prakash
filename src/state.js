@@ -6,4 +6,5 @@ export const state = {
   houses: null,      // array of 12 house cusp longitudes
   dasha: null,       // computed dasha tree
   panchang: null,    // computed panchang values
+  strength: null,    // computed strength values (ashtakavarga, shadbala, etc.)
 }

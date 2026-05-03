@@ -81,6 +81,7 @@ export function calcBirthChart(jd, lat, lon, settings) {
       nakshatraIndex: nak.index,
       pada: nak.pada,
       retrograde: speed < 0,
+      speed,
     }
   })
 

@@ -1434,3 +1434,16 @@ h3 {
 @media (max-width: 640px) {
   .avarga-cell { font-size: 0.68rem; padding: 0.15rem 0; }
 }
+.shadbala-wrap .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.shadbala-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 640px; }
+.shadbala-table th { background: var(--primary); color: var(--primary-text); padding: 0.4rem 0.6rem; text-align: right; font-weight: 600; white-space: nowrap; }
+.shadbala-table th:first-child { text-align: left; }
+.shadbala-table td { padding: 0.35rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border); }
+.shadbala-table td:first-child { text-align: left; font-weight: 500; }
+.shadbala-table td.total-col { font-weight: 700; }
+.shadbala-table tr.ratio-strong td { background: #f0fdf4; }
+.shadbala-table tr.ratio-weak   td { background: #fff7f7; }
+.shadbala-table tr.ratio-low    td { background: #fef2f2; }
+.ratio-strong .ratio-val { color: #16a34a; font-weight: 700; }
+.ratio-weak   .ratio-val { color: #d97706; font-weight: 700; }
+.ratio-low    .ratio-val { color: #dc2626; font-weight: 700; }

@@ -36,8 +36,8 @@ function renderSubTab() {
   const panel = document.getElementById('strength-panel')
   if (!panel) return
   if (activeSubTab === 'ashtakavarga') renderAshtakavarga(panel)
-  else if (activeSubTab === 'shadbala') panel.innerHTML = '<p style="padding:1rem">Shadbala coming soon.</p>'
-  else panel.innerHTML = '<p style="padding:1rem">Bar Graph coming soon.</p>'
+  else if (activeSubTab === 'shadbala') renderShadbala(panel)
+  else renderBarGraph(panel)
 }
 
 function renderAshtakavarga(panel) {
@@ -83,4 +83,48 @@ function renderAshtakavarga(panel) {
       </div>
     </div>
   `
+}
+
+function renderShadbala(panel) {
+  const { shadbala } = state.strength
+  const rows = PLANETS_ORDER.map(name => {
+    const d = shadbala[name]
+    if (!d) return ''
+    const ratioClass = d.ratio >= 1.0 ? 'ratio-strong' : d.ratio >= 0.8 ? 'ratio-weak' : 'ratio-low'
+    return `
+      <tr class="${ratioClass}">
+        <td>${name}</td>
+        <td>${d.sthanaBala}</td>
+        <td>${d.digBala}</td>
+        <td>${d.kalaBala}</td>
+        <td>${d.chestaBala}</td>
+        <td>${d.naisargikaBala}</td>
+        <td>${d.drikBala}</td>
+        <td class="total-col">${d.total}</td>
+        <td>${d.required}</td>
+        <td class="ratio-val">${d.ratio.toFixed(2)}×</td>
+      </tr>
+    `
+  }).join('')
+
+  panel.innerHTML = `
+    <div class="shadbala-wrap">
+      <div class="table-scroll">
+        <table class="shadbala-table">
+          <thead>
+            <tr>
+              <th>Planet</th><th>Sthana</th><th>Dig</th><th>Kala</th>
+              <th>Chesta</th><th>Naisargika</th><th>Drik</th>
+              <th>Total</th><th>Required</th><th>Ratio</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
+function renderBarGraph(panel) {
+  panel.innerHTML = '<p style="padding:1rem">Bar Graph coming soon.</p>'
 }

@@ -52,7 +52,7 @@ function getDignity(planetName, sign) {
 }
 
 const DIGNITY_PTS = { moolatrikona: 45, own: 30, friend: 15, neutral: 7.5, enemy: 3.75 }
-const VARGA_KEYS = ['D1', 'D2', 'D3', 'D7', 'D9', 'D12', 'D30']
+const VARGA_KEYS = ['D1', 'D2', 'D3', 'D7', 'D9', 'D12', 'D16']
 
 // ── Sthana Bala helpers ────────────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ function ojayugmaBala(planetName, d1Sign, d9Sign) {
     if (['Moon', 'Venus'].includes(planetName)) return isOdd ? 0 : 15
     return 15 // Mercury always gets 15
   }
-  return pref(d1Sign) + pref(d9Sign) / 2
+  return (pref(d1Sign) + pref(d9Sign)) / 2
 }
 
 function kendradiBala(house) {
@@ -166,11 +166,8 @@ function kalaBala(planetName, planet, planets, jd, panchang) {
     const birthDate = jdToDate(jd)
     isDayBirth = birthDate >= panchang.sunrise && birthDate < panchang.sunset
   }
-  return (
-    nathonnathaBala(planetName, isDayBirth) +
-    pakshaBala(planetName, planets) +
-    ayanaBala(planetName, planet)
-  )
+  const ayanaContrib = (planetName === 'Sun' || planetName === 'Moon') ? 0 : ayanaBala(planetName, planet)
+  return nathonnathaBala(planetName, isDayBirth) + pakshaBala(planetName, planets) + ayanaContrib
 }
 
 // ── Chesta Bala ───────────────────────────────────────────────────────────────

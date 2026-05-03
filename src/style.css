@@ -1417,3 +1417,20 @@ h3 {
 .dasha-crumb-btn:hover:not(.active) { background: #c7d2fe; color: var(--primary-hover); }
 .dasha-crumb-btn.active { color: var(--text); font-weight: 600; cursor: default; }
 .dasha-crumb-sep { color: var(--muted); font-size: 0.72rem; padding: 0 2px; }
+
+/* ── Strength tab ── */
+.strength-wrap { padding: 1rem; }
+.strength-subtab-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.avarga-table-grid { display: grid; gap: 1.5rem; margin-bottom: 1.5rem; }
+.avarga-section h4 { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin: 0 0 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.avarga-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; }
+.avarga-row.header .avarga-cell { background: var(--primary); color: var(--primary-text); font-weight: 600; border-radius: 4px 4px 0 0; }
+.avarga-cell { text-align: center; padding: 0.25rem 0; font-size: 0.8rem; border: 1px solid var(--border); min-width: 0; }
+.avarga-cell.own-sign { background: #fef9c3; font-weight: 700; }
+.avarga-cell.score-high { background: #dcfce7; }
+.avarga-cell.score-low  { background: #fee2e2; }
+.avarga-sarva { border-top: 2px solid var(--primary); margin-top: 0.5rem; }
+.avarga-sarva .avarga-cell { background: #eff6ff; font-weight: 600; }
+@media (max-width: 640px) {
+  .avarga-cell { font-size: 0.68rem; padding: 0.15rem 0; }
+}

@@ -35,7 +35,52 @@ export function renderStrength() {
 function renderSubTab() {
   const panel = document.getElementById('strength-panel')
   if (!panel) return
-  if (activeSubTab === 'ashtakavarga') panel.innerHTML = '<p style="padding:1rem">Ashtakavarga coming soon.</p>'
+  if (activeSubTab === 'ashtakavarga') renderAshtakavarga(panel)
   else if (activeSubTab === 'shadbala') panel.innerHTML = '<p style="padding:1rem">Shadbala coming soon.</p>'
   else panel.innerHTML = '<p style="padding:1rem">Bar Graph coming soon.</p>'
+}
+
+function renderAshtakavarga(panel) {
+  const { bhinna, sarva } = state.strength
+  const planetMap = Object.fromEntries(state.planets.map(p => [p.name, p]))
+
+  const sections = PLANETS_ORDER.map(pname => {
+    const scores = bhinna[pname]
+    const ownSign0 = (planetMap[pname]?.sign ?? 1) - 1
+    const total = scores.reduce((a, b) => a + b, 0)
+    const headerCells = SIGN_ABBR.map(s => `<div class="avarga-cell">${s}</div>`).join('')
+    const scoreCells = scores.map((s, i) => {
+      let cls = 'avarga-cell'
+      if (i === ownSign0) cls += ' own-sign'
+      else if (s >= 6) cls += ' score-high'
+      else if (s <= 2) cls += ' score-low'
+      return `<div class="${cls}">${s}</div>`
+    }).join('')
+    return `
+      <div class="avarga-section">
+        <h4>${pname} Bhinnashtakavarga (total ${total})</h4>
+        <div class="avarga-row header">${headerCells}</div>
+        <div class="avarga-row">${scoreCells}</div>
+      </div>
+    `
+  }).join('')
+
+  const sarvaTotal = sarva.reduce((a, b) => a + b, 0)
+  const sarvaCells = sarva.map(s => {
+    let cls = 'avarga-cell'
+    if (s >= 30) cls += ' score-high'
+    else if (s <= 18) cls += ' score-low'
+    return `<div class="${cls}">${s}</div>`
+  }).join('')
+
+  panel.innerHTML = `
+    <div class="avarga-table-grid">
+      ${sections}
+      <div class="avarga-section avarga-sarva">
+        <h4>Sarvashtakavarga (total ${sarvaTotal})</h4>
+        <div class="avarga-row header">${SIGN_ABBR.map(s => `<div class="avarga-cell">${s}</div>`).join('')}</div>
+        <div class="avarga-row">${sarvaCells}</div>
+      </div>
+    </div>
+  `
 }

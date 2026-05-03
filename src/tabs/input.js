@@ -4,6 +4,8 @@ import { toJulianDay } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
+import { calcBhinnashtakavarga, calcSarvashtakavarga } from '../core/ashtakavarga.js'
+import { calcShadbala } from '../core/shadbala.js'
 import { applyAyanamsa, getSettings } from '../core/settings.js'
 import { getSwe, initSwissEph } from '../core/swisseph.js'
 import { state } from '../state.js'
@@ -531,6 +533,11 @@ async function onFormSubmit(e) {
     state.dasha    = dasha
     state.panchang = panchang
 
+    const bhinna   = calcBhinnashtakavarga(planets, lagna)
+    const sarva    = calcSarvashtakavarga(bhinna)
+    const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
+    state.strength = { bhinna, sarva, shadbala }
+
     // Update session label and profile tab bar
     const { updateActiveLabel } = await import('../sessions.js')
     const { renderProfileTabs } = await import('../ui/profile-tabs.js')
@@ -541,8 +548,9 @@ async function onFormSubmit(e) {
     const { renderDasha }    = await import('./dasha.js')
     const { renderPanchang } = await import('./panchang.js')
 
-    renderChart(); renderDasha().catch(console.error); renderPanchang()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang')
+    const { renderStrength } = await import('./strength.js')
+    renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength')
     switchTab('chart')
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
@@ -637,11 +645,17 @@ export async function recalcAll() {
     state.dasha    = dasha
     state.panchang = panchang
 
+    const bhinna   = calcBhinnashtakavarga(planets, lagna)
+    const sarva    = calcSarvashtakavarga(bhinna)
+    const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
+    state.strength = { bhinna, sarva, shadbala }
+
     const { renderChart }    = await import('./chart.js')
     const { renderDasha }    = await import('./dasha.js')
     const { renderPanchang } = await import('./panchang.js')
+    const { renderStrength } = await import('./strength.js')
 
-    renderChart(); renderDasha().catch(console.error); renderPanchang()
+    renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

@@ -126,5 +126,26 @@ function renderShadbala(panel) {
 }
 
 function renderBarGraph(panel) {
-  panel.innerHTML = '<p style="padding:1rem">Bar Graph coming soon.</p>'
+  const { shadbala } = state.strength
+  const maxTotal = Math.max(...PLANETS_ORDER.map(n => shadbala[n]?.total ?? 0))
+
+  const rows = PLANETS_ORDER.map(name => {
+    const d = shadbala[name]
+    if (!d) return ''
+    const barPct  = (d.total    / maxTotal) * 100
+    const reqPct  = (d.required / maxTotal) * 100
+    const barClass = d.ratio >= 1.0 ? 'bar-strong' : d.ratio >= 0.8 ? 'bar-weak' : 'bar-low'
+    return `
+      <div class="bargraph-row">
+        <div class="bargraph-label">${name}</div>
+        <div class="bargraph-track">
+          <div class="bargraph-bar ${barClass}" style="width:${barPct.toFixed(1)}%"></div>
+          <div class="bargraph-required" style="left:${reqPct.toFixed(1)}%" title="Required: ${d.required}"></div>
+        </div>
+        <div class="bargraph-value">${d.total} / ${d.required} = ${d.ratio.toFixed(2)}×</div>
+      </div>
+    `
+  }).join('')
+
+  panel.innerHTML = `<div class="bargraph-wrap">${rows}</div>`
 }

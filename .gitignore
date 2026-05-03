@@ -5,3 +5,4 @@ dist/
 *.png
 *.xlsx
 docs/superpowers/
+.worktrees/

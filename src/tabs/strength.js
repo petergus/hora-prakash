@@ -3,7 +3,7 @@ import { state } from '../state.js'
 
 const SIGN_ABBR = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
 const PLANETS_ORDER = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
-const BAV_ORDER = [...PLANETS_ORDER, 'Lagna']
+const BAV_ORDER = ['Lagna', ...PLANETS_ORDER]
 
 let activeSubTab = 'ashtakavarga'
 
@@ -78,12 +78,12 @@ function renderAshtakavarga(panel) {
 
   panel.innerHTML = `
     <div class="avarga-table-grid">
-      ${sections}
       <div class="avarga-section avarga-sarva">
         <h4>Sarvashtakavarga (total ${sarvaTotal})</h4>
         <div class="avarga-row header">${SIGN_ABBR.map(s => `<div class="avarga-cell">${s}</div>`).join('')}</div>
         <div class="avarga-row">${sarvaCells}</div>
       </div>
+      ${sections}
     </div>
   `
 }

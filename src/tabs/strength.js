@@ -3,6 +3,7 @@ import { state } from '../state.js'
 
 const SIGN_ABBR = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
 const PLANETS_ORDER = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
+const BAV_ORDER = [...PLANETS_ORDER, 'Lagna']
 
 let activeSubTab = 'ashtakavarga'
 
@@ -44,9 +45,11 @@ function renderAshtakavarga(panel) {
   const { bhinna, sarva } = state.strength
   const planetMap = Object.fromEntries(state.planets.map(p => [p.name, p]))
 
-  const sections = PLANETS_ORDER.map(pname => {
+  const sections = BAV_ORDER.map(pname => {
     const scores = bhinna[pname]
-    const ownSign0 = (planetMap[pname]?.sign ?? 1) - 1
+    const ownSign0 = pname === 'Lagna'
+      ? (state.lagna?.sign ?? 1) - 1
+      : (planetMap[pname]?.sign ?? 1) - 1
     const total = scores.reduce((a, b) => a + b, 0)
     const headerCells = SIGN_ABBR.map(s => `<div class="avarga-cell">${s}</div>`).join('')
     const scoreCells = scores.map((s, i) => {

@@ -73,6 +73,16 @@ const BHINNA_TABLES = {
     Saturn:  [3,5,6,11],
     Lagna:   [1,3,4,6,10,11],
   },
+  Lagna: {
+    Sun:     [3,4,6,10,11,12],
+    Moon:    [3,6,10,11,12],
+    Mars:    [1,3,6,10,11],
+    Mercury: [1,2,4,6,8,10,11],
+    Jupiter: [1,2,4,5,6,7,9,10,11],
+    Venus:   [1,2,3,4,5,8,9],
+    Saturn:  [1,3,4,6,10,11],
+    Lagna:   [3,6,10,11],
+  },
 }
 
 const CONTRIBUTORS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Lagna']
@@ -110,7 +120,8 @@ export function calcBhinnashtakavarga(planets, lagna) {
  */
 export function calcSarvashtakavarga(bhinna) {
   const sarva = new Array(12).fill(0)
-  for (const scores of Object.values(bhinna)) {
+  for (const [planet, scores] of Object.entries(bhinna)) {
+    if (planet === 'Lagna') continue
     for (let i = 0; i < 12; i++) sarva[i] += scores[i]
   }
   return sarva

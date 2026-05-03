@@ -656,6 +656,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength')
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

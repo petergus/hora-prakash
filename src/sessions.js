@@ -51,10 +51,10 @@ export function defaultTransitUI() {
   return {
     transitDate: null,
     transitTime: null,
+    transitPlanets: [],
     transitFilter: new Set(['Ju', 'Sa']),
     transitView: 'dual',
     transitAspectSource: null,
-    chartStyle: 'north',
   }
 }
 

@@ -47,6 +47,17 @@ export function defaultChartUI() {
   }
 }
 
+export function defaultTransitUI() {
+  return {
+    transitDate: null,
+    transitTime: null,
+    transitFilter: new Set(['Ju', 'Sa']),
+    transitView: 'dual',
+    transitAspectSource: null,
+    chartStyle: 'north',
+  }
+}
+
 function currentInnerTab() {
   return document.querySelector('#tab-nav .tab-btn.active')?.dataset.tab ?? 'input'
 }
@@ -61,7 +72,7 @@ export function createSession(label = 'New Profile') {
     label,
     snap:    emptySnap(),
     innerTab: 'input',
-    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI() },
+    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI() },
   })
   return id
 }

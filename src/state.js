@@ -7,4 +7,11 @@ export const state = {
   dasha: null,       // computed dasha tree
   panchang: null,    // computed panchang values
   strength: null,    // computed strength values (ashtakavarga, shadbala, etc.)
+  // Transit
+  transitDate: null,        // YYYY-MM-DD
+  transitTime: null,        // HH:MM
+  transitPlanets: [],
+  transitFilter: new Set(['Ju', 'Sa']),
+  transitView: 'dual',      // 'dual' | 'overlay'
+  transitAspectSource: null, // planet abbr currently highlighted, null = none
 }

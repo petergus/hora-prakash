@@ -550,7 +550,7 @@ async function onFormSubmit(e) {
 
     const { renderStrength } = await import('./strength.js')
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('export')
     switchTab('chart')
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
@@ -656,7 +656,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('export')
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

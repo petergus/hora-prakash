@@ -28,3 +28,40 @@ export function getAspectedSigns(planetSign, planetAbbr) {
   const offsets = ASPECT_OFFSETS[planetAbbr] ?? [6]
   return offsets.map(o => ((planetSign - 1 + o) % 12) + 1)
 }
+
+/**
+ * Compute transit-to-natal aspects.
+ * For each transit planet, find which natal planets occupy its aspected houses.
+ *
+ * @param {object[]} transitPlanets  Result of getTransitPositions()
+ * @param {object[]} natalPlanets    state.planets
+ * @returns {object[]} [{ transitPlanet, transitHouse, aspectsHouses, aspectsNatalPlanets }]
+ */
+export function getTransitToNatalAspects(transitPlanets, natalPlanets) {
+  return transitPlanets.map(tp => {
+    const offsets       = ASPECT_OFFSETS[tp.abbr] ?? [6]
+    const aspectsHouses = offsets.map(o => ((tp.house - 1 + o) % 12) + 1)
+    const aspectsNatalPlanets = natalPlanets
+      .filter(np => aspectsHouses.includes(np.house))
+      .map(np => np.abbr)
+    return { transitPlanet: tp, transitHouse: tp.house, aspectsHouses, aspectsNatalPlanets }
+  })
+}
+
+/**
+ * Compute transit-to-transit aspects.
+ * For each transit planet, find which OTHER transit planets it aspects.
+ *
+ * @param {object[]} transitPlanets  Result of getTransitPositions()
+ * @returns {object[]} [{ planet, house, aspectsPlanets }]
+ */
+export function getTransitToTransitAspects(transitPlanets) {
+  return transitPlanets.map(tp => {
+    const offsets      = ASPECT_OFFSETS[tp.abbr] ?? [6]
+    const aspectedHouses = offsets.map(o => ((tp.house - 1 + o) % 12) + 1)
+    const aspectsPlanets = transitPlanets
+      .filter(other => other.abbr !== tp.abbr && aspectedHouses.includes(other.house))
+      .map(other => other.abbr)
+    return { planet: tp, house: tp.house, aspectsPlanets }
+  })
+}

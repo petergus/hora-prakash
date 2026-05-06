@@ -3,6 +3,21 @@ import { getSwe, PLANETS } from './swisseph.js'
 import { getNakshatraInfo } from './calculations.js'
 import { buildCalcFlags } from './settings.js'
 
+export function getTransitLagna(transitJD, lat, lon) {
+  const swe = getSwe()
+  const housesResult = swe.houses_ex(transitJD, 65536, lat, lon, 'P')
+  const lagnaLon = ((housesResult.ascmc[0] % 360) + 360) % 360
+  const nak = getNakshatraInfo(lagnaLon)
+  return {
+    lon:            lagnaLon,
+    sign:           Math.floor(lagnaLon / 30) + 1,
+    degree:         lagnaLon % 30,
+    nakshatra:      nak.name,
+    nakshatraLord:  nak.lord,
+    pada:           nak.pada,
+  }
+}
+
 /**
  * Calculate planetary positions for a given Julian Day.
  * Houses are assigned using whole-sign system from natal lagna sign.

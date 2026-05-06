@@ -1,7 +1,7 @@
 // src/tabs/transit.js
 import { state }                                                from '../state.js'
 import { getActiveSession, defaultTransitUI }                   from '../sessions.js'
-import { getTransitPositions }                                  from '../core/transit.js'
+import { getTransitPositions, getTransitLagna }                 from '../core/transit.js'
 import { getTransitToNatalAspects, getTransitToTransitAspects } from '../core/aspects.js'
 import { getSettings }                                          from '../core/settings.js'
 import { toJulianDay }                                          from '../utils/time.js'
@@ -42,36 +42,43 @@ function calcAndRender() {
   const jd   = toJulianDay(date, time, tz)
 
   const transitPlanets = getTransitPositions(jd, state.lagna.sign, getSettings())
+  const lat = state.birth?.lat ?? 0
+  const lon = state.birth?.lon ?? 0
+  const transitLagna = getTransitLagna(jd, lat, lon)
   setTransitUI('transitPlanets', transitPlanets)
+  setTransitUI('transitLagna', transitLagna)
 
   const t2n = getTransitToNatalAspects(transitPlanets, state.planets)
   const t2t = getTransitToTransitAspects(transitPlanets)
 
   _toolbar?.render()
-  _chartPane?.render(state.planets, state.lagna, transitPlanets)
+  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
   _table?.render(state.planets, transitPlanets, t2n, t2t)
 }
 
 function handleToolbarChange(key, value) {
   setTransitUI(key, value)
-  if (key === 'transitView' || key === 'transitFilter') {
+  if (key === 'transitView' || key === 'transitFilter' || key === 'transitChartStyle') {
     const ui             = getTransitUI()
     const transitPlanets = ui.transitPlanets ?? []
+    const transitLagna   = ui.transitLagna ?? state.lagna
     const t2n = getTransitToNatalAspects(transitPlanets, state.planets)
     const t2t = getTransitToTransitAspects(transitPlanets)
     _toolbar?.render()
-    _chartPane?.render(state.planets, state.lagna, transitPlanets)
+    _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
     _table?.render(state.planets, transitPlanets, t2n, t2t)
   } else {
     calcAndRender()
   }
 }
 
-function handlePlanetClick(abbr) {
-  const current = getTransitUI().transitAspectSource
-  setTransitUI('transitAspectSource', current === abbr ? null : abbr)
+function handlePlanetClick(abbr, chartType) {
+  const ui           = getTransitUI()
+  const key          = chartType === 'transit' ? 'transitAspectSource' : 'natalAspectSource'
+  setTransitUI(key, ui[key] === abbr ? null : abbr)
   const transitPlanets = getTransitUI().transitPlanets ?? []
-  _chartPane?.render(state.planets, state.lagna, transitPlanets)
+  const transitLagna   = getTransitUI().transitLagna ?? state.lagna
+  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
 }
 
 export function renderTransit() {

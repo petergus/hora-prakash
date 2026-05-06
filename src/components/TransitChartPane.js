@@ -28,7 +28,7 @@ export class TransitChartPane {
     this._onClick = null
   }
 
-  render(natalPlanets, natalLagna, transitPlanets) {
+  render(natalPlanets, natalLagna, transitPlanets, transitLagna) {
     if (!natalPlanets || !natalLagna) {
       this.el.innerHTML = '<p class="transit-no-data">No birth chart loaded.</p>'
       return
@@ -38,12 +38,13 @@ export class TransitChartPane {
     const view       = ui.transitView ?? 'dual'
     const chartStyle = ui.transitChartStyle ?? 'north'
     const filter     = ui.transitFilter ?? new Set()
+    const tLagna     = transitLagna ?? natalLagna
 
     const natalAsp   = buildAspects(natalPlanets,   ui.natalAspectSource)
     const transitAsp = buildAspects(transitPlanets, ui.transitAspectSource)
 
     if (view === 'dual') {
-      this._renderDual(natalPlanets, natalLagna, transitPlanets, chartStyle, filter, natalAsp, transitAsp)
+      this._renderDual(natalPlanets, natalLagna, transitPlanets, tLagna, chartStyle, filter, natalAsp, transitAsp)
     } else {
       this._renderOverlay(natalPlanets, natalLagna, transitPlanets, chartStyle, filter, natalAsp, transitAsp)
     }
@@ -51,12 +52,12 @@ export class TransitChartPane {
     this._bindEvents()
   }
 
-  _renderDual(natalPlanets, natalLagna, transitPlanets, chartStyle, filter, natalAsp, transitAsp) {
+  _renderDual(natalPlanets, natalLagna, transitPlanets, transitLagna, chartStyle, filter, natalAsp, transitAsp) {
     const filteredTransit = (transitPlanets || []).filter(p => filter.has(p.abbr))
     const natalSVG   = renderChartSVG(natalPlanets, natalLagna, chartStyle, undefined, undefined,
                          natalAsp.activeAspects, natalAsp.activePlanetColors)
     const transitSVG = transitPlanets?.length
-      ? renderChartSVG(filteredTransit, natalLagna, chartStyle, undefined, 'Transit',
+      ? renderChartSVG(filteredTransit, transitLagna, chartStyle, undefined, 'Transit',
           transitAsp.activeAspects, transitAsp.activePlanetColors)
       : '<div class="transit-loading">Calculating...</div>'
 

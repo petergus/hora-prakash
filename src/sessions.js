@@ -52,8 +52,11 @@ export function defaultTransitUI() {
     transitDate: null,
     transitTime: null,
     transitPlanets: [],
-    transitFilter: new Set(['Ju', 'Sa']),
+    transitLagna: null,
+    transitFilter: new Set(['Su','Mo','Ma','Me','Ju','Ve','Sa','Ra','Ke']),
     transitView: 'dual',
+    transitChartStyle: 'north',
+    natalAspectSource: null,
     transitAspectSource: null,
   }
 }

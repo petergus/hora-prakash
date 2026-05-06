@@ -109,7 +109,7 @@ function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
   }).join('\n')
 }
 
-export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects = [], activePlanetColors = {}) {
+function _northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors) {
   const lagnaSign = lagna.sign
 
   const cellToSign = {}, signToCell = {}
@@ -132,28 +132,17 @@ export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects =
     if (cell) cellPlanets[cell].push(p)
   }
 
-  const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
-    `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
-    buildArrowDefs(activeAspects),
-  ]
-
+  const parts = []
   for (let cell = 1; cell <= 12; cell++) {
     const poly = NI_POLYS[cell]
     parts.push(`<polygon points="${toPts(poly)}" fill="transparent" stroke="#94a3b8" stroke-width="1.2" data-sign="${cellToSign[cell]}" style="cursor:context-menu" pointer-events="all"/>`)
-
-    // Always use true centroid for X — bbox midpoint is wrong for asymmetric triangles
     const [cx, cy] = centroid(poly)
     const { minY, maxY } = bbox(poly)
     const cellH = maxY - minY
-
-    // Sign abbr: upper quarter of cell, centered on true centroid X
     const signFontSize = 14
     const signY = minY + cellH * 0.22 + signFontSize
     const sign = cellToSign[cell]
     parts.push(`<text x="${cx.toFixed(1)}" y="${signY.toFixed(1)}" text-anchor="middle" font-size="${signFontSize}" font-weight="600" fill="#64748b" ${FONT}><tspan>${signLabels[sign - 1]}</tspan><tspan font-size="10" fill="#94a3b8" dy="-1"> ${sign}</tspan></text>`)
-
-    // Planets fill remaining area below sign label
     parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6, activePlanetColors))
   }
 
@@ -170,11 +159,35 @@ export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects =
     }
   }
 
-  parts.push('</svg>')
+  return parts
+}
+
+export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects = [], activePlanetColors = {}) {
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
+    `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
+    buildArrowDefs(activeAspects),
+    ..._northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors),
+    '</svg>',
+  ]
   return parts.join('\n')
 }
 
-export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart', activeAspects = [], activePlanetColors = {}) {
+function placeTransitPlanets(ps, cx, areaTop, areaBottom) {
+  if (ps.length === 0) return ''
+  const areaH = areaBottom - areaTop
+  const lineH = Math.max(12, Math.min(15, areaH / ps.length))
+  const fontSize = Math.round(Math.min(13, lineH - 2))
+  const blockH = (ps.length - 1) * lineH
+  const firstY = areaTop + (areaH - blockH) / 2 + fontSize * 0.36
+  return ps.map((p, i) => {
+    const label = p.abbr + (p.retrograde ? '℞' : '')
+    const y = firstY + i * lineH
+    return `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="#d97706" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" style="cursor:pointer">${label}</text>`
+  }).join('\n')
+}
+
+function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, transitPlanets, transitFilter) {
   const lagnaSign = lagna.sign
   const cs = S / 4  // 120px per cell
 
@@ -183,10 +196,13 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
   signPlanets[lagnaSign].push({ abbr: 'Asc', degree: lagna.degree, retrograde: false, isLagna: true })
   for (const p of planets) signPlanets[p.sign].push(p)
 
+  const transitBySign = {}
+  for (let s = 1; s <= 12; s++) transitBySign[s] = []
+  for (const p of (transitPlanets || [])) {
+    if (!transitFilter || transitFilter.has(p.abbr)) transitBySign[p.sign].push(p)
+  }
+
   const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
-    `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
-    buildArrowDefs(activeAspects),
     `<rect x="${cs}" y="${cs}" width="${cs * 2}" height="${cs * 2}" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.5"/>`,
     ...centerLabel.split('\n').map((line, i, arr) => {
       const totalH = arr.length * 28
@@ -199,20 +215,23 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
     const x = col * cs, y = row * cs
     const house = ((sign - lagnaSign + 12) % 12) + 1
     const isLagnaCell = sign === lagnaSign
+    const tp = transitBySign[sign]
 
     parts.push(`<rect x="${x}" y="${y}" width="${cs}" height="${cs}" fill="${isLagnaCell ? '#fff7ed' : '#fafafa'}" stroke="#94a3b8" stroke-width="1.2" data-sign="${sign}" style="cursor:context-menu"/>`)
-
-    // Sign abbr top-left, house number top-right — fixed header row height = 24px
     const headerH = 24
     parts.push(`<text x="${x + 5}" y="${y + headerH - 4}" font-size="14" font-weight="600" fill="#475569" ${FONT}><tspan>${signLabels[sign - 1]}</tspan><tspan font-size="10" fill="#94a3b8" dy="-1"> ${sign}</tspan></text>`)
     parts.push(`<text x="${x + cs - 5}" y="${y + headerH - 4}" text-anchor="end" font-size="14" font-weight="600" fill="${isLagnaCell ? '#c2410c' : '#94a3b8'}" ${FONT}>${house}</text>`)
-
-    // Separator line below header
     parts.push(`<line x1="${x + 2}" y1="${y + headerH}" x2="${x + cs - 2}" y2="${y + headerH}" stroke="#e2e8f0" stroke-width="0.8"/>`)
 
-    // Planets fill the area below the header
     const cx = x + cs / 2
-    parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4, activePlanetColors))
+    if (tp && tp.length > 0) {
+      const midY = y + headerH + 2 + (cs - headerH - 6) / 2
+      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, midY - 2, activePlanetColors))
+      parts.push(`<line x1="${x + 4}" y1="${midY}" x2="${x + cs - 4}" y2="${midY}" stroke="#fde68a" stroke-width="0.8" stroke-dasharray="3 2"/>`)
+      parts.push(placeTransitPlanets(tp, cx, midY + 2, y + cs - 4))
+    } else {
+      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4, activePlanetColors))
+    }
   }
 
   const siCentroid = {}
@@ -232,6 +251,98 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
       parts.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.8" stroke-dasharray="8 5" marker-end="url(#${markerId})" opacity="0.85" style="animation:flowAspect 1.2s linear infinite"/>`)
     }
   }
+
+  return parts
+}
+
+export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart', activeAspects = [], activePlanetColors = {}) {
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
+    `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
+    buildArrowDefs(activeAspects),
+    ..._southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, [], new Set()),
+    '</svg>',
+  ]
+  return parts.join('\n')
+}
+
+const BORDER = 80
+const TOTAL  = S + BORDER * 2  // 640
+
+function _borderSections() {
+  const third = S / 3  // 160
+  return [
+    { house: 2,  x: BORDER,             y: 0,          w: third, h: BORDER },
+    { house: 1,  x: BORDER + third,     y: 0,          w: third, h: BORDER },
+    { house: 12, x: BORDER + third * 2, y: 0,          w: third, h: BORDER },
+    { house: 3,  x: 0, y: BORDER,             w: BORDER, h: third },
+    { house: 4,  x: 0, y: BORDER + third,     w: BORDER, h: third },
+    { house: 5,  x: 0, y: BORDER + third * 2, w: BORDER, h: third },
+    { house: 6,  x: BORDER,             y: BORDER + S, w: third, h: BORDER },
+    { house: 7,  x: BORDER + third,     y: BORDER + S, w: third, h: BORDER },
+    { house: 8,  x: BORDER + third * 2, y: BORDER + S, w: third, h: BORDER },
+    { house: 11, x: BORDER + S, y: BORDER,             w: BORDER, h: third },
+    { house: 10, x: BORDER + S, y: BORDER + third,     w: BORDER, h: third },
+    { house: 9,  x: BORDER + S, y: BORDER + third * 2, w: BORDER, h: third },
+  ]
+}
+
+export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets, style, filter, activeAspects = [], activePlanetColors = {}) {
+  if (style === 'south') {
+    const parts = [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
+      `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
+      buildArrowDefs(activeAspects),
+      ..._southChartParts(natalPlanets, natalLagna, SIGN_ABBR, 'Natal\nTransit', activeAspects, activePlanetColors, transitPlanets, filter),
+      '</svg>',
+    ]
+    return parts.join('\n')
+  }
+
+  // North Indian — 640×640 with border house zones
+  const byHouse = {}
+  for (const p of (transitPlanets || [])) {
+    if (!filter.has(p.abbr)) continue
+    if (!byHouse[p.house]) byHouse[p.house] = []
+    byHouse[p.house].push(p)
+  }
+
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TOTAL} ${TOTAL}" style="width:100%;max-width:${TOTAL}px">`,
+    `<rect width="${TOTAL}" height="${TOTAL}" fill="#f8fafc" rx="6"/>`,
+    `<rect x="0"            y="0"            width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
+    `<rect x="${BORDER + S}" y="0"            width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
+    `<rect x="0"            y="${BORDER + S}" width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
+    `<rect x="${BORDER + S}" y="${BORDER + S}" width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
+    buildArrowDefs(activeAspects),
+  ]
+
+  for (const sec of _borderSections()) {
+    const { house, x, y, w, h } = sec
+    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fffbeb" stroke="#fde68a" stroke-width="0.8"/>`)
+    parts.push(`<text x="${(x + 3).toFixed(1)}" y="${(y + 10).toFixed(1)}" font-size="9" fill="#94a3b8" ${FONT}>H${house}</text>`)
+    const ps = byHouse[house] || []
+    if (ps.length > 0) {
+      const cx = x + w / 2
+      const areaTop = y + 13, areaBottom = y + h - 2
+      const areaH = areaBottom - areaTop
+      const lineH = Math.max(11, Math.min(15, areaH / ps.length))
+      const fontSize = Math.round(Math.min(12, lineH - 2))
+      const blockH = (ps.length - 1) * lineH
+      const firstY = areaTop + (areaH - blockH) / 2 + fontSize * 0.36
+      ps.forEach((p, i) => {
+        const label = p.abbr + (p.retrograde ? '℞' : '')
+        const py = firstY + i * lineH
+        parts.push(`<text x="${cx.toFixed(1)}" y="${py.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="#d97706" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" style="cursor:pointer">${label}</text>`)
+      })
+    }
+  }
+
+  // Natal chart body centered at (BORDER, BORDER)
+  parts.push(`<g transform="translate(${BORDER},${BORDER})">`)
+  parts.push(`<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`)
+  parts.push(..._northChartParts(natalPlanets, natalLagna, SIGN_ABBR, activeAspects, activePlanetColors))
+  parts.push(`</g>`)
 
   parts.push('</svg>')
   return parts.join('\n')

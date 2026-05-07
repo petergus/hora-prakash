@@ -1,5 +1,6 @@
 // src/tabs/input.js
 import { searchLocation, getTimezone } from '../utils/geocoding.js'
+import { addToCache } from '../utils/location-cache.js'
 import { toJulianDay } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
@@ -613,7 +614,7 @@ async function onLocationInput(e) {
 function renderSuggestions(results) {
   const ul = document.getElementById('location-suggestions')
   ul.innerHTML = results.map((r, i) =>
-    `<li data-index="${i}" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${escapeAttr(r.displayName)}">${escapeHtml(r.displayName)}</li>`
+    `<li data-index="${i}" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${escapeAttr(r.displayName)}" data-tz="${escapeAttr(r.tz || '')}">${escapeHtml(r.displayName)}</li>`
   ).join('')
 }
 
@@ -628,8 +629,9 @@ async function onSuggestionClick(e) {
   const lat = parseFloat(li.dataset.lat)
   const lon = parseFloat(li.dataset.lon)
   try {
-    const tz = await getTimezone(lat, lon)
+    const tz = li.dataset.tz || await getTimezone(lat, lon)
     selectedLocation = { displayName: li.dataset.name, lat, lon, timezone: tz }
+    addToCache({ displayName: li.dataset.name, lat, lon, tz })
     document.getElementById('inp-location').value = li.dataset.name
     fillCoords(lat, lon, tz)
     clearSuggestions()

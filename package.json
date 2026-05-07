@@ -10,8 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "parse-places": "node scripts/parse-places.js",
-    "prebuild": "node scripts/parse-places.js"
+    "parse-places": "node scripts/parse-places.js"
   },
   "keywords": [],
   "author": "",

@@ -29,7 +29,7 @@ export function getNakshatraInfo(lon) {
 }
 
 // Parashari combustion orbs in degrees (planets not listed are immune: Sun, Rahu, Ketu)
-const COMBUST_ORBS = {
+export const COMBUST_ORBS = {
   Moon: 12, Mars: 17, Mercury: 14, Jupiter: 11, Venus: 10, Saturn: 15,
 }
 

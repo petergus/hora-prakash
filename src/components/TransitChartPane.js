@@ -38,6 +38,8 @@ export class TransitChartPane {
 
   setTooltipEnabled(v) { this._tooltip.setEnabled(v) }
 
+  getTooltip() { return this._tooltip }
+
   destroy() {
     if (this._onClick)   this.el.removeEventListener('click',       this._onClick)
     if (this._onCtxMenu) this.el.removeEventListener('contextmenu', this._onCtxMenu)

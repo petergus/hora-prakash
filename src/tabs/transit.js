@@ -9,6 +9,8 @@ import { calcDivisional }                                       from '../core/di
 import { TransitToolbar }                                       from '../components/TransitToolbar.js'
 import { TransitChartPane }                                     from '../components/TransitChartPane.js'
 import { TransitTable }                                         from '../components/TransitTable.js'
+import { findNextEvents }  from '../core/transitForecast.js'
+import { PLANETS }         from '../core/swisseph.js'
 
 // Set aspect sources to planets that aspect a given house number (1-12)
 function applyAspectToHouse(houseNum, natalDiv, natalDivLagna, transitDiv) {
@@ -37,6 +39,7 @@ function applyDivisional(planets, lagna, key) {
 let _toolbar   = null
 let _chartPane = null
 let _table     = null
+let _tooltip   = null
 
 function getTransitUI() {
   const s = getActiveSession()
@@ -120,6 +123,12 @@ function handleToolbarChange(key, value) {
     _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
     _table?.render(natalDiv, transitDiv, t2n, t2t, natalDivLagna, transitDivLagna, div)
   } else {
+    if (key === 'transitDate' || key === 'transitTime') {
+      const ui = getTransitUI()
+      ui.forecastCache = {}
+      _tooltip?.clearForecasts()
+      _table?.clearForecasts()
+    }
     calcAndRender()
   }
 }
@@ -169,6 +178,33 @@ function handleClearAspects() {
 }
 
 
+function requestForecast(abbr) {
+  const ui = getTransitUI()
+  if (!state.planets || !state.lagna) return
+
+  ui.forecastCache ??= {}
+  if (ui.forecastCache[abbr]) {
+    _tooltip?.setForecast(abbr, ui.forecastCache[abbr])
+    _table?.setForecast(abbr, ui.forecastCache[abbr])
+    return
+  }
+
+  const date = ui.transitDate ?? todayDate()
+  const time = ui.transitTime ?? nowTime()
+  const tz   = state.birth?.timezone ?? '+00:00'
+  const jd   = toJulianDay(date, time, tz)
+
+  const planet = PLANETS.find(p => p.abbr === abbr)
+  if (!planet) return
+
+  Promise.resolve().then(() => {
+    const events = findNextEvents(planet, jd, state.planets, state.lagna.sign)
+    ui.forecastCache[abbr] = events
+    _tooltip?.setForecast(abbr, events)
+    _table?.setForecast(abbr, events)
+  })
+}
+
 function _reRenderChart() {
   const ui             = getTransitUI()
   const transitPlanets = ui.transitPlanets ?? []
@@ -207,6 +243,10 @@ export function renderTransit() {
   _toolbar   = new TransitToolbar(document.getElementById('transit-toolbar-el'), getTransitUI, handleToolbarChange, handleClearAspects)
   _chartPane = new TransitChartPane(document.getElementById('transit-chart-el'),  getTransitUI, handlePlanetClick, handleToolbarChange, handleAspectToSign)
   _table     = new TransitTable(document.getElementById('transit-table-el'),      getTransitUI)
+
+  _tooltip = _chartPane.getTooltip()
+  _tooltip?.setForecastProvider(requestForecast)
+  _table.setForecastProvider(requestForecast)
 
   calcAndRender()
 }

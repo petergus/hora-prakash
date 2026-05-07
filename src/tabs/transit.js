@@ -239,6 +239,7 @@ function _wireExportBtn() {
       { ...transitLagna, name: 'Transit Asc', abbr: 'Asc', house: 1, retrograde: false },
     ]
 
+    const isOverlay = transitView === 'overlay'
     showExportModal({
       context: 'transit',
       chartStyle,
@@ -246,9 +247,11 @@ function _wireExportBtn() {
       transitView,
       transitPlanets: transitRows,
       transitLabel: `Transit Planets — ${date} ${time}`,
-      extraSvgFn: transitView === 'dual'
-        ? () => _chartPane?.getSvgString() ?? ''
-        : null,
+      // Overlay: chartKeys=[] so no natal chart is generated; extraSvgFn provides the combined chart
+      // Dual: chartKeys=['D1'] generates natal chart; extraSvgFn appends transit chart
+      chartKeys:   isOverlay ? [] : ['D1'],
+      chartLabels: isOverlay ? ['Natal + Transit'] : ['Natal', 'Transit'],
+      extraSvgFn:  () => _chartPane?.getSvgString() ?? '',
     })
   }
   btn.addEventListener('click', _exportBtnListener)

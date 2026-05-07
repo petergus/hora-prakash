@@ -5,14 +5,23 @@ import { calcDivisional } from '../core/divisional.js'
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
-// Shared layout constants for both buildCanvas and exportSVG
-const EXPORT_W        = 1200
-const EXPORT_PAD      = 28
-const EXPORT_CHART_H  = 480
-const EXPORT_ROW_H    = 24
-const EXPORT_HEADER_H = 96
-const EXPORT_COLS     = [28, 130, 230, 380, 490, 660, 760]
-const EXPORT_HEADERS  = ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Pada', 'Retro']
+// Layout constants
+const EXPORT_W         = 1200
+const EXPORT_PAD       = 32
+const EXPORT_CHART_H   = 480   // max chart size (square)
+const EXPORT_CHART_GAP = 24    // gap between charts horizontally and between rows
+const EXPORT_LABEL_H   = 30    // height of label above each chart
+const EXPORT_ROW_H     = 24
+const EXPORT_HEADER_H  = 100
+const EXPORT_COLS      = [32, 140, 250, 400, 510, 690, 800]
+const EXPORT_HEADERS   = ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Pada', 'Retro']
+
+// Max 2 charts per row
+const CHARTS_PER_ROW  = 2
+// Cell width when 2 charts in a row
+const EXPORT_CELL_W   = Math.floor((EXPORT_W - EXPORT_PAD * 2 - EXPORT_CHART_GAP) / 2)
+// Actual chart render size (square, capped at EXPORT_CHART_H)
+const EXPORT_CHART_SIZE = Math.min(EXPORT_CHART_H, EXPORT_CELL_W)
 
 function fmtDeg(dec) {
   if (dec == null) return '—'
@@ -28,7 +37,7 @@ function svgToImage(svgStr) {
     const blob = new Blob([svgStr], { type: 'image/svg+xml' })
     const url  = URL.createObjectURL(blob)
     const img  = new Image()
-    img.onload = () => resolve({ img, url })
+    img.onload  = () => resolve({ img, url })
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG load failed')) }
     img.src = url
   })
@@ -50,52 +59,69 @@ function makeFilename(birth, keys, ext) {
   return `hora-prakash_${name}_${dob}_${keys.join('-')}.${ext}`
 }
 
+// Compute chart area height for N charts
+function chartAreaHeight(n) {
+  const rows = Math.ceil(n / CHARTS_PER_ROW)
+  return rows * (EXPORT_LABEL_H + EXPORT_CHART_SIZE) + (rows - 1) * EXPORT_CHART_GAP
+}
+
+// x,y position of chart i (top-left of label area)
+function chartPos(i, n) {
+  const row = Math.floor(i / CHARTS_PER_ROW)
+  const col = i % CHARTS_PER_ROW
+  const chartsInRow = Math.min(CHARTS_PER_ROW, n - row * CHARTS_PER_ROW)
+  const rowW = chartsInRow * EXPORT_CHART_SIZE + (chartsInRow - 1) * EXPORT_CHART_GAP
+  const rowStartX = EXPORT_PAD + Math.floor((EXPORT_W - EXPORT_PAD * 2 - rowW) / 2)
+  const x = rowStartX + col * (EXPORT_CHART_SIZE + EXPORT_CHART_GAP)
+  const y = EXPORT_HEADER_H + row * (EXPORT_LABEL_H + EXPORT_CHART_SIZE + EXPORT_CHART_GAP)
+  return { x, y }
+}
+
 /**
  * opts = {
- *   chartKeys: string[],          // e.g. ['D1','D9'] max 6
+ *   chartKeys: string[],          // divisional keys to generate; empty for overlay transit
+ *   chartLabels?: string[],       // display label per chart slot (chartKeys + extra)
  *   chartStyle: 'north'|'south',
  *   state: { birth, planets, lagna },
- *   transitPlanets?: Planet[],    // set for transit export
- *   transitLabel?: string,        // e.g. 'Transit 2026-05-07'
- *   extraSvgFn?: () => string,    // function returning extra SVG string (e.g. transit dual chart)
+ *   transitPlanets?: Planet[],
+ *   transitLabel?: string,
+ *   extraSvgFn?: () => string,    // extra SVG appended after chartKeys charts
  * }
  */
 export async function buildCanvas(opts) {
-  const { chartKeys, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
+  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
   const { birth, planets, lagna } = state
 
   const W        = EXPORT_W
   const PAD      = EXPORT_PAD
-  const CHART_H  = EXPORT_CHART_H
   const ROW_H    = EXPORT_ROW_H
   const HEADER_H = EXPORT_HEADER_H
 
-  // Generate chart SVG strings
+  // Generate SVGs for divisional chart keys
   const chartSvgs = chartKeys.map(key => {
     const { planets: dp, lagna: dl } = calcDivisional(planets, lagna, key)
-    const label = key === 'D1' ? 'Rashi\nChart' : key
-    return renderChartSVG(dp, dl, chartStyle, undefined, label, [], {})
+    return renderChartSVG(dp, dl, chartStyle, undefined, undefined, [], {})
   })
 
-  // If extra SVG provided (transit dual chart), append it
+  // Append extra SVG (e.g. transit chart from pane)
   const allSvgs = extraSvgFn ? [...chartSvgs, extraSvgFn()] : chartSvgs
 
   const loadedImgs = await Promise.all(allSvgs.map(svg => svgToImage(svg)))
 
-  // D1 planets for table
+  // D1 natal planet table
   const { planets: d1Planets, lagna: d1Lagna } = calcDivisional(planets, lagna, 'D1')
   const tableRows = [
     ...d1Planets,
     { ...d1Lagna, name: 'Lagna', abbr: 'Asc', house: 1, retrograde: false },
   ]
 
-  // Transit rows (if any)
   const transitRows = transitPlanets ?? []
 
   const natalTableH   = (tableRows.length + 2) * ROW_H + PAD * 2
   const transitTableH = transitRows.length > 0 ? (transitRows.length + 2) * ROW_H + PAD * 2 : 0
+  const chartAreaH    = chartAreaHeight(allSvgs.length)
 
-  const totalH = HEADER_H + CHART_H + natalTableH + transitTableH
+  const totalH = HEADER_H + chartAreaH + natalTableH + transitTableH
 
   const canvas = document.createElement('canvas')
   canvas.width  = W
@@ -103,32 +129,59 @@ export async function buildCanvas(opts) {
   const ctx = canvas.getContext('2d')
 
   // ── Background ──
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = '#f8fafc'
   ctx.fillRect(0, 0, W, totalH)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, W, HEADER_H)
 
   // ── Header ──
   ctx.fillStyle = '#1e293b'
-  ctx.font = 'bold 20px Inter, system-ui, sans-serif'
-  ctx.fillText(birth?.name ?? '', PAD, 32)
+  ctx.font = 'bold 22px Inter, system-ui, sans-serif'
+  ctx.fillText(birth?.name ?? '', PAD, 36)
+
   ctx.font = '14px Inter, system-ui, sans-serif'
   ctx.fillStyle = '#475569'
   const dob = birth?.dob ?? ''
   const tob = birth?.tob ?? ''
-  const loc = (birth?.location ?? '').slice(0, 60)
-  ctx.fillText(`${dob}  ${tob}  |  ${loc}`, PAD, 56)
+  const loc = (birth?.location ?? '').slice(0, 70)
+  ctx.fillText(`${dob}  ${tob}  |  ${loc}`, PAD, 62)
+
   if (birth?.lat != null && birth?.lon != null) {
-    const latStr = `${Math.abs(birth.lat).toFixed(2)}°${birth.lat >= 0 ? 'N' : 'S'}`
-    const lonStr = `${Math.abs(birth.lon).toFixed(2)}°${birth.lon >= 0 ? 'E' : 'W'}`
+    const latStr = `${Math.abs(birth.lat).toFixed(4)}°${birth.lat >= 0 ? 'N' : 'S'}`
+    const lonStr = `${Math.abs(birth.lon).toFixed(4)}°${birth.lon >= 0 ? 'E' : 'W'}`
     const tz = birth.timezone ?? ''
-    ctx.fillText(`${latStr}  ${lonStr}  |  TZ: ${tz}`, PAD, 76)
+    ctx.fillText(`${latStr}  ${lonStr}  |  ${tz}`, PAD, 84)
   }
 
-  // ── Charts row ──
-  const chartCount = allSvgs.length
-  const chartW    = Math.floor((W - PAD * 2) / chartCount)
-  const chartSize = Math.min(CHART_H, chartW)
+  // Divider under header
+  ctx.strokeStyle = '#e2e8f0'
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(0, HEADER_H - 1); ctx.lineTo(W, HEADER_H - 1); ctx.stroke()
+
+  // ── Charts ──
+  const n = allSvgs.length
   for (let i = 0; i < loadedImgs.length; i++) {
-    ctx.drawImage(loadedImgs[i].img, PAD + i * chartW, HEADER_H, chartSize, chartSize)
+    const { x, y } = chartPos(i, n)
+    const label = chartLabels?.[i] ?? chartKeys[i] ?? `Chart ${i + 1}`
+
+    // Chart background card
+    ctx.fillStyle = '#ffffff'
+    ctx.shadowColor = 'rgba(0,0,0,0.08)'
+    ctx.shadowBlur = 8
+    ctx.beginPath()
+    ctx.roundRect(x - 8, y, EXPORT_CHART_SIZE + 16, EXPORT_LABEL_H + EXPORT_CHART_SIZE + 8, 8)
+    ctx.fill()
+    ctx.shadowBlur = 0
+
+    // Label
+    ctx.font = 'bold 14px Inter, system-ui, sans-serif'
+    ctx.fillStyle = '#6366f1'
+    ctx.textAlign = 'center'
+    ctx.fillText(label, x + EXPORT_CHART_SIZE / 2, y + EXPORT_LABEL_H - 8)
+    ctx.textAlign = 'left'
+
+    // Chart SVG
+    ctx.drawImage(loadedImgs[i].img, x, y + EXPORT_LABEL_H, EXPORT_CHART_SIZE, EXPORT_CHART_SIZE)
     URL.revokeObjectURL(loadedImgs[i].url)
   }
 
@@ -136,18 +189,24 @@ export async function buildCanvas(opts) {
   const COLS    = EXPORT_COLS
   const HEADERS = EXPORT_HEADERS
 
-  let ty = HEADER_H + CHART_H + PAD
+  let ty = HEADER_H + chartAreaH + PAD
+
+  // Table card background
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(PAD - 8, ty - 8, W - (PAD - 8) * 2, natalTableH, 8)
+  ctx.fill()
 
   ctx.font = 'bold 14px Inter, system-ui, sans-serif'
   ctx.fillStyle = '#1e293b'
-  ctx.fillText('Natal Planets (D1)', PAD, ty)
-  ty += ROW_H
+  ctx.fillText('Natal Planets (D1)', COLS[0], ty + 6)
+  ty += ROW_H + 4
 
-  ctx.font = 'bold 12px Inter, system-ui, sans-serif'
-  ctx.fillStyle = '#64748b'
+  ctx.font = 'bold 11px Inter, system-ui, sans-serif'
+  ctx.fillStyle = '#94a3b8'
   HEADERS.forEach((h, i) => ctx.fillText(h, COLS[i], ty))
   ty += 4
-  ctx.strokeStyle = '#cbd5e1'
+  ctx.strokeStyle = '#e2e8f0'
   ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(PAD, ty); ctx.lineTo(W - PAD, ty); ctx.stroke()
   ty += ROW_H - 4
@@ -166,18 +225,26 @@ export async function buildCanvas(opts) {
     ty += ROW_H
   }
 
-  // ── Transit planet table (if provided) ──
+  // ── Transit planet table ──
   if (transitRows.length > 0) {
     ty += PAD
+
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(PAD - 8, ty - 8, W - (PAD - 8) * 2, transitTableH, 8)
+    ctx.fill()
+
     ctx.font = 'bold 14px Inter, system-ui, sans-serif'
     ctx.fillStyle = '#1e293b'
-    ctx.fillText(transitLabel ?? 'Transit Planets', PAD, ty)
-    ty += ROW_H
+    ctx.fillText(transitLabel ?? 'Transit Planets', COLS[0], ty + 6)
+    ty += ROW_H + 4
 
-    ctx.font = 'bold 12px Inter, system-ui, sans-serif'
-    ctx.fillStyle = '#64748b'
+    ctx.font = 'bold 11px Inter, system-ui, sans-serif'
+    ctx.fillStyle = '#94a3b8'
     HEADERS.forEach((h, i) => ctx.fillText(h, COLS[i], ty))
     ty += 4
+    ctx.strokeStyle = '#e2e8f0'
+    ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(PAD, ty); ctx.lineTo(W - PAD, ty); ctx.stroke()
     ty += ROW_H - 4
 
@@ -201,7 +268,7 @@ export async function buildCanvas(opts) {
 
 export async function exportChart(format, opts) {
   const { state } = opts
-  const keys = opts.chartKeys
+  const keys = opts.chartKeys.length ? opts.chartKeys : ['transit']
 
   if (format === 'png') {
     const canvas = await buildCanvas(opts)
@@ -224,7 +291,6 @@ export async function exportChart(format, opts) {
     const canvas = await buildCanvas(opts)
     const { jsPDF } = await import('jspdf')
     const W = canvas.width, H = canvas.height
-    // Scale to A4 width (210mm), preserving aspect ratio
     const A4_W_MM = 210
     const A4_H_MM = Math.round((H / W) * A4_W_MM)
     const pdf = new jsPDF({ orientation: A4_H_MM > A4_W_MM ? 'portrait' : 'landscape', unit: 'mm', format: [A4_W_MM, A4_H_MM] })
@@ -234,25 +300,20 @@ export async function exportChart(format, opts) {
 }
 
 async function exportSVG(opts) {
-  const { chartKeys, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
+  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
   const { birth, planets, lagna } = state
 
   const W        = EXPORT_W
   const PAD      = EXPORT_PAD
-  const CHART_H  = EXPORT_CHART_H
   const ROW_H    = EXPORT_ROW_H
   const HEADER_H = EXPORT_HEADER_H
 
   const chartSvgs = chartKeys.map(key => {
     const { planets: dp, lagna: dl } = calcDivisional(planets, lagna, key)
-    const label = key === 'D1' ? 'Rashi\nChart' : key
-    return renderChartSVG(dp, dl, chartStyle, undefined, label, [], {})
+    return renderChartSVG(dp, dl, chartStyle, undefined, undefined, [], {})
   })
   const allSvgs = extraSvgFn ? [...chartSvgs, extraSvgFn()] : chartSvgs
-
-  const chartCount = allSvgs.length
-  const chartW    = Math.floor((W - PAD * 2) / chartCount)
-  const chartSize = Math.min(CHART_H, chartW)
+  const n = allSvgs.length
 
   const { planets: d1Planets, lagna: d1Lagna } = calcDivisional(planets, lagna, 'D1')
   const tableRows = [
@@ -263,19 +324,24 @@ async function exportSVG(opts) {
 
   const natalTableH   = (tableRows.length + 2) * ROW_H + PAD * 2
   const transitTableH = transitRows.length > 0 ? (transitRows.length + 2) * ROW_H + PAD * 2 : 0
-  const totalH = HEADER_H + CHART_H + natalTableH + transitTableH
+  const chartAreaH    = chartAreaHeight(n)
+  const totalH        = HEADER_H + chartAreaH + natalTableH + transitTableH
 
-  // Embed each chart SVG as a <g> with transform (strip outer <svg> tag)
-  // Prefix all id attributes and references to avoid collisions across multiple embedded charts
+  // Prefix SVG ids to prevent collision when embedding multiple charts
   const embeddedCharts = allSvgs.map((svg, i) => {
     let inner = svg.replace(/<svg[^>]*>/s, '').replace(/<\/svg>\s*$/, '')
     inner = inner
       .replace(/\bid="([^"]+)"/g, `id="chart${i}-$1"`)
       .replace(/url\(#([^)]+)\)/g, `url(#chart${i}-$1)`)
       .replace(/href="#([^"]+)"/g, `href="#chart${i}-$1"`)
-    const x     = PAD + i * chartW
-    const scale = chartSize / 480
-    return `<g transform="translate(${x},${HEADER_H}) scale(${scale.toFixed(4)})">${inner}</g>`
+    const { x, y } = chartPos(i, n)
+    const scale = EXPORT_CHART_SIZE / 480
+    const label = chartLabels?.[i] ?? chartKeys[i] ?? `Chart ${i + 1}`
+    return [
+      `<rect x="${x - 8}" y="${y}" width="${EXPORT_CHART_SIZE + 16}" height="${EXPORT_LABEL_H + EXPORT_CHART_SIZE + 8}" rx="8" fill="#ffffff" filter="url(#card-shadow)"/>`,
+      `<text x="${x + EXPORT_CHART_SIZE / 2}" y="${y + EXPORT_LABEL_H - 8}" font-size="13" font-weight="bold" fill="#6366f1" font-family="Inter,system-ui,sans-serif" text-anchor="middle">${esc(label)}</text>`,
+      `<g transform="translate(${x},${y + EXPORT_LABEL_H}) scale(${scale.toFixed(4)})">${inner}</g>`,
+    ].join('\n')
   })
 
   const COLS    = EXPORT_COLS
@@ -287,10 +353,10 @@ async function exportSVG(opts) {
     let ty = startY
     const parts = []
     HEADERS.forEach((h, i) => {
-      parts.push(`<text x="${COLS[i]}" y="${ty}" font-size="11" fill="#64748b" font-weight="600" font-family="Inter,system-ui,sans-serif">${h}</text>`)
+      parts.push(`<text x="${COLS[i]}" y="${ty}" font-size="10" fill="#94a3b8" font-weight="600" font-family="Inter,system-ui,sans-serif">${h}</text>`)
     })
     ty += 4
-    parts.push(`<line x1="${PAD}" y1="${ty}" x2="${W - PAD}" y2="${ty}" stroke="#cbd5e1" stroke-width="1"/>`)
+    parts.push(`<line x1="${PAD}" y1="${ty}" x2="${W - PAD}" y2="${ty}" stroke="#e2e8f0" stroke-width="1"/>`)
     ty += ROW_H - 4
 
     for (const p of rows) {
@@ -312,25 +378,35 @@ async function exportSVG(opts) {
     return { svg: parts.join('\n'), endY: ty }
   }
 
+  const tableStartY = HEADER_H + chartAreaH + PAD
+  const natalStart  = tableStartY + ROW_H + 4
+
   const svgParts = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}">`,
-    `<rect width="${W}" height="${totalH}" fill="#ffffff"/>`,
-    `<text x="${PAD}" y="30" font-size="18" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">${esc(birth?.name ?? '')}</text>`,
-    `<text x="${PAD}" y="54" font-size="13" fill="#475569" font-family="Inter,system-ui,sans-serif">${esc(`${birth?.dob ?? ''} ${birth?.tob ?? ''} | ${(birth?.location ?? '').slice(0, 60)}`)}</text>`,
+    `<defs><filter id="card-shadow" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.08)"/></filter></defs>`,
+    `<rect width="${W}" height="${totalH}" fill="#f8fafc"/>`,
+    `<rect width="${W}" height="${HEADER_H}" fill="#ffffff"/>`,
+    `<line x1="0" y1="${HEADER_H - 1}" x2="${W}" y2="${HEADER_H - 1}" stroke="#e2e8f0" stroke-width="1"/>`,
+    `<text x="${PAD}" y="36" font-size="20" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">${esc(birth?.name ?? '')}</text>`,
+    `<text x="${PAD}" y="62" font-size="13" fill="#475569" font-family="Inter,system-ui,sans-serif">${esc(`${birth?.dob ?? ''} ${birth?.tob ?? ''} | ${(birth?.location ?? '').slice(0, 70)}`)}</text>`,
     birth?.lat != null
-      ? `<text x="${PAD}" y="74" font-size="13" fill="#475569" font-family="Inter,system-ui,sans-serif">${esc(`${Math.abs(birth.lat).toFixed(2)}°${birth.lat >= 0 ? 'N' : 'S'} ${Math.abs(birth.lon).toFixed(2)}°${birth.lon >= 0 ? 'E' : 'W'} | TZ: ${birth.timezone ?? ''}`)}</text>`
+      ? `<text x="${PAD}" y="84" font-size="13" fill="#475569" font-family="Inter,system-ui,sans-serif">${esc(`${Math.abs(birth.lat).toFixed(4)}°${birth.lat >= 0 ? 'N' : 'S'} ${Math.abs(birth.lon).toFixed(4)}°${birth.lon >= 0 ? 'E' : 'W'} | ${birth.timezone ?? ''}`)}</text>`
       : '',
     ...embeddedCharts,
-    `<text x="${PAD}" y="${HEADER_H + CHART_H + PAD + 14}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">Natal Planets (D1)</text>`,
+    // Natal table card
+    `<rect x="${PAD - 8}" y="${tableStartY - 8}" width="${W - (PAD - 8) * 2}" height="${natalTableH}" rx="8" fill="#ffffff" filter="url(#card-shadow)"/>`,
+    `<text x="${COLS[0]}" y="${tableStartY + 6}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">Natal Planets (D1)</text>`,
   ]
 
-  const natalStart = HEADER_H + CHART_H + PAD + ROW_H + 4
   const { svg: natalSVG, endY: natalEnd } = tableRowsSVG(tableRows, natalStart)
   svgParts.push(natalSVG)
 
   if (transitRows.length > 0) {
-    svgParts.push(`<text x="${PAD}" y="${natalEnd + PAD + 14}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">${esc(transitLabel ?? 'Transit Planets')}</text>`)
-    const { svg: transitSVG } = tableRowsSVG(transitRows, natalEnd + PAD + ROW_H + 4, '#0369a1')
+    const tTableStartY = natalEnd + PAD
+    const tTableStart  = tTableStartY + ROW_H + 4
+    svgParts.push(`<rect x="${PAD - 8}" y="${tTableStartY - 8}" width="${W - (PAD - 8) * 2}" height="${transitTableH}" rx="8" fill="#ffffff" filter="url(#card-shadow)"/>`)
+    svgParts.push(`<text x="${COLS[0]}" y="${tTableStartY + 6}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">${esc(transitLabel ?? 'Transit Planets')}</text>`)
+    const { svg: transitSVG } = tableRowsSVG(transitRows, tTableStart, '#0369a1')
     svgParts.push(transitSVG)
   }
 
@@ -338,7 +414,7 @@ async function exportSVG(opts) {
 
   const svgStr = svgParts.join('\n')
   const blob   = new Blob([svgStr], { type: 'image/svg+xml' })
-  downloadBlob(blob, makeFilename(birth, chartKeys, 'svg'))
+  downloadBlob(blob, makeFilename(birth, chartKeys.length ? chartKeys : ['transit'], 'svg'))
 }
 
 const DIVISIONAL_OPTIONS = [
@@ -348,13 +424,14 @@ const DIVISIONAL_OPTIONS = [
 /**
  * modalOpts = {
  *   context: 'chart' | 'transit',
- *   activeKeys: string[],
+ *   activeKeys?: string[],         // pre-ticked chart keys (chart tab)
+ *   chartKeys?: string[],          // override chart keys (transit tab)
+ *   chartLabels?: string[],        // per-chart display labels
  *   chartStyle: string,
  *   state: object,
  *   transitView?: 'dual'|'overlay',
  *   transitPlanets?: Planet[],
  *   transitLabel?: string,
- *   transitChartStyle?: string,
  *   extraSvgFn?: () => string,
  * }
  */
@@ -434,7 +511,8 @@ export function showExportModal(modalOpts) {
 
     let chartKeys
     if (isTransit) {
-      chartKeys = ['D1']
+      // For transit, use override keys from caller (empty for overlay, ['D1'] for dual)
+      chartKeys = modalOpts.chartKeys ?? ['D1']
     } else {
       chartKeys = [...overlay.querySelectorAll('#export-chart-checks input:checked')].map(c => c.value)
       if (chartKeys.length === 0) { alert('Select at least one chart.'); return }
@@ -448,13 +526,19 @@ export function showExportModal(modalOpts) {
       const exportOpts = isTransit
         ? {
             chartKeys,
-            chartStyle: modalOpts.transitChartStyle ?? 'north',
+            chartLabels:  modalOpts.chartLabels,
+            chartStyle:   modalOpts.chartStyle ?? 'north',
             state,
             transitPlanets: modalOpts.transitPlanets ?? [],
             transitLabel:   modalOpts.transitLabel,
             extraSvgFn:     modalOpts.extraSvgFn,
           }
-        : { chartKeys, chartStyle, state }
+        : {
+            chartKeys,
+            chartLabels: chartKeys,  // use key names as labels for chart tab
+            chartStyle,
+            state,
+          }
 
       await exportChart(format, exportOpts)
       overlay.remove()

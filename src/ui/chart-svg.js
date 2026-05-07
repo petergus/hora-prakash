@@ -34,6 +34,12 @@ const SI_CELLS = [
   { sign: 11, col: 0, row: 1 },
 ]
 
+const TRANSIT_PLANET_COLORS = {
+  Su: '#0369a1', Mo: '#4338ca', Ma: '#b91c1c',
+  Me: '#047857', Ju: '#c2410c', Ve: '#9d174d',
+  Sa: '#334155', Ra: '#5b21b6', Ke: '#0e7490',
+}
+
 const SIGN_ABBR  = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 export const CHALIT_LABELS = ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12']
@@ -203,7 +209,7 @@ function placeTransitPlanets(ps, cx, areaTop, areaBottom) {
     const label = p.isTransitLagna
       ? `Ascᵀ${deg}`
       : `${p.abbr}ᵀ${p.retrograde ? 'ᴿ' : ''}${deg}`
-    const color = p.isTransitLagna ? '#c2410c' : '#d97706'
+    const color = p.isTransitLagna ? '#c2410c' : (TRANSIT_PLANET_COLORS[p.abbr] ?? '#0369a1')
     const y = firstY + i * lineH
     const tip = _tipAttr(p, true)
     return `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" ${tip} style="cursor:pointer">${label}</text>`
@@ -385,7 +391,7 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
     const label  = p.isTransitLagna ? `Ascᵀ${deg}` : `${p.abbr}ᵀ${p.retrograde ? 'ᴿ' : ''}${deg}`
     const abbrKey = p.isTransitLagna ? 'Asc' : p.abbr
     const activeColor = transitActivePlanetColors[abbrKey]
-    const color  = p.isTransitLagna ? '#c2410c' : (activeColor ?? '#d97706')
+    const color  = p.isTransitLagna ? '#c2410c' : (activeColor ?? TRANSIT_PLANET_COLORS[p.abbr] ?? '#0369a1')
     const fontSize = p.isTransitLagna ? fs + 1 : fs
     const weight = p.isTransitLagna ? '700' : '600'
     const tipAttr = _tipAttr(p, true)
@@ -419,8 +425,7 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
       const cx_s = x + w / 2
       const cy_s = y + h / 2
       const rot  = `rotate(-90, ${cx_s.toFixed(1)}, ${cy_s.toFixed(1)})`
-      const hlx = cy_s + cx_s - y - 9
-      parts.push(`<text x="${hlx.toFixed(1)}" y="${cy_s.toFixed(1)}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="${rot}" ${FONT}>H${house}</text>`)
+      parts.push(`<text x="${(x + w / 2).toFixed(1)}" y="${(y + 10).toFixed(1)}" text-anchor="middle" font-size="9" fill="#94a3b8" ${FONT}>H${house}</text>`)
 
       if (ps.length > 0) {
         const rows = ps.length >= 4

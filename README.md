@@ -28,7 +28,7 @@ A browser-based Vedic astrology calculator. No backend, no API keys, no data lea
 ### Multi-Profile & UX
 - **Multiple Sessions** — open and compare multiple charts simultaneously in tab strip
 - **Saved Profiles** — persist charts to browser localStorage; load, edit, or delete anytime
-- **Location Autocomplete** — powered by OpenStreetMap Nominatim; manual entry + auto-detect timezone
+- **Location Autocomplete** — local-first search across 12,991 cities (instant, offline-capable); falls back to OpenStreetMap Nominatim for unmatched queries; "Search online →" option available when local results are shown; recently selected locations cached in localStorage (20-entry LRU)
 - **JHD Import** — drag-drop or open `.jhd` files from Jagannatha Hora
 - **Themes** — 6 colour themes: Indigo, Saffron, Forest, Rose, Midnight, Crimson
 
@@ -71,12 +71,13 @@ src/
   tabs/           # UI panels: input, chart, transit, dasha, panchang, strength
   components/     # reusable UI: TransitChartPane, TransitToolbar, TransitTooltip
   ui/             # chart SVG renderer, tab navigation, profile tabs
-  utils/          # geocoding, Julian Day conversion, JHD parser
+  utils/          # geocoding (local-first + Nominatim fallback), location LRU cache, Julian Day conversion, JHD parser
   state.js        # shared mutable state (birth, planets, lagna, houses, dasha, panchang)
   sessions.js     # multi-profile session management
   main.js         # entry point — init WASM, then tabs
 public/
   wasm/           # swisseph.wasm + swisseph.data (static, not bundled)
+  places.json     # 12,991 city entries for local location search (generated from places.txt)
   coi-serviceworker.js
 ```
 
@@ -94,9 +95,9 @@ Pure DOM/SVG — no React, Vue, or canvas. WASM engine initializes on load; all 
 - **[jyotichart](https://github.com/VicharaVandana/jyotichart)** by VicharaVandana — North/South Indian chart geometry reference
 - **[PyJHora](https://github.com/naturalstupid/PyJHora)** by naturalstupid — reference for panchang and dasha calculation methodology
 
-### External APIs
-- **[Nominatim](https://nominatim.openstreetmap.org/)** (OpenStreetMap) — location geocoding
-- **[timeapi.io](https://timeapi.io/)** — IANA timezone lookup by coordinates
+### External APIs (fallback only)
+- **[Nominatim](https://nominatim.openstreetmap.org/)** (OpenStreetMap) — location geocoding (used only when city not found locally)
+- **[timeapi.io](https://timeapi.io/)** — IANA timezone lookup by coordinates (used only for Nominatim results)
 
 ### Tooling
 - **[Vite](https://vitejs.dev/)** — build tool and dev server

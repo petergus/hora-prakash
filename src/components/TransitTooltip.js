@@ -1,26 +1,24 @@
 // src/components/TransitTooltip.js
+import { parseTzInfo, fmtTransitDate } from '../utils/format.js'
+
 const PLANET_ICONS = { Su:'☉', Mo:'☽', Ma:'♂', Me:'☿', Ju:'♃', Ve:'♀', Sa:'♄', Ra:'☊', Ke:'☋', Asc:'↑' }
 const SIGN_SYMS    = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
 const SIGN_NAMES   = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
-const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-function fmtDate(date) {
-  return `${MONTH_ABBR[date.getUTCMonth()]} ${date.getUTCDate()} ${date.getUTCFullYear()}`
-}
-
 export class TransitTooltip {
   constructor() {
-    this._el         = null
-    this._target     = null
-    this._onMove     = null
-    this._onOver     = null
-    this._onOut      = null
-    this._enabled    = true
-    this._visible    = false
-    this._forecasts  = {}
-    this._onForecast = null
+    this._el          = null
+    this._target      = null
+    this._onMove      = null
+    this._onOver      = null
+    this._onOut       = null
+    this._enabled     = true
+    this._visible     = false
+    this._forecasts   = {}
+    this._onForecast  = null
     this._currentAbbr = null
+    this._tzOffset    = 0
+    this._tzAbbr      = 'UTC'
   }
 
   mount() {
@@ -61,6 +59,12 @@ export class TransitTooltip {
 
   setForecastProvider(fn) { this._onForecast = fn }
 
+  setTimezone(iana) {
+    const { offsetMin, abbr } = parseTzInfo(iana)
+    this._tzOffset = offsetMin
+    this._tzAbbr   = abbr
+  }
+
   setForecast(abbr, events) {
     this._forecasts[abbr] = events
     if (this._visible && this._currentAbbr === abbr) {
@@ -87,7 +91,7 @@ export class TransitTooltip {
       ${top2.map(ev => `
         <div class="p-tt-row">
           <span class="p-tt-lbl">${ev.label}</span>
-          <span class="p-tt-val">${fmtDate(ev.date)}</span>
+          <span class="p-tt-val">${fmtTransitDate(ev.date, this._tzOffset, this._tzAbbr)}</span>
         </div>`).join('')}`
     return el
   }

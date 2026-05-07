@@ -1,12 +1,8 @@
 import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
+import { parseTzInfo, fmtTransitDate } from '../utils/format.js'
 
 const SIGN_NAMES = ['','Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
-const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-function fmtDate(date) {
-  return `${MONTH_ABBR[date.getUTCMonth()]} ${date.getUTCDate()} ${date.getUTCFullYear()}`
-}
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
@@ -31,11 +27,19 @@ export class TransitTable {
     this._forecasts      = {}
     this._onForecast     = null
     this._lastRenderArgs = null
+    this._tzOffset       = 0
+    this._tzAbbr         = 'UTC'
   }
 
   get ui() { return this._getState() }
 
   setForecastProvider(fn) { this._onForecast = fn }
+
+  setTimezone(iana) {
+    const { offsetMin, abbr } = parseTzInfo(iana)
+    this._tzOffset = offsetMin
+    this._tzAbbr   = abbr
+  }
 
   setForecast(abbr, events) {
     this._forecasts[abbr] = events
@@ -156,7 +160,7 @@ export class TransitTable {
 
     const renderRows = (evs) => evs.map(ev =>
       `<div class="transit-exp-row">
-        <span class="transit-exp-date">${fmtDate(ev.date)}</span>
+        <span class="transit-exp-date">${fmtTransitDate(ev.date, this._tzOffset, this._tzAbbr)}</span>
         <span class="transit-exp-label">${ev.label}</span>
       </div>`
     ).join('')

@@ -154,29 +154,33 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
       prevSign = sgn
     }
 
-    // Nakshatra change
+    // Nakshatra change (skip Moon — covered by Panchang)
     if (nak !== prevNak) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawData(abbr, id, jd2).lon) === nak)
-      const nakInfo = getNakshatraInfo(lon)
-      events.push({
-        type: 'nakshatra',
-        date: jdToDate(jdEvent),
-        label: `★ Nakshatra: ${nakInfo.name}`,
-        detail: nakInfo.name,
-      })
+      if (abbr !== 'Mo') {
+        const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawData(abbr, id, jd2).lon) === nak)
+        const nakInfo = getNakshatraInfo(lon)
+        events.push({
+          type: 'nakshatra',
+          date: jdToDate(jdEvent),
+          label: `★ Nakshatra: ${nakInfo.name}`,
+          detail: nakInfo.name,
+        })
+      }
       prevNak = nak
     }
 
-    // Pada change
+    // Pada change (skip Moon — covered by Panchang)
     if (pda !== prevPada) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawData(abbr, id, jd2).lon) === pda)
-      const nakInfo = getNakshatraInfo(lon)
-      events.push({
-        type: 'pada',
-        date: jdToDate(jdEvent),
-        label: `Pāda ${nakInfo.pada}`,
-        detail: `${nakInfo.name} Pāda ${nakInfo.pada}`,
-      })
+      if (abbr !== 'Mo') {
+        const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawData(abbr, id, jd2).lon) === pda)
+        const nakInfo = getNakshatraInfo(lon)
+        events.push({
+          type: 'pada',
+          date: jdToDate(jdEvent),
+          label: `Pāda ${nakInfo.pada}`,
+          detail: `${nakInfo.name} Pāda ${nakInfo.pada}`,
+        })
+      }
       prevPada = pda
     }
 

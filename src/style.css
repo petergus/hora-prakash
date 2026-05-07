@@ -2,13 +2,13 @@
   --bg: #f4f6fb;
   --surface: #ffffff;
   --border: #e2e8f0;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --primary: #c0392b;
+  --primary-hover: #a93226;
   --primary-text: #ffffff;
   --text: #1e293b;
   --muted: #64748b;
   --danger: #ef4444;
-  --highlight: #fef9c3;
+  --highlight: #fef3c7;
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
 }
@@ -1800,12 +1800,12 @@ h3 {
   position: fixed;
   z-index: 9999;
   pointer-events: none;
-  min-width: 190px;
-  max-width: 240px;
+  min-width: 210px;
+  max-width: 270px;
   background: #0f172a;
   border: 1px solid #1e3a5f;
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
   font-family: Inter, system-ui, sans-serif;
   overflow: hidden;
   animation: p-tt-in 0.12s ease;
@@ -1833,8 +1833,8 @@ h3 {
 
 .p-tt-body  { padding: 0.45rem 0.75rem 0.5rem; display: flex; flex-direction: column; gap: 0.28rem; }
 .p-tt-row   { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
-.p-tt-lbl   { font-size: 0.67rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
-.p-tt-val   { font-size: 0.8rem; font-weight: 500; color: #cbd5e1; text-align: right; }
+.p-tt-lbl   { font-size: 0.67rem; font-weight: 600; color: #7c93b0; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.p-tt-val   { font-size: 0.8rem; font-weight: 500; color: #e2e8f0; text-align: right; }
 .p-tt-retro { color: #f87171; }
 
 /* Transit table row expansion */
@@ -1899,17 +1899,32 @@ h3 {
 }
 
 /* Tooltip forecast section */
+.p-tt-forecast {
+  padding: 0 0.75rem 0.55rem;
+}
 .p-tt-divider {
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.5;
-  margin: 0.5rem 0 0.3rem;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding-top: 0.4rem;
+  color: #7c93b0;
+  margin: 0.4rem 0 0.35rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 0.45rem;
+}
+.p-tt-forecast .p-tt-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+.p-tt-forecast .p-tt-val {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
 }
 .p-tt-loading {
-  opacity: 0.5;
+  font-size: 0.75rem;
+  color: #64748b;
   font-style: italic;
 }

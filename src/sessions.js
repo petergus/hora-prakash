@@ -61,7 +61,7 @@ export function defaultTransitUI() {
     overlayNatalAspectSource: new Set(),
     overlayTransitAspectSource: new Set(),
     dualActiveTab: 'natal',
-    chartZoom: 4,
+    chartZoom: 2,
     showTooltip: false,
     transitDivisional: 'D1',
     aspectToHouse: null,

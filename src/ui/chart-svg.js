@@ -104,7 +104,7 @@ function buildArrowDefs(activeAspects) {
 }
 
 // Place planets in available area, scaling font to avoid overflow
-function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
+function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}, isTransit = false) {
   if (ps.length === 0) return ''
   const areaH = areaBottom - areaTop
   const maxFont = 17
@@ -128,12 +128,12 @@ function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
       ? `<rect x="${(cx - 24).toFixed(1)}" y="${(y - fontSize + 1).toFixed(1)}" width="48" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2"/>`
       : ''
     const dataPlanet = !p.isLagna ? `data-planet="${p.abbr}"` : ''
-    const tip = _tipAttr(p, false)
+    const tip = _tipAttr(p, isTransit)
     return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} ${tip} style="cursor:pointer">${label}</text>`
   }).join('\n')
 }
 
-function _northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors) {
+function _northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors, isTransit = false) {
   const lagnaSign = lagna.sign
 
   const cellToSign = {}, signToCell = {}
@@ -167,7 +167,7 @@ function _northChartParts(planets, lagna, signLabels, activeAspects, activePlane
     const signY = minY + cellH * 0.22 + signFontSize
     const sign = cellToSign[cell]
     parts.push(`<text x="${cx.toFixed(1)}" y="${signY.toFixed(1)}" text-anchor="middle" font-size="${signFontSize}" font-weight="600" fill="#64748b" ${FONT}><tspan>${signLabels[sign - 1]}</tspan><tspan font-size="10" fill="#94a3b8" dy="-1"> ${sign}</tspan></text>`)
-    parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6, activePlanetColors))
+    parts.push(placePlanets(cellPlanets[cell], cx, signY + 4, maxY - 6, activePlanetColors, isTransit))
   }
 
   for (const { fromSign, toSigns, color } of activeAspects) {
@@ -186,12 +186,12 @@ function _northChartParts(planets, lagna, signLabels, activeAspects, activePlane
   return parts
 }
 
-export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects = [], activePlanetColors = {}) {
+export function renderNorthIndianSVG(planets, lagna, signLabels, activeAspects = [], activePlanetColors = {}, isTransit = false) {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
     `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
     buildArrowDefs(activeAspects),
-    ..._northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors),
+    ..._northChartParts(planets, lagna, signLabels, activeAspects, activePlanetColors, isTransit),
     '</svg>',
   ]
   return parts.join('\n')
@@ -216,7 +216,7 @@ function placeTransitPlanets(ps, cx, areaTop, areaBottom) {
   }).join('\n')
 }
 
-function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, transitPlanets, transitFilter) {
+function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, transitPlanets, transitFilter, isTransit = false) {
   const lagnaSign = lagna.sign
   const cs = S / 4  // 120px per cell
 
@@ -255,11 +255,11 @@ function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects
     const cx = x + cs / 2
     if (tp && tp.length > 0) {
       const midY = y + headerH + 2 + (cs - headerH - 6) / 2
-      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, midY - 2, activePlanetColors))
+      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, midY - 2, activePlanetColors, isTransit))
       parts.push(`<line x1="${x + 4}" y1="${midY}" x2="${x + cs - 4}" y2="${midY}" stroke="#fde68a" stroke-width="0.8" stroke-dasharray="3 2"/>`)
       parts.push(placeTransitPlanets(tp, cx, midY + 2, y + cs - 4))
     } else {
-      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4, activePlanetColors))
+      parts.push(placePlanets(signPlanets[sign] || [], cx, y + headerH + 2, y + cs - 4, activePlanetColors, isTransit))
     }
   }
 
@@ -284,12 +284,12 @@ function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects
   return parts
 }
 
-export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart', activeAspects = [], activePlanetColors = {}) {
+export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = 'Rashi\nChart', activeAspects = [], activePlanetColors = {}, isTransit = false) {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
     `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
     buildArrowDefs(activeAspects),
-    ..._southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, [], new Set()),
+    ..._southChartParts(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, [], new Set(), isTransit),
     '</svg>',
   ]
   return parts.join('\n')
@@ -456,8 +456,8 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
   return parts.join('\n')
 }
 
-export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR, centerLabel, activeAspects = [], activePlanetColors = {}) {
+export function renderChartSVG(planets, lagna, style = 'north', signLabels = SIGN_ABBR, centerLabel, activeAspects = [], activePlanetColors = {}, isTransit = false) {
   return style === 'south'
-    ? renderSouthIndianSVG(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors)
-    : renderNorthIndianSVG(planets, lagna, signLabels, activeAspects, activePlanetColors)
+    ? renderSouthIndianSVG(planets, lagna, signLabels, centerLabel, activeAspects, activePlanetColors, isTransit)
+    : renderNorthIndianSVG(planets, lagna, signLabels, activeAspects, activePlanetColors, isTransit)
 }

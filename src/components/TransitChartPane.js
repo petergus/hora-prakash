@@ -84,10 +84,10 @@ export class TransitChartPane {
   _renderDual(natalPlanets, natalLagna, transitPlanets, transitLagna, chartStyle, filter, natalAsp, transitAsp) {
     const filteredTransit = (transitPlanets || []).filter(p => filter.has(p.abbr))
     const natalSVG   = renderChartSVG(natalPlanets, natalLagna, chartStyle, undefined, undefined,
-                         natalAsp.activeAspects, natalAsp.activePlanetColors)
+                         natalAsp.activeAspects, natalAsp.activePlanetColors, false)
     const transitSVG = transitPlanets?.length
       ? renderChartSVG(filteredTransit, transitLagna, chartStyle, undefined, 'Transit',
-          transitAsp.activeAspects, transitAsp.activePlanetColors)
+          transitAsp.activeAspects, transitAsp.activePlanetColors, true)
       : '<div class="transit-loading">Calculating...</div>'
 
     const zoom        = this.ui.chartZoom ?? 3

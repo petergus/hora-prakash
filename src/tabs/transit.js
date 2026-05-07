@@ -73,6 +73,8 @@ function calcAndRender() {
   const time = ui.transitTime ?? nowTime()
   const tz   = state.birth?.timezone ?? '+00:00'
   const jd   = toJulianDay(date, time, tz)
+  _tooltip?.setTimezone(tz)
+  _table?.setTimezone(tz)
 
   const transitPlanets = getTransitPositions(jd, state.lagna.sign, getSettings())
   const lat = state.birth?.lat ?? 0

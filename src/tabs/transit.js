@@ -11,6 +11,7 @@ import { TransitChartPane }                                     from '../compone
 import { TransitTable }                                         from '../components/TransitTable.js'
 import { findNextEvents }  from '../core/transitForecast.js'
 import { PLANETS }         from '../core/swisseph.js'
+import { showExportModal } from '../ui/chart-export.js'
 
 // Set aspect sources to planets that aspect a given house number (1-12)
 function applyAspectToHouse(houseNum, natalDiv, natalDivLagna, transitDiv) {
@@ -94,6 +95,7 @@ function calcAndRender() {
   const t2t = getTransitToTransitAspects(transitDiv)
 
   _toolbar?.render()
+  _wireExportBtn()
   _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
   _table?.render(natalDiv, transitDiv, t2n, t2t, natalDivLagna, transitDivLagna, div)
 }
@@ -103,6 +105,7 @@ function handleToolbarChange(key, value) {
   if (key === 'showTooltip') {
     _chartPane?.setTooltipEnabled(value)
     _toolbar?.render()
+    _wireExportBtn()
     return
   }
   if (key === 'transitView' || key === 'transitChartStyle' || key === 'chartZoom' || key === 'dualActiveTab' || key === 'transitDivisional' || key === 'aspectToHouse') {
@@ -127,6 +130,7 @@ function handleToolbarChange(key, value) {
     const t2n = getTransitToNatalAspects(transitDiv, natalDiv)
     const t2t = getTransitToTransitAspects(transitDiv)
     _toolbar?.render()
+    _wireExportBtn()
     _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
     _table?.render(natalDiv, transitDiv, t2n, t2t, natalDivLagna, transitDivLagna, div)
   } else {
@@ -212,6 +216,38 @@ function requestForecast(abbr) {
   })
 }
 
+function _wireExportBtn() {
+  document.getElementById('btn-export-transit')?.addEventListener('click', () => {
+    const ui = getTransitUI()
+    const transitView    = ui.transitView ?? 'dual'
+    const chartStyle     = ui.transitChartStyle ?? 'north'
+    const transitPlanets = ui.transitPlanets ?? []
+    const transitLagna   = ui.transitLagna ?? state.lagna
+    const date           = ui.transitDate ?? ''
+    const time           = ui.transitTime ?? ''
+    const div            = ui.transitDivisional ?? 'D1'
+
+    const { planets: transitDiv } = applyDivisional(transitPlanets, transitLagna, div)
+
+    const transitRows = [
+      ...transitDiv,
+      { ...transitLagna, name: 'Transit Asc', abbr: 'Asc', house: 1, retrograde: false },
+    ]
+
+    showExportModal({
+      context: 'transit',
+      chartStyle,
+      state,
+      transitView,
+      transitPlanets: transitRows,
+      transitLabel: `Transit Planets — ${date} ${time}`,
+      extraSvgFn: transitView === 'dual'
+        ? () => _chartPane?.getSvgString() ?? ''
+        : null,
+    })
+  })
+}
+
 function _reRenderChart() {
   const ui             = getTransitUI()
   const transitPlanets = ui.transitPlanets ?? []
@@ -221,6 +257,7 @@ function _reRenderChart() {
   const { planets: transitDiv, lagna: transitDivLagna } = applyDivisional(transitPlanets, transitLagna, div)
   _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
   _toolbar?.render()
+  _wireExportBtn()
 }
 
 export function renderTransit() {

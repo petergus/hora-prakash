@@ -25,6 +25,7 @@ export class TransitChartPane {
     this._onAspectToSign  = onAspectToSign
     this._onClick         = null
     this._onCtxMenu       = null
+    this._lastSvg         = null
     this._natalLagna      = null
     this._transitLagna    = null
     this._natalPlanets    = null
@@ -95,7 +96,7 @@ export class TransitChartPane {
     const wrapSt      = `style="width:${maxW}px;max-width:calc(50vw - 1.5rem)"`
     const activeTab   = this.ui.dualActiveTab ?? 'natal'
 
-    this.el.innerHTML = `
+    const svgStr = `
       <div class="transit-dual-tabs">
         <button class="transit-dual-tab-btn${activeTab === 'natal' ? ' active' : ''}" data-dual-tab="natal">Natal</button>
         <button class="transit-dual-tab-btn${activeTab === 'transit' ? ' active' : ''}" data-dual-tab="transit">Transit</button>
@@ -110,6 +111,8 @@ export class TransitChartPane {
           ${transitSVG}
         </div>
       </div>`
+    this._lastSvg = svgStr
+    this.el.innerHTML = svgStr
   }
 
   _renderOverlay(natalPlanets, natalLagna, transitPlanets, transitLagna, chartStyle, filter, natalAsp, transitAsp) {
@@ -127,12 +130,16 @@ export class TransitChartPane {
       zoom
     )
     const maxW  = [400, 520, 640, 760, 900][zoom - 1]
-    this.el.innerHTML = `
+    const overlaySvgStr = `
       <div class="transit-overlay-pane">
         <div class="transit-chart-label">Natal + Transit</div>
         <div class="transit-border-chart" data-chart="natal" style="max-width:${maxW}px;margin:0 auto">${svg}</div>
       </div>`
+    this._lastSvg = overlaySvgStr
+    this.el.innerHTML = overlaySvgStr
   }
+
+  getSvgString() { return this._lastSvg }
 
   _showCtxMenu(x, y, sign, chartType) {
     if (!this._onAspectToSign) return

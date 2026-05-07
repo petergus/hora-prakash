@@ -125,6 +125,7 @@ export class TransitToolbar {
             <button class="transit-zoom-btn" data-action="zoomIn" ${zoom >= 5 ? 'disabled' : ''}>+</button>
           </div>
           <button class="transit-style-btn transit-secondary-ctrl transit-desktop-only${showTooltip ? ' active' : ''}" data-action="toggleTooltip" title="Planet info on hover">ℹ Info</button>
+          <button id="btn-export-transit" class="chart-style-btn chart-icon-btn" title="Download transit chart"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg></button>
           <button class="transit-menu-btn${menuOpen ? ' active' : ''}" data-action="toggleMenu" title="More options">⋮</button>
         </div>
       </div>`

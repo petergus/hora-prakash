@@ -15,7 +15,11 @@ export function addToCache(entry) {
   // entry: { displayName, lat, lon, tz }
   const cache = getCache().filter(e => e.displayName !== entry.displayName)
   cache.unshift(entry)
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache.slice(0, MAX_ENTRIES)))
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache.slice(0, MAX_ENTRIES)))
+  } catch {
+    // storage unavailable or quota exceeded
+  }
 }
 
 export function searchCache(query) {

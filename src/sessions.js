@@ -12,10 +12,11 @@ function emptySnap() {
 }
 
 export function defaultDashaUI() {
+  const mobile = window.innerWidth < 600
   return {
     dashaCollapsed:  false,
-    ageCollapsed:    false,
-    progCollapsed:   false,
+    ageCollapsed:    mobile,
+    progCollapsed:   mobile,
     selectedProgLord: null,
     ageNavCycle:     null,
     ageAsOf:         null,

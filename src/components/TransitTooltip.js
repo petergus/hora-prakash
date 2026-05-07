@@ -3,15 +3,24 @@ const PLANET_ICONS = { Su:'☉', Mo:'☽', Ma:'♂', Me:'☿', Ju:'♃', Ve:'♀
 const SIGN_SYMS    = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
 const SIGN_NAMES   = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function fmtDate(date) {
+  return `${MONTH_ABBR[date.getUTCMonth()]} ${date.getUTCDate()}`
+}
+
 export class TransitTooltip {
   constructor() {
-    this._el      = null
-    this._target  = null
-    this._onMove  = null
-    this._onOver  = null
-    this._onOut   = null
-    this._enabled = true
-    this._visible = false
+    this._el         = null
+    this._target     = null
+    this._onMove     = null
+    this._onOver     = null
+    this._onOut      = null
+    this._enabled    = true
+    this._visible    = false
+    this._forecasts  = {}
+    this._onForecast = null
+    this._currentAbbr = null
   }
 
   mount() {
@@ -50,6 +59,17 @@ export class TransitTooltip {
 
   setEnabled(v) { this._enabled = v; if (!v) this._hide() }
 
+  setForecastProvider(fn) { this._onForecast = fn }
+
+  setForecast(abbr, events) {
+    this._forecasts[abbr] = events
+    if (this._visible && this._currentAbbr === abbr) {
+      this._el.querySelector('.p-tt-forecast')?.replaceWith(this._buildForecastEl(events))
+    }
+  }
+
+  clearForecasts() { this._forecasts = {} }
+
   destroy() {
     this.detach()
     if (this._onMove) document.removeEventListener('mousemove', this._onMove)
@@ -57,7 +77,23 @@ export class TransitTooltip {
     this._el = null
   }
 
+  _buildForecastEl(events) {
+    const el = document.createElement('div')
+    el.className = 'p-tt-forecast'
+    const top2 = events.filter(e => e.type !== 'pada').slice(0, 2)
+    if (top2.length === 0) { el.style.display = 'none'; return el }
+    el.innerHTML = `
+      <div class="p-tt-divider">Next Events</div>
+      ${top2.map(ev => `
+        <div class="p-tt-row">
+          <span class="p-tt-lbl">${ev.label}</span>
+          <span class="p-tt-val">${fmtDate(ev.date)}</span>
+        </div>`).join('')}`
+    return el
+  }
+
   _show(d, e) {
+    this._currentAbbr = d.abbr
     const icon    = PLANET_ICONS[d.abbr] ?? '●'
     const signIdx = SIGN_NAMES.indexOf(d.sign)
     const signSym = signIdx >= 0 ? SIGN_SYMS[signIdx] : ''
@@ -89,6 +125,19 @@ export class TransitTooltip {
         ${speedRow}
       </div>`
 
+    if (d.transit && d.abbr) {
+      const cached = this._forecasts[d.abbr]
+      if (cached) {
+        this._el.appendChild(this._buildForecastEl(cached))
+      } else {
+        const loadingEl = document.createElement('div')
+        loadingEl.className = 'p-tt-forecast'
+        loadingEl.innerHTML = '<div class="p-tt-divider">Next Events</div><div class="p-tt-row p-tt-loading">Computing…</div>'
+        this._el.appendChild(loadingEl)
+        if (this._onForecast) this._onForecast(d.abbr)
+      }
+    }
+
     this._el.classList.remove('p-tooltip--hidden')
     this._visible = true
     this._position(e)
@@ -96,6 +145,7 @@ export class TransitTooltip {
 
   _hide() {
     this._visible = false
+    this._currentAbbr = null
     this._el?.classList.add('p-tooltip--hidden')
   }
 

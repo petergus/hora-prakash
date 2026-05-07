@@ -7,6 +7,7 @@ import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js
 import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 import { CLEAR_ASPECTS_SVG } from '../ui/icons.js'
+import { showExportModal } from '../ui/chart-export.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -53,6 +54,7 @@ const MASK = '••••••••'
 const EYE_OPEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>`
 const EYE_SHUT = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14"/></svg>`
 const GEAR_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>`
+const DOWNLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg>`
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
@@ -203,6 +205,9 @@ export function renderChart() {
   const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
     <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
   </div>`
+  const downloadBtn = `<div class="chart-style-group">
+    <button id="btn-export-chart" class="chart-style-btn chart-icon-btn" title="Download chart">${DOWNLOAD_ICON}</button>
+  </div>`
 
   // ── Chart area ──
   let chartArea = ''
@@ -288,6 +293,7 @@ export function renderChart() {
           <button id="btn-view-4" class="chart-style-btn${viewMode === '4' ? ' active' : ''}" title="Four charts">4</button>
         </div>
         ${aspectBtns}
+        ${downloadBtn}
         <span id="from-house-chip" style="display:${ui.fromHouseSign ? 'inline-flex' : 'none'};align-items:center;gap:0.3rem;background:var(--accent,#6366f1);color:#fff;font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:999px;cursor:pointer" title="Reset to natal lagna">H${ui.fromHouseSign ? ((ui.fromHouseSign - (state.lagna?.sign ?? 1) + 12) % 12) + 1 : ''} view &times;</span>
         ${viewMode !== '4' ? `
           <span class="ctrl-sep"></span>
@@ -498,6 +504,13 @@ export function renderChart() {
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
+
+  document.getElementById('btn-export-chart')?.addEventListener('click', () => {
+    const { chartStyle, divisional, viewMode, multiDivs } = c()
+    const slots = viewMode === '1' ? 1 : viewMode === '2' ? 2 : 4
+    const activeKeys = viewMode === '1' ? [divisional] : multiDivs.slice(0, slots)
+    showExportModal({ context: 'chart', activeKeys, chartStyle, state })
+  })
   panel.querySelector('#btn-north').addEventListener('click', () => { c().chartStyle = 'north'; renderChart() })
   panel.querySelector('#btn-south').addEventListener('click', () => { c().chartStyle = 'south'; renderChart() })
 

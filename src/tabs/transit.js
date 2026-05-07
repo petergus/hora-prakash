@@ -64,6 +64,11 @@ function calcAndRender() {
   if (!state.planets || !state.lagna) return
 
   const ui   = getTransitUI()
+  if (ui.forecastCache) {
+    ui.forecastCache = {}
+    _tooltip?.clearForecasts()
+    _table?.clearForecasts()
+  }
   const date = ui.transitDate ?? todayDate()
   const time = ui.transitTime ?? nowTime()
   const tz   = state.birth?.timezone ?? '+00:00'

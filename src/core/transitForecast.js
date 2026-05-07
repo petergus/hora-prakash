@@ -15,16 +15,10 @@ const SCAN_WINDOWS = {
 // Sidereal + speed flags
 const FLAGS = 65536 | 256
 
-function getRawLon(abbr, id, jd) {
-  const swe = getSwe()
-  const r   = swe.calc_ut(jd, id, FLAGS)
-  return abbr === 'Ke' ? (r[0] + 180) % 360 : r[0]
-}
-
-function getSpeed(abbr, id, jd) {
-  const swe = getSwe()
-  const r   = swe.calc_ut(jd, id, FLAGS)
-  return r[3]
+function getRawData(abbr, id, jd) {
+  const r   = getSwe().calc_ut(jd, id, FLAGS)
+  const lon = abbr === 'Ke' ? (r[0] + 180) % 360 : r[0]
+  return { lon, speed: r[3] }
 }
 
 function getSunLon(jd) {
@@ -88,8 +82,9 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
   const window = SCAN_WINDOWS[abbr] ?? 180
   const events = []
 
-  let prevLon        = getRawLon(abbr, id, fromJD)
-  let prevSpeed      = getSpeed(abbr, id, fromJD)
+  const initData     = getRawData(abbr, id, fromJD)
+  let prevLon        = initData.lon
+  let prevSpeed      = initData.speed
   let prevSign       = signOf(prevLon)
   let prevNak        = nakOf(prevLon)
   let prevPada       = padaOf(prevLon)
@@ -109,8 +104,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
   for (let d = 1; d <= window; d++) {
     const jd  = fromJD + d
-    const lon = getRawLon(abbr, id, jd)
-    const spd = getSpeed(abbr, id, jd)
+    const { lon, speed: spd } = getRawData(abbr, id, jd)
     const sgn = signOf(lon)
     const nak = nakOf(lon)
     const pda = padaOf(lon)
@@ -118,16 +112,16 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Retrograde / Direct
     if (prevSpeed >= 0 && spd < 0) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => getSpeed(abbr, id, jd2) < 0)
+      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(abbr, id, jd2).speed < 0)
       events.push({ type: 'retro', date: jdToDate(jdEvent), label: 'Goes Retrograde ℞', detail: '' })
     } else if (prevSpeed < 0 && spd >= 0) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => getSpeed(abbr, id, jd2) >= 0)
+      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(abbr, id, jd2).speed >= 0)
       events.push({ type: 'direct', date: jdToDate(jdEvent), label: 'Goes Direct ◎', detail: '' })
     }
 
     // Sign ingress
     if (sgn !== prevSign) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => signOf(getRawLon(abbr, id, jd2)) === sgn)
+      const jdEvent = bisect(jd - 1, jd, jd2 => signOf(getRawData(abbr, id, jd2).lon) === sgn)
       const house   = ((sgn - natalLagnaSign + 12) % 12) + 1
       events.push({
         type: 'sign',
@@ -162,7 +156,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Nakshatra change
     if (nak !== prevNak) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawLon(abbr, id, jd2)) === nak)
+      const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawData(abbr, id, jd2).lon) === nak)
       const nakInfo = getNakshatraInfo(lon)
       events.push({
         type: 'nakshatra',
@@ -175,7 +169,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Pada change
     if (pda !== prevPada) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawLon(abbr, id, jd2)) === pda)
+      const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawData(abbr, id, jd2).lon) === pda)
       const nakInfo = getNakshatraInfo(lon)
       events.push({
         type: 'pada',
@@ -188,7 +182,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Gandanta
     if (!prevInGandanta && inGandanta) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => isGandanta(getRawLon(abbr, id, jd2)))
+      const jdEvent = bisect(jd - 1, jd, jd2 => isGandanta(getRawData(abbr, id, jd2).lon))
       events.push({ type: 'gandanta', date: jdToDate(jdEvent), label: '⚠ Gandanta crossing', detail: '' })
     }
     prevInGandanta = inGandanta
@@ -200,14 +194,14 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
       const combust = dist <= orb
       if (!prevCombust && combust) {
         const jdEvent = bisect(jd - 1, jd, jd2 => {
-          const l = getRawLon(abbr, id, jd2)
+          const l = getRawData(abbr, id, jd2).lon
           const s = getSunLon(jd2)
           return angularDist(l, s) <= orb
         })
         events.push({ type: 'combust_enter', date: jdToDate(jdEvent), label: `☀ Combust (within ${orb}°)`, detail: '' })
       } else if (prevCombust && !combust) {
         const jdEvent = bisect(jd - 1, jd, jd2 => {
-          const l = getRawLon(abbr, id, jd2)
+          const l = getRawData(abbr, id, jd2).lon
           const s = getSunLon(jd2)
           return angularDist(l, s) > orb
         })

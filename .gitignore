@@ -3,6 +3,8 @@ dist/
 .playwright-mcp/
 .superpowers/
 *.png
+!public/icon-192.png
+!public/icon-512.png
 *.xlsx
 docs/superpowers/
 .worktrees/

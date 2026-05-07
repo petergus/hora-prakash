@@ -12,6 +12,18 @@ import { updateFavicon } from './ui/favicon.js'
 // Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type !== 'SW_UPDATED') return
+    if (document.getElementById('update-banner')) return  // already shown
+    const banner = document.createElement('div')
+    banner.id = 'update-banner'
+    banner.textContent = 'App updated. '
+    const btn = document.createElement('button')
+    btn.textContent = 'Reload'
+    btn.onclick = () => location.reload()
+    banner.appendChild(btn)
+    document.body.prepend(banner)
+  })
 }
 
 async function main() {

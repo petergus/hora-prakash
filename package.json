@@ -17,10 +17,12 @@
   "license": "AGPL-3.0",
   "type": "module",
   "devDependencies": {
+    "sharp": "^0.34.5",
     "vite": "^8.0.8",
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
+    "geo-tz": "^8.1.6",
     "swisseph-wasm": "^0.0.5"
   }
 }

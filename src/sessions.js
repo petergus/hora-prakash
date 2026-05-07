@@ -56,8 +56,13 @@ export function defaultTransitUI() {
     transitFilter: new Set(['Su','Mo','Ma','Me','Ju','Ve','Sa','Ra','Ke']),
     transitView: 'dual',
     transitChartStyle: 'north',
-    natalAspectSource: null,
-    transitAspectSource: null,
+    natalAspectSource: new Set(),
+    transitAspectSource: new Set(),
+    overlayNatalAspectSource: new Set(),
+    overlayTransitAspectSource: new Set(),
+    dualActiveTab: 'natal',
+    chartZoom: 4,
+    showTooltip: false,
   }
 }
 

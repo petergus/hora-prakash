@@ -170,11 +170,27 @@ export function renderChart() {
     ? (divisional === 'D1' ? 'Birth Chart' : divLabel(divisional))
     : 'Birth Charts'
 
-  const maskedName    = privacyOn ? MASK : heading
-  const maskedPerson  = privacyOn ? MASK : (birth.name ? esc(birth.name) : '')
-  const maskedDetails = privacyOn
-    ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
-    : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || fmtLat(birth.lat) + ' ' + fmtLon(birth.lon)} &nbsp;·&nbsp; ${ianaToOffset(birth.timezone)}`
+  const maskedName  = privacyOn ? MASK : heading
+
+  const _name  = birth.name ?? ''
+  const _place = (() => { const s = birth.location || ''; return s.length > 28 ? s.slice(0, 27).trimEnd() + '…' : s })()
+  const _lat   = birth.lat, _lon = birth.lon
+  const _coords = (_lat != null && _lon != null)
+    ? `${Math.abs(_lat).toFixed(2)}°${_lat >= 0 ? 'N' : 'S'} ${Math.abs(_lon).toFixed(2)}°${_lon >= 0 ? 'E' : 'W'}`
+    : (fmtLat(_lat) + ' ' + fmtLon(_lon)).trim()
+  const _init  = _name ? _name.trim()[0].toUpperCase() : '?'
+
+  const birthCardHtml = privacyOn
+    ? `<div class="birth-info-strip"><div class="tbc-avatar">?</div><div class="tbc-name">${MASK}</div></div>`
+    : `<div class="birth-info-strip">
+        <div class="tbc-avatar">${_init}</div>
+        <div class="tbc-name">${esc(_name)}</div>
+        <div class="tbc-divider"></div>
+        ${_place   ? `<div class="tbc-pill"><span class="tbc-icon">📍</span><span>${esc(_place)}</span></div>` : ''}
+        ${_coords.trim()  ? `<div class="tbc-pill"><span class="tbc-icon">🌐</span><span>${_coords}</span></div>` : ''}
+        ${birth.dob ? `<div class="tbc-pill"><span class="tbc-icon">📅</span><span>${birth.dob}</span></div>` : ''}
+        ${birth.tob ? `<div class="tbc-pill"><span class="tbc-icon">🕐</span><span>${birth.tob}</span></div>` : ''}
+      </div>`
 
   // Unified div select — works for both single (divisional) and multi (active slot)
   const activeSlotKey = viewMode === '1' ? divisional : (keys[ui.activeMultiTab] ?? keys[0])
@@ -273,15 +289,12 @@ export function renderChart() {
 
   panel.innerHTML = `
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
-        <div style="display:flex;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
-          <h2 style="margin:0;font-size:1.1rem;font-weight:600">${maskedName}</h2>
-          ${maskedPerson ? `<span style="font-size:0.9rem;font-weight:500;color:var(--muted)">${maskedPerson}</span>` : ''}
-        </div>
-        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2rem;margin-top:0.1rem;border-radius:4px;line-height:1;display:flex;align-items:center" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
+      <div class="chart-card-header">
+        <h2 class="chart-card-title">${maskedName}</h2>
+        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" class="chart-privacy-btn">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
       </div>
-      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.15rem;margin-bottom:1rem;line-height:1.5">${maskedDetails}</p>
-      <div class="chart-controls">
+      ${birthCardHtml}
+      <div class="chart-controls" style="margin-top:0.75rem">
         ${divSelectHtmlUnified}
         <div class="chart-style-group">
           <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>

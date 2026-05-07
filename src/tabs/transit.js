@@ -58,7 +58,12 @@ function calcAndRender() {
 
 function handleToolbarChange(key, value) {
   setTransitUI(key, value)
-  if (key === 'transitView' || key === 'transitFilter' || key === 'transitChartStyle') {
+  if (key === 'showTooltip') {
+    _chartPane?.setTooltipEnabled(value)
+    _toolbar?.render()
+    return
+  }
+  if (key === 'transitView' || key === 'transitChartStyle' || key === 'chartZoom' || key === 'dualActiveTab') {
     const ui             = getTransitUI()
     const transitPlanets = ui.transitPlanets ?? []
     const transitLagna   = ui.transitLagna ?? state.lagna
@@ -73,9 +78,28 @@ function handleToolbarChange(key, value) {
 }
 
 function handlePlanetClick(abbr, chartType) {
-  const ui           = getTransitUI()
-  const key          = chartType === 'transit' ? 'transitAspectSource' : 'natalAspectSource'
-  setTransitUI(key, ui[key] === abbr ? null : abbr)
+  const ui   = getTransitUI()
+  const view = ui.transitView ?? 'dual'
+  let key
+  if (view === 'overlay') {
+    key = chartType === 'transit' ? 'overlayTransitAspectSource' : 'overlayNatalAspectSource'
+  } else {
+    key = chartType === 'transit' ? 'transitAspectSource' : 'natalAspectSource'
+  }
+  const src = new Set(ui[key] instanceof Set ? ui[key] : [])
+  if (src.has(abbr)) src.delete(abbr)
+  else src.add(abbr)
+  setTransitUI(key, src)
+  const transitPlanets = getTransitUI().transitPlanets ?? []
+  const transitLagna   = getTransitUI().transitLagna ?? state.lagna
+  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
+}
+
+function handleClearAspects() {
+  setTransitUI('natalAspectSource',          new Set())
+  setTransitUI('transitAspectSource',        new Set())
+  setTransitUI('overlayNatalAspectSource',   new Set())
+  setTransitUI('overlayTransitAspectSource', new Set())
   const transitPlanets = getTransitUI().transitPlanets ?? []
   const transitLagna   = getTransitUI().transitLagna ?? state.lagna
   _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
@@ -105,8 +129,8 @@ export function renderTransit() {
   _chartPane?.destroy()
   _table?.destroy()
 
-  _toolbar   = new TransitToolbar(document.getElementById('transit-toolbar-el'), getTransitUI, handleToolbarChange)
-  _chartPane = new TransitChartPane(document.getElementById('transit-chart-el'),  getTransitUI, handlePlanetClick)
+  _toolbar   = new TransitToolbar(document.getElementById('transit-toolbar-el'), getTransitUI, handleToolbarChange, handleClearAspects)
+  _chartPane = new TransitChartPane(document.getElementById('transit-chart-el'),  getTransitUI, handlePlanetClick, handleToolbarChange)
   _table     = new TransitTable(document.getElementById('transit-table-el'),      getTransitUI)
 
   calcAndRender()

@@ -34,8 +34,26 @@ const SI_CELLS = [
   { sign: 11, col: 0, row: 1 },
 ]
 
-const SIGN_ABBR = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
+const SIGN_ABBR  = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
+const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 export const CHALIT_LABELS = ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12']
+
+function _tipAttr(p, isTransit) {
+  const deg = p.degree ?? 0
+  const d = Math.floor(deg), m = Math.round((deg % 1) * 60)
+  const tip = {
+    name:    p.name || (p.abbr === 'Asc' ? (isTransit ? 'Transit Asc' : 'Ascendant') : p.abbr),
+    abbr:    p.abbr || 'Asc',
+    sign:    p.sign ? SIGN_NAMES[p.sign - 1] : '',
+    nak:     p.nakshatra || '',
+    pada:    p.pada || '',
+    deg:     `${d}° ${String(m).padStart(2, '0')}′`,
+    speed:   typeof p.speed === 'number' ? p.speed : null,
+    retro:   !!p.retrograde,
+    transit: !!isTransit,
+  }
+  return `data-tip="${JSON.stringify(tip).replace(/"/g, '&quot;')}"`
+}
 
 function toPts(poly) {
   return poly.map(([x, y]) => `${(x * S).toFixed(1)},${(y * S).toFixed(1)}`).join(' ')
@@ -104,8 +122,8 @@ function placePlanets(ps, cx, areaTop, areaBottom, activePlanetColors = {}) {
       ? `<rect x="${(cx - 24).toFixed(1)}" y="${(y - fontSize + 1).toFixed(1)}" width="48" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2"/>`
       : ''
     const dataPlanet = !p.isLagna ? `data-planet="${p.abbr}"` : ''
-    const cursorStyle = !p.isLagna ? 'style="cursor:pointer"' : ''
-    return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} ${cursorStyle}>${label}</text>`
+    const tip = _tipAttr(p, false)
+    return highlight + `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} ${dataPlanet} ${tip} style="cursor:pointer">${label}</text>`
   }).join('\n')
 }
 
@@ -126,7 +144,7 @@ function _northChartParts(planets, lagna, signLabels, activeAspects, activePlane
 
   const cellPlanets = {}
   for (let c = 1; c <= 12; c++) cellPlanets[c] = []
-  cellPlanets[1].push({ abbr: 'Asc', degree: lagna.degree, retrograde: false, isLagna: true })
+  cellPlanets[1].push({ abbr: 'Asc', name: 'Ascendant', degree: lagna.degree, sign: lagna.sign, nakshatra: lagna.nakshatra, pada: lagna.pada, retrograde: false, isLagna: true })
   for (const p of planets) {
     const cell = signToCell[p.sign]
     if (cell) cellPlanets[cell].push(p)
@@ -181,9 +199,14 @@ function placeTransitPlanets(ps, cx, areaTop, areaBottom) {
   const blockH = (ps.length - 1) * lineH
   const firstY = areaTop + (areaH - blockH) / 2 + fontSize * 0.36
   return ps.map((p, i) => {
-    const label = p.abbr + (p.retrograde ? '℞' : '')
+    const deg = typeof p.degree === 'number' ? ` ${p.degree.toFixed(0)}°` : ''
+    const label = p.isTransitLagna
+      ? `Ascᵀ${deg}`
+      : `${p.abbr}ᵀ${p.retrograde ? 'ᴿ' : ''}${deg}`
+    const color = p.isTransitLagna ? '#c2410c' : '#d97706'
     const y = firstY + i * lineH
-    return `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="#d97706" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" style="cursor:pointer">${label}</text>`
+    const tip = _tipAttr(p, true)
+    return `<text x="${cx.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" ${tip} style="cursor:pointer">${label}</text>`
   }).join('\n')
 }
 
@@ -193,13 +216,13 @@ function _southChartParts(planets, lagna, signLabels, centerLabel, activeAspects
 
   const signPlanets = {}
   for (let s = 1; s <= 12; s++) signPlanets[s] = []
-  signPlanets[lagnaSign].push({ abbr: 'Asc', degree: lagna.degree, retrograde: false, isLagna: true })
+  signPlanets[lagnaSign].push({ abbr: 'Asc', name: 'Ascendant', degree: lagna.degree, sign: lagna.sign, nakshatra: lagna.nakshatra, pada: lagna.pada, retrograde: false, isLagna: true })
   for (const p of planets) signPlanets[p.sign].push(p)
 
   const transitBySign = {}
   for (let s = 1; s <= 12; s++) transitBySign[s] = []
   for (const p of (transitPlanets || [])) {
-    if (!transitFilter || transitFilter.has(p.abbr)) transitBySign[p.sign].push(p)
+    if (p.isTransitLagna || !transitFilter || transitFilter.has(p.abbr)) transitBySign[p.sign].push(p)
   }
 
   const parts = [
@@ -266,80 +289,164 @@ export function renderSouthIndianSVG(planets, lagna, signLabels, centerLabel = '
   return parts.join('\n')
 }
 
-const BORDER = 80
-const TOTAL  = S + BORDER * 2  // 640
+function _calcBorders(byHouse) {
+  const maxAll = Math.max(0, ...Object.values(byHouse).map(a => a.length))
+  const B = maxAll === 0 ? 24 : maxAll >= 4 ? 52 : 36
+  return { BH: B, BV: B }
+}
 
-function _borderSections() {
+function _borderSections(BH, BV) {
   const third = S / 3  // 160
   return [
-    { house: 2,  x: BORDER,             y: 0,          w: third, h: BORDER },
-    { house: 1,  x: BORDER + third,     y: 0,          w: third, h: BORDER },
-    { house: 12, x: BORDER + third * 2, y: 0,          w: third, h: BORDER },
-    { house: 3,  x: 0, y: BORDER,             w: BORDER, h: third },
-    { house: 4,  x: 0, y: BORDER + third,     w: BORDER, h: third },
-    { house: 5,  x: 0, y: BORDER + third * 2, w: BORDER, h: third },
-    { house: 6,  x: BORDER,             y: BORDER + S, w: third, h: BORDER },
-    { house: 7,  x: BORDER + third,     y: BORDER + S, w: third, h: BORDER },
-    { house: 8,  x: BORDER + third * 2, y: BORDER + S, w: third, h: BORDER },
-    { house: 11, x: BORDER + S, y: BORDER,             w: BORDER, h: third },
-    { house: 10, x: BORDER + S, y: BORDER + third,     w: BORDER, h: third },
-    { house: 9,  x: BORDER + S, y: BORDER + third * 2, w: BORDER, h: third },
+    { house: 2,  x: BV,             y: 0,       w: third, h: BH, horiz: true },
+    { house: 1,  x: BV + third,     y: 0,       w: third, h: BH, horiz: true },
+    { house: 12, x: BV + third * 2, y: 0,       w: third, h: BH, horiz: true },
+    { house: 3,  x: 0, y: BH,             w: BV, h: third, horiz: false },
+    { house: 4,  x: 0, y: BH + third,     w: BV, h: third, horiz: false },
+    { house: 5,  x: 0, y: BH + third * 2, w: BV, h: third, horiz: false },
+    { house: 6,  x: BV,             y: BH + S, w: third, h: BH, horiz: true },
+    { house: 7,  x: BV + third,     y: BH + S, w: third, h: BH, horiz: true },
+    { house: 8,  x: BV + third * 2, y: BH + S, w: third, h: BH, horiz: true },
+    { house: 11, x: BV + S, y: BH,             w: BV, h: third, horiz: false },
+    { house: 10, x: BV + S, y: BH + third,     w: BV, h: third, horiz: false },
+    { house: 9,  x: BV + S, y: BH + third * 2, w: BV, h: third, horiz: false },
   ]
 }
 
-export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets, style, filter, activeAspects = [], activePlanetColors = {}) {
+export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets, style, filter, activeAspects = [], activePlanetColors = {}, transitLagna = null, transitActivePlanetColors = {}) {
+  const tLagnaEntry = transitLagna
+    ? { abbr: 'Asc', name: 'Transit Asc', sign: transitLagna.sign, degree: transitLagna.degree,
+        nakshatra: transitLagna.nakshatra, pada: transitLagna.pada,
+        retrograde: false, isTransitLagna: true,
+        house: ((transitLagna.sign - natalLagna.sign + 12) % 12) + 1 }
+    : null
+
   if (style === 'south') {
+    const tPlanets = tLagnaEntry ? [...(transitPlanets || []), tLagnaEntry] : (transitPlanets || [])
     const parts = [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
       `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
       buildArrowDefs(activeAspects),
-      ..._southChartParts(natalPlanets, natalLagna, SIGN_ABBR, 'Natal\nTransit', activeAspects, activePlanetColors, transitPlanets, filter),
+      ..._southChartParts(natalPlanets, natalLagna, SIGN_ABBR, 'Natal\nTransit', activeAspects, activePlanetColors, tPlanets, filter),
       '</svg>',
     ]
     return parts.join('\n')
   }
 
-  // North Indian — 640×640 with border house zones
+  // North Indian overlay — dynamic border, unified background, extended structural lines
   const byHouse = {}
   for (const p of (transitPlanets || [])) {
     if (!filter.has(p.abbr)) continue
     if (!byHouse[p.house]) byHouse[p.house] = []
     byHouse[p.house].push(p)
   }
+  if (tLagnaEntry) {
+    if (!byHouse[tLagnaEntry.house]) byHouse[tLagnaEntry.house] = []
+    byHouse[tLagnaEntry.house].push(tLagnaEntry)
+  }
+
+  const { BH, BV } = _calcBorders(byHouse)
+  const TW = S + BV * 2
+  const TH = S + BH * 2
+  const third = S / 3  // 160
 
   const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TOTAL} ${TOTAL}" style="width:100%;max-width:${TOTAL}px">`,
-    `<rect width="${TOTAL}" height="${TOTAL}" fill="#f8fafc" rx="6"/>`,
-    `<rect x="0"            y="0"            width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
-    `<rect x="${BORDER + S}" y="0"            width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
-    `<rect x="0"            y="${BORDER + S}" width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
-    `<rect x="${BORDER + S}" y="${BORDER + S}" width="${BORDER}" height="${BORDER}" fill="#f1f5f9"/>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TW} ${TH}" style="width:100%;height:auto">`,
     buildArrowDefs(activeAspects),
+    // Outer rect — same style as inner chart
+    `<rect width="${TW}" height="${TH}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
   ]
 
-  for (const sec of _borderSections()) {
-    const { house, x, y, w, h } = sec
-    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fffbeb" stroke="#fde68a" stroke-width="0.8"/>`)
-    parts.push(`<text x="${(x + 3).toFixed(1)}" y="${(y + 10).toFixed(1)}" font-size="9" fill="#94a3b8" ${FONT}>H${house}</text>`)
+  // Corner diagonal lines: outer corners → chart corners (extend inner chart diagonals)
+  parts.push(`<line x1="0" y1="0" x2="${BV}" y2="${BH}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${TW}" y1="0" x2="${BV+S}" y2="${BH}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="0" y1="${TH}" x2="${BV}" y2="${BH+S}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${TW}" y1="${TH}" x2="${BV+S}" y2="${BH+S}" stroke="#94a3b8" stroke-width="0.8"/>`)
+
+  // Section divider lines
+  const sl = '#cbd5e1'
+  parts.push(`<line x1="${BV+third}" y1="0" x2="${BV+third}" y2="${BH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+third*2}" y1="0" x2="${BV+third*2}" y2="${BH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+third}" y1="${BH+S}" x2="${BV+third}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+third*2}" y1="${BH+S}" x2="${BV+third*2}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="0" y1="${BH+third}" x2="${BV}" y2="${BH+third}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="0" y1="${BH+third*2}" x2="${BV}" y2="${BH+third*2}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+S}" y1="${BH+third}" x2="${TW}" y2="${BH+third}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+S}" y1="${BH+third*2}" x2="${TW}" y2="${BH+third*2}" stroke="${sl}" stroke-width="0.8"/>`)
+
+  // Planet labels per border section
+  function _renderTransitLabel(p, x, y, fs) {
+    const deg    = typeof p.degree === 'number' ? ` ${p.degree.toFixed(0)}°` : ''
+    const label  = p.isTransitLagna ? `Ascᵀ${deg}` : `${p.abbr}ᵀ${p.retrograde ? 'ᴿ' : ''}${deg}`
+    const abbrKey = p.isTransitLagna ? 'Asc' : p.abbr
+    const activeColor = transitActivePlanetColors[abbrKey]
+    const color  = p.isTransitLagna ? '#c2410c' : (activeColor ?? '#d97706')
+    const fontSize = p.isTransitLagna ? fs + 1 : fs
+    const weight = p.isTransitLagna ? '700' : '600'
+    const tipAttr = _tipAttr(p, true)
+    return { label, color, abbrKey, fontSize, weight, tipAttr, activeColor }
+  }
+
+  for (const sec of _borderSections(BH, BV)) {
+    const { house, x, y, w, h, horiz } = sec
     const ps = byHouse[house] || []
-    if (ps.length > 0) {
-      const cx = x + w / 2
-      const areaTop = y + 13, areaBottom = y + h - 2
-      const areaH = areaBottom - areaTop
-      const lineH = Math.max(11, Math.min(15, areaH / ps.length))
-      const fontSize = Math.round(Math.min(12, lineH - 2))
-      const blockH = (ps.length - 1) * lineH
-      const firstY = areaTop + (areaH - blockH) / 2 + fontSize * 0.36
-      ps.forEach((p, i) => {
-        const label = p.abbr + (p.retrograde ? '℞' : '')
-        const py = firstY + i * lineH
-        parts.push(`<text x="${cx.toFixed(1)}" y="${py.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="#d97706" font-weight="600" ${FONT} data-planet="${p.abbr}" data-chart="transit" style="cursor:pointer">${label}</text>`)
-      })
+
+    if (horiz) {
+      // Top/bottom sections: horizontal slot layout
+      parts.push(`<text x="${(x+3).toFixed(1)}" y="${(y+10).toFixed(1)}" font-size="9" fill="#94a3b8" ${FONT}>H${house}</text>`)
+      if (ps.length > 0) {
+        const rows = ps.length >= 4
+          ? [ps.slice(0, Math.ceil(ps.length / 2)), ps.slice(Math.ceil(ps.length / 2))]
+          : [ps]
+        const rowYs = rows.length === 2 ? [y + h * 0.38, y + h * 0.78] : [y + h * 0.65]
+        rows.forEach((row, ri) => {
+          const slotW = w / row.length
+          const fs = slotW > 90 ? 12 : slotW > 65 ? 11 : 10
+          const ry = rowYs[ri]
+          row.forEach((p, i) => {
+            const { label, color, abbrKey, fontSize, weight, tipAttr, activeColor } = _renderTransitLabel(p, x, y, fs)
+            const px = x + slotW * (i + 0.5)
+            if (activeColor) parts.push(`<rect x="${(px - 20).toFixed(1)}" y="${(ry - fontSize).toFixed(1)}" width="40" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2"/>`)
+            parts.push(`<text x="${px.toFixed(1)}" y="${ry.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" ${FONT} data-planet="${abbrKey}" data-chart="transit" ${tipAttr} style="cursor:pointer">${label}</text>`)
+          })
+        })
+      }
+    } else {
+      // Left/right sections: text rotated -90° (reads upward)
+      // rotate(-90, cx, cy): screen_x = cx + (ly - cy), screen_y = cy + (cx - lx)
+      // So lx controls screen_y along section height; ly controls screen_x within strip width
+      const cx_s = x + w / 2
+      const cy_s = y + h / 2
+      const rot  = `rotate(-90, ${cx_s.toFixed(1)}, ${cy_s.toFixed(1)})`
+
+      // House label at top of section, centered in strip
+      // target screen: (cx_s, y+9) → lx = cy_s + cx_s - y - 9, ly = cy_s
+      const hlx = cy_s + cx_s - y - 9
+      parts.push(`<text x="${hlx.toFixed(1)}" y="${cy_s.toFixed(1)}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="${rot}" ${FONT}>H${house}</text>`)
+
+      if (ps.length > 0) {
+        // Same row rules as horiz sections: ≥4 planets → 2 rows
+        const rows = ps.length >= 4
+          ? [ps.slice(0, Math.ceil(ps.length / 2)), ps.slice(Math.ceil(ps.length / 2))]
+          : [ps]
+        rows.forEach((rowPs, ri) => {
+          const rowSlotH = h / rowPs.length  // section height divided among planets
+          const fs = rowSlotH > 90 ? 12 : rowSlotH > 65 ? 11 : 10
+          // ly → screen_x: distribute rows evenly across strip width (w = BV)
+          const ly = cy_s + w * ((ri + 0.5) / rows.length - 0.5)
+          rowPs.forEach((p, i) => {
+            // lx → screen_y: planet i at y + rowSlotH*(i+0.5) within section height
+            const lx = cy_s + cx_s - y - rowSlotH * (i + 0.5)
+            const { label, color, abbrKey, fontSize, weight, tipAttr, activeColor } = _renderTransitLabel(p, x, y, fs)
+            if (activeColor) parts.push(`<rect x="${(lx - 20).toFixed(1)}" y="${(ly - fontSize).toFixed(1)}" width="40" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2" transform="${rot}"/>`)
+            parts.push(`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="${fontSize}" fill="${color}" font-weight="${weight}" transform="${rot}" ${FONT} data-planet="${abbrKey}" data-chart="transit" ${tipAttr} style="cursor:pointer">${label}</text>`)
+          })
+        })
+      }
     }
   }
 
-  // Natal chart body centered at (BORDER, BORDER)
-  parts.push(`<g transform="translate(${BORDER},${BORDER})">`)
+  parts.push(`<g transform="translate(${BV},${BH})">`)
   parts.push(`<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`)
   parts.push(..._northChartParts(natalPlanets, natalLagna, SIGN_ABBR, activeAspects, activePlanetColors))
   parts.push(`</g>`)

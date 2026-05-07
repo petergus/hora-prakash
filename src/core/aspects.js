@@ -44,7 +44,7 @@ export function getTransitToNatalAspects(transitPlanets, natalPlanets) {
     const aspectsNatalPlanets = natalPlanets
       .filter(np => aspectsHouses.includes(np.house))
       .map(np => np.abbr)
-    return { transitPlanet: tp, transitHouse: tp.house, aspectsHouses, aspectsNatalPlanets }
+    return { transitPlanet: tp.abbr, transitHouse: tp.house, aspectsHouses, aspectsNatalPlanets }
   })
 }
 

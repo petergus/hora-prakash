@@ -62,6 +62,19 @@ export class DashaPanel {
       ui.progNavIndex = dasha.findIndex(m => m.planet === ui.selectedProgLord)
     }
 
+    if (ui.focusedPath === null || ui.focusedPath === undefined) {
+      const curMD = dasha.find(m => isCurrentPeriod(m.start, m.end))
+      if (curMD) {
+        const swe   = getSwe()
+        const flags = buildCalcFlags(getSettings())
+        await ensureChildren(curMD, swe, flags)
+        const curAD = curMD.children?.find(a => isCurrentPeriod(a.start, a.end))
+        ui.focusedPath = curAD ? [curMD.planet, curAD.planet] : [curMD.planet]
+      } else {
+        ui.focusedPath = []
+      }
+    }
+
     let html = ''
     if (cards.includes('vimshottari')) {
       const rows = await this._buildDashaRows(dasha, ui)
@@ -90,7 +103,7 @@ export class DashaPanel {
     const rows = await this._buildDashaRows(dasha, ui)
     const tbody = this.el.querySelector('[data-vims-body] .dasha-table tbody')
     if (tbody) tbody.innerHTML = rows
-    const bw = this.el.querySelector('[data-breadcrumb-wrap]')
+    const bw = this.el.querySelector('[data-vims-card] [data-breadcrumb-wrap]')
     if (bw) {
       const fp = ui.focusedPath ?? []
       bw.innerHTML = (ui.focusedMode ?? true) && fp.length > 0
@@ -148,11 +161,11 @@ export class DashaPanel {
     return `
       <div class="card${draggable ? ' prog-draggable' : ''}" data-vims-card${draggable ? ' id="dasha-section" draggable="true"' : ''}>
         <div class="prog-card-header">
+          <div class="prog-card-header-row">
           <div class="prog-card-title" style="position:relative">
             ${draggable ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
             <button data-toggle-vims class="toggle-btn">${ui.dashaCollapsed ? '▶' : '▼'}</button>
             <h3>${draggable ? `Vimshottari Dasha — ${birth.name}` : 'Vimshottari Dasha'}</h3>
-            <div data-breadcrumb-wrap class="vims-breadcrumb-wrap">${breadcrumbInner}</div>
             <button data-options-btn class="dasha-options-btn" title="Options" style="margin-left:auto">⋮</button>
             <div class="dasha-options-popover" data-options-popover>
               <div class="dasha-options-row">
@@ -170,6 +183,8 @@ export class DashaPanel {
               <div class="dasha-options-info">Ayanamsa: <strong>${ayanamsaName}</strong>${ayanamsaVal} · TZ: ${state.birth?.timezone ?? 'UTC'}</div>
             </div>
           </div>
+          </div>
+          <div data-breadcrumb-wrap class="vims-breadcrumb-wrap">${breadcrumbInner}</div>
         </div>
         <div data-vims-body style="display:${ui.dashaCollapsed ? 'none' : ''}">
           <div class="table-scroll"><table class="dasha-table">
@@ -203,6 +218,7 @@ export class DashaPanel {
     return `
       <div class="card${draggable ? ' prog-draggable' : ''}" data-age-section${draggable ? ' draggable="true"' : ''}>
         <div class="prog-card-header">
+          <div class="prog-card-header-row">
           <div class="prog-card-title">
             ${draggable ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
             <button data-toggle-age class="toggle-btn">${ui.ageCollapsed ? '▶' : '▼'}</button>
@@ -216,6 +232,7 @@ export class DashaPanel {
             <input type="date" data-age-asof value="${asOfStr}"
               style="font-size:0.82rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);min-width:0;flex:1 1 auto;max-width:160px" />
             ${!isToday ? `<button data-age-reset class="prog-nav-btn">Today</button>` : ''}
+          </div>
           </div>
         </div>
         <div data-age-body style="display:${ui.ageCollapsed ? 'none' : ''}">
@@ -279,6 +296,7 @@ export class DashaPanel {
     return `
       <div class="card${draggable ? ' prog-draggable' : ''}" data-prog-section${draggable ? ' draggable="true"' : ''}>
         <div class="prog-card-header">
+          <div class="prog-card-header-row">
           <div class="prog-card-title">
             ${draggable ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
             <button data-toggle-prog class="toggle-btn">${ui.progCollapsed ? '▶' : '▼'}</button>
@@ -289,6 +307,7 @@ export class DashaPanel {
             <button data-prog-next class="prog-nav-btn" ${atMax ? 'disabled' : ''}>→</button>
             <span style="font-size:0.78rem;color:var(--muted)">MD Lord:</span>
             <select data-prog-lord class="div-select" style="font-size:0.82rem;padding:0.2rem 0.5rem;flex:1 1 auto;min-width:0;max-width:200px">${lordOptions}</select>
+          </div>
           </div>
         </div>
         <div data-prog-body style="display:${ui.progCollapsed ? 'none' : ''}">

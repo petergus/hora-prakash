@@ -40,7 +40,7 @@ export function defaultChartUI() {
     multiActivePlanets: [new Set(), new Set(), new Set(), new Set()],
     showDasha:      false,
     dashaCards:     ['vimshottari'],
-    splitRatio:     0.55,
+    splitRatio:     0.40,
     mobileDashaTab: 'chart',
     chartDasha:     null,
     fromHouseSign:  null,

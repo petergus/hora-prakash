@@ -152,7 +152,8 @@ export class DashaPanel {
             ${draggable ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
             <button data-toggle-vims class="toggle-btn">${ui.dashaCollapsed ? '▶' : '▼'}</button>
             <h3>${draggable ? `Vimshottari Dasha — ${birth.name}` : 'Vimshottari Dasha'}</h3>
-            <button data-options-btn class="dasha-options-btn" title="Options">⋮</button>
+            <div data-breadcrumb-wrap class="vims-breadcrumb-wrap">${breadcrumbInner}</div>
+            <button data-options-btn class="dasha-options-btn" title="Options" style="margin-left:auto">⋮</button>
             <div class="dasha-options-popover" data-options-popover>
               <div class="dasha-options-row">
                 <span>Mode:</span>
@@ -171,7 +172,6 @@ export class DashaPanel {
           </div>
         </div>
         <div data-vims-body style="display:${ui.dashaCollapsed ? 'none' : ''}">
-          <div data-breadcrumb-wrap>${breadcrumbInner}</div>
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
             <tbody>${rows}</tbody>

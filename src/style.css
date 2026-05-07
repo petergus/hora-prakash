@@ -492,18 +492,20 @@ h3 {
 }
 
 .chart-pane {
-  align-self: start;
   min-width: 0;
   min-height: 0;
+  position: sticky;
+  top: 1rem;
+  align-self: start;
 }
 
 .dasha-pane {
-  align-self: start;
   min-width: 0;
   overflow-y: auto;
-  max-height: 80vh;
+  max-height: calc(100vh - 6rem);
   border-left: 1px solid var(--border);
   padding-left: 1rem;
+  align-self: start;
 }
 
 .split-handle {
@@ -844,7 +846,12 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+}
+.vims-breadcrumb-wrap {
+  flex: 1;
+  min-width: 0;
 }
 .prog-card-title h3 {
   margin: 0;
@@ -1224,7 +1231,9 @@ h3 {
   .multi-planet-mobile  { display: block; }
 
   .prog-card-title { flex-wrap: wrap; gap: 0.4rem; }
-  .dasha-breadcrumb { font-size: 0.72rem; }
+  .vims-breadcrumb-wrap { flex-basis: 100%; flex-grow: 0; order: 10; }
+  .prog-card-title .dasha-options-btn { order: 5; margin-left: auto; }
+  .dasha-breadcrumb { font-size: 0.72rem; width: 100%; }
 
   /* Chart/Dasha split layout mobile overrides */
   .split-handle { display: none !important; }
@@ -1435,15 +1444,18 @@ h3 {
 
 .dasha-breadcrumb {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 2px;
-  padding: 6px 12px;
+  padding: 3px 8px;
   font-size: 0.76rem;
   background: linear-gradient(90deg, #eef2ff, #f5f3ff);
   border: 1px solid #c7d2fe;
-  border-radius: 7px;
-  margin-bottom: 0.6rem;
+  border-radius: 6px;
+  margin-bottom: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .dasha-crumb-btn {
   background: none;

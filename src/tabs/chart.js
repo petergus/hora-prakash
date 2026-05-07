@@ -264,7 +264,7 @@ export function renderChart() {
 
   const planetCard = `<div class="card planet-positions-card">${planetCardInner}</div>`
 
-  const splitRatio = ui.splitRatio ?? 0.55
+  const splitRatio = ui.splitRatio ?? 0.40
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
   panel.classList.toggle('has-dasha', showDasha)

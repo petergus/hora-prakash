@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "geo-tz": "^8.1.6",
+    "jspdf": "^4.2.1",
     "swisseph-wasm": "^0.0.5"
   }
 }

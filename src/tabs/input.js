@@ -1,5 +1,5 @@
 // src/tabs/input.js
-import { searchLocation, getTimezone } from '../utils/geocoding.js'
+import { searchLocation, searchOnline, getTimezone } from '../utils/geocoding.js'
 import { addToCache } from '../utils/location-cache.js'
 import { toJulianDay } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
@@ -607,15 +607,19 @@ async function onLocationInput(e) {
   const q = e.target.value
   if (q.length < 3) { clearSuggestions(); return }
   autocompleteTimeout = setTimeout(async () => {
-    try { renderSuggestions(await searchLocation(q)) } catch { clearSuggestions() }
+    try { const { results, isLocal } = await searchLocation(q); renderSuggestions(results, isLocal, q) } catch { clearSuggestions() }
   }, 400)
 }
 
-function renderSuggestions(results) {
+function renderSuggestions(results, isLocal = false, query = '') {
   const ul = document.getElementById('location-suggestions')
-  ul.innerHTML = results.map((r, i) =>
+  const items = results.map((r, i) =>
     `<li data-index="${i}" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${escapeAttr(r.displayName)}" data-tz="${escapeAttr(r.tz || '')}">${escapeHtml(r.displayName)}</li>`
   ).join('')
+  const onlineLink = isLocal && results.length > 0
+    ? `<li data-online="1" data-query="${escapeAttr(query)}" class="suggestion-online">Search online →</li>`
+    : ''
+  ul.innerHTML = items + onlineLink
 }
 
 function clearSuggestions() {
@@ -626,6 +630,18 @@ function clearSuggestions() {
 async function onSuggestionClick(e) {
   const li = e.target.closest('li')
   if (!li) return
+
+  if (li.dataset.online) {
+    const q = li.dataset.query
+    try {
+      const results = await searchOnline(q)
+      renderSuggestions(results, false, q)
+    } catch {
+      document.getElementById('calc-error').textContent = 'Online search failed. Please try again.'
+    }
+    return
+  }
+
   const lat = parseFloat(li.dataset.lat)
   const lon = parseFloat(li.dataset.lon)
   try {

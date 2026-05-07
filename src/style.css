@@ -423,6 +423,12 @@ h1 img { filter: var(--logo-filter, none); transition: filter 0.3s; }
   transition: background 0.1s;
 }
 #location-suggestions li:hover { background: #f1f5f9; }
+#location-suggestions .suggestion-online {
+  color: var(--accent, #2563eb);
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+}
 
 /* ── Buttons ── */
 .form-actions {

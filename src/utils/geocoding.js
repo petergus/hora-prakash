@@ -26,13 +26,28 @@ function searchPlaces(query, data) {
   return results
 }
 
+async function fetchNominatim(query) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`
+  const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'aditya-amrit-hora/1.0' } })
+  if (!res.ok) throw new Error(`Geocoding request failed: ${res.status}`)
+  const data = await res.json()
+  return data.map(item => ({
+    displayName: item.display_name,
+    lat: parseFloat(item.lat),
+    lon: parseFloat(item.lon),
+    tz: null,  // caller must resolve via getTimezone()
+  }))
+}
+
 /**
- * Search locations. Returns array of { displayName, lat, lon, tz }.
- * tz is ±HH:MM for local results, null for Nominatim fallback (resolve via getTimezone()).
+ * Search locations. Returns { results, isLocal }.
+ * results: array of { displayName, lat, lon, tz }
+ * isLocal: true when results came from cache/places.json (not Nominatim)
+ * tz is ±HH:MM for local results, null for Nominatim results (resolve via getTimezone()).
  * Order: localStorage cache → places.json → Nominatim API.
  */
 export async function searchLocation(query) {
-  if (!query || query.length < 3) return []
+  if (!query || query.length < 3) return { results: [], isLocal: false }
 
   // 1. LRU cache
   const cacheHits = searchCache(query)
@@ -46,19 +61,18 @@ export async function searchLocation(query) {
   const deduped = localHits.filter(e => !cacheNames.has(e.displayName))
 
   const combined = [...cacheHits, ...deduped]
-  if (combined.length > 0) return combined.slice(0, 5)
+  if (combined.length > 0) return { results: combined.slice(0, 5), isLocal: true }
 
   // 3. Nominatim fallback
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`
-  const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'aditya-amrit-hora/1.0' } })
-  if (!res.ok) throw new Error(`Geocoding request failed: ${res.status}`)
-  const data = await res.json()
-  return data.map(item => ({
-    displayName: item.display_name,
-    lat: parseFloat(item.lat),
-    lon: parseFloat(item.lon),
-    tz: null,  // caller must resolve via getTimezone()
-  }))
+  return { results: await fetchNominatim(query), isLocal: false }
+}
+
+/**
+ * Search Nominatim directly, bypassing local cache and places.json.
+ */
+export async function searchOnline(query) {
+  if (!query || query.length < 3) return []
+  return fetchNominatim(query)
 }
 
 /**

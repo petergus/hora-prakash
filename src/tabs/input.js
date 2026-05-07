@@ -19,6 +19,7 @@ const STORAGE_KEY = 'hora-prakash-profiles'
 let selectedLocation = null
 let autocompleteTimeout = null
 let editingProfileId = null
+let datetimeMode = 'picker' // 'picker' | 'text'
 
 // ── LocalStorage helpers ──────────────────────────────────────────────────────
 
@@ -174,14 +175,41 @@ export function renderInputTab() {
           <label>Name</label>
           <input type="text" id="inp-name" required placeholder="Full name" value="${escapeAttr(fill.name)}" />
         </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>Date of Birth</label>
-            <input type="date" id="inp-dob" required value="${fill.dob}" />
+        <div class="datetime-section">
+          <div class="datetime-section-header">
+            <span></span>
+            <div class="datetime-header-actions">
+              <button type="button" id="btn-use-now" class="btn-icon-svg" title="Use current date &amp; time">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-datetime-mode" class="btn-icon-svg" title="Type manually" data-mode="picker">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h4M14 14h4"/>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Time of Birth</label>
-            <input type="time" id="inp-tob" required value="${fill.tob}" />
+          <div class="form-row-2" id="datetime-picker">
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" id="inp-dob" required value="${fill.dob}" />
+            </div>
+            <div class="form-group">
+              <label>Time of Birth</label>
+              <input type="time" id="inp-tob" required value="${fill.tob}" />
+            </div>
+          </div>
+          <div class="form-row-2" id="datetime-text" style="display:none">
+            <div class="form-group">
+              <label>Date of Birth <span class="label-hint">DD/MM/YYYY</span></label>
+              <input type="text" id="inp-dob-text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" />
+            </div>
+            <div class="form-group">
+              <label>Time of Birth <span class="label-hint">HH:MM</span></label>
+              <input type="text" id="inp-tob-text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -189,55 +217,90 @@ export function renderInputTab() {
           <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${escapeAttr(fill.location)}" />
           <ul id="location-suggestions"></ul>
         </div>
-        <div class="form-group coords-row">
-          <div>
-            <label>Latitude</label>
-            <div class="dms-group">
-              <input type="number" id="inp-lat-d" class="dms-seg-d" min="0" max="90"  value="${latDMS.d}" placeholder="0" />
-              <span class="dms-sep">°</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lat-m" class="dms-seg"   min="0" max="59"  value="${latDMS.m}" placeholder="0" />
-              <span class="dms-sep">'</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lat-s" class="dms-seg"   min="0" max="59"  value="${latDMS.s}" placeholder="0" />
-              <span class="dms-sep">"</span>
-              <span class="dms-divider"></span>
-              <select id="inp-lat-dir" class="dms-seg-dir">
-                <option value="N"${latDir === 'N' ? ' selected' : ''}>N</option>
-                <option value="S"${latDir === 'S' ? ' selected' : ''}>S</option>
-              </select>
+        <div class="coords-section">
+          <div class="coords-section-header">
+            <label style="margin:0">Coordinates &amp; Timezone</label>
+            <button type="button" id="btn-coord-mode" class="btn-icon-svg" title="Toggle DMS / decimal input">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 4 21 4 21 8"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                <polyline points="7 20 3 20 3 16"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+            </button>
+          </div>
+          <div class="form-group coords-row" id="coords-dms">
+            <div>
+              <label>Latitude</label>
+              <div class="dms-group">
+                <input type="number" id="inp-lat-d" class="dms-seg-d" min="0" max="90"  value="${latDMS.d}" placeholder="0" />
+                <span class="dms-sep">°</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lat-m" class="dms-seg"   min="0" max="59"  value="${latDMS.m}" placeholder="0" />
+                <span class="dms-sep">'</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lat-s" class="dms-seg"   min="0" max="59"  value="${latDMS.s}" placeholder="0" />
+                <span class="dms-sep">"</span>
+                <span class="dms-divider"></span>
+                <select id="inp-lat-dir" class="dms-seg-dir">
+                  <option value="N"${latDir === 'N' ? ' selected' : ''}>N</option>
+                  <option value="S"${latDir === 'S' ? ' selected' : ''}>S</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>Longitude</label>
+              <div class="dms-group">
+                <input type="number" id="inp-lon-d" class="dms-seg-d" min="0" max="180" value="${lonDMS.d}" placeholder="0" />
+                <span class="dms-sep">°</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lon-m" class="dms-seg"   min="0" max="59"  value="${lonDMS.m}" placeholder="0" />
+                <span class="dms-sep">'</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lon-s" class="dms-seg"   min="0" max="59"  value="${lonDMS.s}" placeholder="0" />
+                <span class="dms-sep">"</span>
+                <span class="dms-divider"></span>
+                <select id="inp-lon-dir" class="dms-seg-dir">
+                  <option value="E"${lonDir === 'E' ? ' selected' : ''}>E</option>
+                  <option value="W"${lonDir === 'W' ? ' selected' : ''}>W</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>UTC Offset</label>
+              <div class="dms-group">
+                <select id="inp-tz-sign" class="dms-seg-sign">
+                  <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
+                  <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
+                </select>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-tz-h" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
+                <span class="dms-sep">:</span>
+                <input type="number" id="inp-tz-m" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
+                <button type="button" id="btn-fetch-tz" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
+              </div>
             </div>
           </div>
-          <div>
-            <label>Longitude</label>
-            <div class="dms-group">
-              <input type="number" id="inp-lon-d" class="dms-seg-d" min="0" max="180" value="${lonDMS.d}" placeholder="0" />
-              <span class="dms-sep">°</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lon-m" class="dms-seg"   min="0" max="59"  value="${lonDMS.m}" placeholder="0" />
-              <span class="dms-sep">'</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lon-s" class="dms-seg"   min="0" max="59"  value="${lonDMS.s}" placeholder="0" />
-              <span class="dms-sep">"</span>
-              <span class="dms-divider"></span>
-              <select id="inp-lon-dir" class="dms-seg-dir">
-                <option value="E"${lonDir === 'E' ? ' selected' : ''}>E</option>
-                <option value="W"${lonDir === 'W' ? ' selected' : ''}>W</option>
-              </select>
+          <div class="form-group coords-row-dec" id="coords-dec" style="display:none">
+            <div>
+              <label>Latitude °</label>
+              <input type="number" id="inp-lat-dec" step="0.0001" min="-90" max="90" placeholder="e.g. 28.6139" style="width:100%" />
             </div>
-          </div>
-          <div>
-            <label>UTC Offset</label>
-            <div class="dms-group">
-              <select id="inp-tz-sign" class="dms-seg-sign">
-                <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
-                <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
-              </select>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-tz-h" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
-              <span class="dms-sep">:</span>
-              <input type="number" id="inp-tz-m" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
-              <button type="button" id="btn-fetch-tz" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
+            <div>
+              <label>Longitude °</label>
+              <input type="number" id="inp-lon-dec" step="0.0001" min="-180" max="180" placeholder="e.g. 77.209" style="width:100%" />
+            </div>
+            <div>
+              <label>UTC Offset</label>
+              <div class="dms-group">
+                <select id="inp-tz-sign-dec" class="dms-seg-sign">
+                  <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
+                  <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
+                </select>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-tz-h-dec" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
+                <span class="dms-sep">:</span>
+                <input type="number" id="inp-tz-m-dec" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
+                <button type="button" id="btn-fetch-tz-dec" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
+              </div>
             </div>
           </div>
         </div>
@@ -256,16 +319,25 @@ export function renderInputTab() {
     : { ...DELHI }
   renderSavedProfiles()
 
+  datetimeMode = 'picker'
+  document.getElementById('btn-use-now').addEventListener('click', onUseNow)
+  document.getElementById('btn-datetime-mode').addEventListener('click', toggleDatetimeMode)
+  document.getElementById('inp-dob-text').addEventListener('input', autoSlashDate)
+  document.getElementById('inp-tob-text').addEventListener('input', autoColonTime)
   document.getElementById('inp-location').addEventListener('input', onLocationInput)
   document.getElementById('birth-form').addEventListener('submit', onFormSubmit)
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
+  document.getElementById('btn-fetch-tz-dec').addEventListener('click', onFetchTz)
+  document.getElementById('btn-coord-mode').addEventListener('click', toggleCoordMode)
   document.getElementById('btn-new-entry').addEventListener('click', () => {
     editingProfileId = null
     document.getElementById('inp-name').value = ''
-    document.getElementById('inp-dob').value = todayStr()
-    document.getElementById('inp-tob').value = nowTimeStr()
+    document.getElementById('inp-dob').value      = todayStr()
+    document.getElementById('inp-tob').value      = nowTimeStr()
+    document.getElementById('inp-dob-text').value = ''
+    document.getElementById('inp-tob-text').value = ''
     document.getElementById('inp-location').value = ''
     ;['inp-lat-d','inp-lat-m','inp-lat-s','inp-lon-d','inp-lon-m','inp-lon-s','inp-tz-h','inp-tz-m']
       .forEach(id => { document.getElementById(id).value = '' })
@@ -388,6 +460,12 @@ function fillForm(p) {
   document.getElementById('inp-name').value     = p.name
   document.getElementById('inp-dob').value      = p.dob
   document.getElementById('inp-tob').value      = p.tob
+  // keep text fields in sync too
+  if (p.dob) {
+    const [y, mo, d] = p.dob.split('-')
+    document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  }
+  document.getElementById('inp-tob-text').value  = p.tob || ''
   document.getElementById('inp-location').value = p.location || ''
   fillCoords(p.lat, p.lon, p.timezone)
   selectedLocation = { displayName: p.location, lat: p.lat, lon: p.lon, timezone: p.timezone }
@@ -430,9 +508,12 @@ async function onFetchTz() {
   try {
     const tz = await getTimezone(lat, lon)
     const p  = offsetParts(tz)
-    document.getElementById('inp-tz-sign').value = p.sign
-    document.getElementById('inp-tz-h').value    = p.h
-    document.getElementById('inp-tz-m').value    = p.m
+    document.getElementById('inp-tz-sign').value    = p.sign
+    document.getElementById('inp-tz-h').value        = p.h
+    document.getElementById('inp-tz-m').value        = p.m
+    document.getElementById('inp-tz-sign-dec').value = p.sign
+    document.getElementById('inp-tz-h-dec').value    = p.h
+    document.getElementById('inp-tz-m-dec').value    = p.m
     selectedLocation = {
       ...(selectedLocation || {}),
       displayName: document.getElementById('inp-location').value.trim(),
@@ -447,6 +528,75 @@ async function onFetchTz() {
     btn.disabled = false
     btn.textContent = '⟳'
   }
+}
+
+// ── Date/time mode helpers ────────────────────────────────────────────────────
+
+function onUseNow() {
+  const dob = todayStr()
+  const tob = nowTimeStr()
+  document.getElementById('inp-dob').value      = dob
+  document.getElementById('inp-tob').value      = tob
+  // Also fill text fields so switching modes keeps values
+  const [y, mo, d] = dob.split('-')
+  document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  document.getElementById('inp-tob-text').value  = tob
+}
+
+function toggleDatetimeMode() {
+  const toText = datetimeMode === 'picker'
+  if (toText) {
+    // copy picker values → text fields
+    const dob = document.getElementById('inp-dob').value
+    const tob = document.getElementById('inp-tob').value
+    if (dob) {
+      const [y, mo, d] = dob.split('-')
+      document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+    }
+    document.getElementById('inp-tob-text').value = tob || ''
+    datetimeMode = 'text'
+  } else {
+    // copy text values → picker fields (best-effort)
+    const dobRaw = document.getElementById('inp-dob-text').value.trim()
+    const tobRaw = document.getElementById('inp-tob-text').value.trim()
+    const parsed = parseDateText(dobRaw)
+    if (parsed) document.getElementById('inp-dob').value = parsed
+    if (/^\d{1,2}:\d{2}$/.test(tobRaw)) {
+      document.getElementById('inp-tob').value = tobRaw.padStart(5, '0')
+    }
+    datetimeMode = 'picker'
+  }
+  document.getElementById('datetime-picker').style.display = toText  ? 'none' : ''
+  document.getElementById('datetime-text').style.display   = toText  ? ''     : 'none'
+  const btn = document.getElementById('btn-datetime-mode')
+  if (toText) {
+    btn.title = 'Use date/time picker'
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
+  } else {
+    btn.title = 'Type manually'
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h4M14 14h4"/></svg>`
+  }
+}
+
+function parseDateText(str) {
+  // accepts DD/MM/YYYY or DD-MM-YYYY
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (!m) return null
+  const [, d, mo, y] = m
+  return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`
+}
+
+function autoSlashDate(e) {
+  let v = e.target.value.replace(/[^\d]/g, '')
+  if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2)
+  if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5)
+  e.target.value = v.slice(0, 10)
+}
+
+function autoColonTime(e) {
+  let v = e.target.value.replace(/[^\d]/g, '')
+  if (v.length > 2) v = v.slice(0,2) + ':' + v.slice(2)
+  e.target.value = v.slice(0, 5)
 }
 
 // ── Location autocomplete ─────────────────────────────────────────────────────
@@ -495,8 +645,18 @@ async function onFormSubmit(e) {
   const errEl = document.getElementById('calc-error')
   errEl.textContent = ''
   const name = document.getElementById('inp-name').value.trim()
-  const dob  = document.getElementById('inp-dob').value
-  const tob  = document.getElementById('inp-tob').value
+  let dob, tob
+  if (datetimeMode === 'text') {
+    const dobRaw = document.getElementById('inp-dob-text').value.trim()
+    const tobRaw = document.getElementById('inp-tob-text').value.trim()
+    dob = parseDateText(dobRaw)
+    tob = /^\d{1,2}:\d{2}$/.test(tobRaw) ? tobRaw.padStart(5, '0') : ''
+    if (!dob) { errEl.textContent = 'Date must be DD/MM/YYYY.'; return }
+    if (!tob) { errEl.textContent = 'Time must be HH:MM.'; return }
+  } else {
+    dob = document.getElementById('inp-dob').value
+    tob = document.getElementById('inp-tob').value
+  }
   const lat  = Math.round(readLat() * 10000) / 10000
   const lon  = Math.round(readLon() * 10000) / 10000
   const tz   = readTimezone()
@@ -561,9 +721,47 @@ async function onFormSubmit(e) {
   }
 }
 
+// ── Coord mode toggle ─────────────────────────────────────────────────────────
+
+let coordMode = 'dms' // 'dms' | 'dec'
+
+function toggleCoordMode() {
+  const isDec = coordMode === 'dms'
+  if (isDec) {
+    // switching dms → dec: copy current DMS values into decimal fields
+    const lat = readLatDMS()
+    const lon = readLonDMS()
+    document.getElementById('inp-lat-dec').value = isNaN(lat) ? '' : lat
+    document.getElementById('inp-lon-dec').value = isNaN(lon) ? '' : lon
+    const tzH = document.getElementById('inp-tz-h').value
+    const tzM = document.getElementById('inp-tz-m').value
+    const tzS = document.getElementById('inp-tz-sign').value
+    document.getElementById('inp-tz-h-dec').value    = tzH
+    document.getElementById('inp-tz-m-dec').value    = tzM
+    document.getElementById('inp-tz-sign-dec').value = tzS
+    coordMode = 'dec'
+  } else {
+    // switching dec → dms: copy decimal into DMS fields
+    const lat = parseFloat(document.getElementById('inp-lat-dec').value)
+    const lon = parseFloat(document.getElementById('inp-lon-dec').value)
+    const tzH = document.getElementById('inp-tz-h-dec').value
+    const tzM = document.getElementById('inp-tz-m-dec').value
+    const tzS = document.getElementById('inp-tz-sign-dec').value
+    if (!isNaN(lat) && !isNaN(lon)) fillCoordsDMS(lat, lon)
+    document.getElementById('inp-tz-h').value    = tzH
+    document.getElementById('inp-tz-m').value    = tzM
+    document.getElementById('inp-tz-sign').value = tzS
+    coordMode = 'dms'
+  }
+  document.getElementById('coords-dms').style.display = coordMode === 'dms' ? '' : 'none'
+  document.getElementById('coords-dec').style.display = coordMode === 'dec' ? '' : 'none'
+  const btn = document.getElementById('btn-coord-mode')
+  btn.title = coordMode === 'dms' ? 'Toggle DMS / decimal input' : 'Toggle decimal / DMS input'
+}
+
 // ── Split-input readers ───────────────────────────────────────────────────────
 
-function readLat() {
+function readLatDMS() {
   const d   = parseFloat(document.getElementById('inp-lat-d').value) || 0
   const m   = parseFloat(document.getElementById('inp-lat-m').value) || 0
   const s   = parseFloat(document.getElementById('inp-lat-s').value) || 0
@@ -572,7 +770,7 @@ function readLat() {
   return dir === 'S' ? -dec : dec
 }
 
-function readLon() {
+function readLonDMS() {
   const d   = parseFloat(document.getElementById('inp-lon-d').value) || 0
   const m   = parseFloat(document.getElementById('inp-lon-m').value) || 0
   const s   = parseFloat(document.getElementById('inp-lon-s').value) || 0
@@ -581,10 +779,21 @@ function readLon() {
   return dir === 'W' ? -dec : dec
 }
 
+function readLat() {
+  if (coordMode === 'dec') return parseFloat(document.getElementById('inp-lat-dec').value) || 0
+  return readLatDMS()
+}
+
+function readLon() {
+  if (coordMode === 'dec') return parseFloat(document.getElementById('inp-lon-dec').value) || 0
+  return readLonDMS()
+}
+
 function readTz() {
-  const sign = document.getElementById('inp-tz-sign').value
-  const h    = parseInt(document.getElementById('inp-tz-h').value) || 0
-  const m    = parseInt(document.getElementById('inp-tz-m').value) || 0
+  const suffix = coordMode === 'dec' ? '-dec' : ''
+  const sign = document.getElementById(`inp-tz-sign${suffix}`).value
+  const h    = parseInt(document.getElementById(`inp-tz-h${suffix}`).value) || 0
+  const m    = parseInt(document.getElementById(`inp-tz-m${suffix}`).value) || 0
   return offsetStr({ sign, h, m })
 }
 
@@ -600,10 +809,9 @@ function readTimezone() {
   return sameCoords ? selectedTz : offset
 }
 
-function fillCoords(lat, lon, timezone) {
-  const ld = decToDMS(lat);  const lDir = lat  >= 0 ? 'N' : 'S'
-  const od = decToDMS(lon);  const oDir = lon  >= 0 ? 'E' : 'W'
-  const tzP = offsetParts(timezone)
+function fillCoordsDMS(lat, lon) {
+  const ld = decToDMS(Math.abs(lat)); const lDir = lat >= 0 ? 'N' : 'S'
+  const od = decToDMS(Math.abs(lon)); const oDir = lon >= 0 ? 'E' : 'W'
   document.getElementById('inp-lat-d').value   = ld.d
   document.getElementById('inp-lat-m').value   = ld.m
   document.getElementById('inp-lat-s').value   = ld.s
@@ -612,9 +820,20 @@ function fillCoords(lat, lon, timezone) {
   document.getElementById('inp-lon-m').value   = od.m
   document.getElementById('inp-lon-s').value   = od.s
   document.getElementById('inp-lon-dir').value = oDir
-  document.getElementById('inp-tz-sign').value = tzP.sign
-  document.getElementById('inp-tz-h').value    = tzP.h
-  document.getElementById('inp-tz-m').value    = tzP.m
+}
+
+function fillCoords(lat, lon, timezone) {
+  const tzP = offsetParts(timezone)
+  fillCoordsDMS(lat, lon)
+  // Also keep decimal fields in sync
+  document.getElementById('inp-lat-dec').value = Math.round(lat * 10000) / 10000
+  document.getElementById('inp-lon-dec').value = Math.round(lon * 10000) / 10000
+  document.getElementById('inp-tz-sign').value    = tzP.sign
+  document.getElementById('inp-tz-h').value        = tzP.h
+  document.getElementById('inp-tz-m').value        = tzP.m
+  document.getElementById('inp-tz-sign-dec').value = tzP.sign
+  document.getElementById('inp-tz-h-dec').value    = tzP.h
+  document.getElementById('inp-tz-m-dec').value    = tzP.m
 }
 
 /** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */

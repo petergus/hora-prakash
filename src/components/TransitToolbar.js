@@ -27,7 +27,11 @@ export class TransitToolbar {
     this._onClearAspects = onClearAspects
     this._onClick        = null
     this._onChange2      = null
+    this._onInput2       = null
     this._menuOpen       = false
+    this._dateMode       = 'picker' // 'picker' | 'text'
+    this._dateTextVal    = ''
+    this._timeTextVal    = ''
   }
 
   get ui() { return this._getState() }
@@ -35,7 +39,8 @@ export class TransitToolbar {
   destroy() {
     if (this._onClick)   this.el.removeEventListener('click',  this._onClick)
     if (this._onChange2) this.el.removeEventListener('change', this._onChange2)
-    this._onClick = this._onChange2 = null
+    if (this._onInput2)  this.el.removeEventListener('input',  this._onInput2)
+    this._onClick = this._onChange2 = this._onInput2 = null
   }
 
   render() {
@@ -95,19 +100,31 @@ export class TransitToolbar {
           <button class="transit-view-toggle" data-action="toggleView" title="Switch chart view">
             ${isDual ? 'Dual ⇌' : 'Overlay ⇌'}
           </button>
+          ${this._dateMode === 'picker' ? `
           <label class="transit-date-label transit-secondary-ctrl">
             <input type="date" class="transit-date" value="${dateVal}" />
           </label>
           <label class="transit-time-label transit-secondary-ctrl">
             <input type="time" class="transit-time" value="${timeVal}" />
-          </label>
-          <button class="transit-today-btn transit-secondary-ctrl" data-action="resetToday" title="Reset to today">Today ↺</button>
-          <div class="transit-zoom-group transit-secondary-ctrl" title="Chart size">
+          </label>` : `
+          <input type="text" class="transit-date-text transit-secondary-ctrl" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" value="${this._dateTextVal}" />
+          <input type="text" class="transit-time-text transit-secondary-ctrl" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${this._timeTextVal}" />
+          `}
+          <button class="transit-today-btn transit-secondary-ctrl" data-action="resetToday" title="Reset to today &amp; now">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </button>
+          <button class="transit-today-btn transit-secondary-ctrl" data-action="toggleDateMode" title="${this._dateMode === 'picker' ? 'Type manually' : 'Use date/time picker'}">
+            ${this._dateMode === 'picker'
+              ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h4M14 14h4"/></svg>`
+              : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
+            }
+          </button>
+          <div class="transit-zoom-group transit-secondary-ctrl transit-desktop-only" title="Chart size">
             <button class="transit-zoom-btn" data-action="zoomOut" ${zoom <= 1 ? 'disabled' : ''}>−</button>
             <span class="transit-zoom-label">⊙</span>
             <button class="transit-zoom-btn" data-action="zoomIn" ${zoom >= 5 ? 'disabled' : ''}>+</button>
           </div>
-          <button class="transit-style-btn transit-secondary-ctrl${showTooltip ? ' active' : ''}" data-action="toggleTooltip" title="Planet info on hover">ℹ Info</button>
+          <button class="transit-style-btn transit-secondary-ctrl transit-desktop-only${showTooltip ? ' active' : ''}" data-action="toggleTooltip" title="Planet info on hover">ℹ Info</button>
           <button class="transit-menu-btn${menuOpen ? ' active' : ''}" data-action="toggleMenu" title="More options">⋮</button>
         </div>
       </div>`
@@ -115,9 +132,38 @@ export class TransitToolbar {
     this._bindEvents()
   }
 
+  _parseDateText(str) {
+    const m = str.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+    if (!m) return null
+    const [, d, mo, y] = m
+    return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+
   _bindEvents() {
     if (this._onClick)   this.el.removeEventListener('click',  this._onClick)
     if (this._onChange2) this.el.removeEventListener('change', this._onChange2)
+    if (this._onInput2)  this.el.removeEventListener('input',  this._onInput2)
+
+    this._onInput2 = (e) => {
+      if (e.target.classList.contains('transit-date-text')) {
+        let v = e.target.value.replace(/[^\d]/g, '')
+        if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2)
+        if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5)
+        e.target.value = v.slice(0, 10)
+        this._dateTextVal = e.target.value
+        const parsed = this._parseDateText(e.target.value)
+        if (parsed) this._onChange('transitDate', parsed)
+      } else if (e.target.classList.contains('transit-time-text')) {
+        let v = e.target.value.replace(/[^\d]/g, '')
+        if (v.length > 2) v = v.slice(0,2) + ':' + v.slice(2)
+        e.target.value = v.slice(0, 5)
+        this._timeTextVal = e.target.value
+        if (/^\d{1,2}:\d{2}$/.test(e.target.value)) {
+          this._onChange('transitTime', e.target.value.padStart(5, '0'))
+        }
+      }
+    }
+
     this._onClick = (e) => {
       const btn = e.target.closest('[data-action]')
       if (!btn) return
@@ -144,8 +190,29 @@ export class TransitToolbar {
       }
       if (action === 'resetToday') {
         const now = new Date()
-        this._onChange('transitDate', now.toISOString().slice(0,10))
-        this._onChange('transitTime', now.toTimeString().slice(0,5))
+        const d = now.toISOString().slice(0,10)
+        const t = now.toTimeString().slice(0,5)
+        this._onChange('transitDate', d)
+        this._onChange('transitTime', t)
+        // sync text fields too
+        const [y, mo, dd] = d.split('-')
+        this._dateTextVal = `${dd}/${mo}/${y}`
+        this._timeTextVal = t
+        return
+      }
+      if (action === 'toggleDateMode') {
+        const ui = this.ui
+        if (this._dateMode === 'picker') {
+          const dv = ui.transitDate ?? new Date().toISOString().slice(0,10)
+          const tv = ui.transitTime ?? new Date().toTimeString().slice(0,5)
+          const [y, mo, d] = dv.split('-')
+          this._dateTextVal = `${d}/${mo}/${y}`
+          this._timeTextVal = tv
+          this._dateMode = 'text'
+        } else {
+          this._dateMode = 'picker'
+        }
+        this.render()
         return
       }
       if (action === 'toggleTooltip') {
@@ -177,5 +244,6 @@ export class TransitToolbar {
 
     this.el.addEventListener('click',  this._onClick)
     this.el.addEventListener('change', this._onChange2)
+    this.el.addEventListener('input',  this._onInput2)
   }
 }

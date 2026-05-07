@@ -285,6 +285,47 @@ h1 img { filter: var(--logo-filter, none); transition: filter 0.3s; }
 }
 
 .coords-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.coords-row-dec { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+.datetime-section { margin-bottom: 0; }
+.datetime-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.datetime-header-actions { display: flex; gap: 0.4rem; align-items: center; }
+
+.coords-section { margin-bottom: 1.1rem; }
+.coords-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+.coords-section-header label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.btn-icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.btn-icon-svg:hover { color: var(--primary); border-color: var(--primary); background: #eef2ff; }
 
 /* ── Segmented DMS input group ── */
 .dms-group {
@@ -1107,6 +1148,7 @@ h3 {
 
   .form-row-2 { grid-template-columns: 1fr; }
   .coords-row { grid-template-columns: 1fr; }
+  .coords-row-dec { grid-template-columns: 1fr; }
   .dms-group { width: 100%; }
   .dms-seg-d, .dms-seg, .dms-seg-tz-h, .dms-seg-tz-m { flex: 1; }
   .form-actions { flex-direction: column; }
@@ -1525,6 +1567,33 @@ h3 {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
 }
+.transit-date-text {
+  width: 7.2rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.82rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.transit-time-text {
+  width: 4rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.82rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.transit-date-text:focus, .transit-time-text:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 .transit-div-select {
   padding: 0.3rem 0.5rem;
   font-size: 0.82rem;
@@ -1738,9 +1807,14 @@ h3 {
   /* Secondary controls hidden on mobile unless menu open */
   .transit-secondary-ctrl { display: none !important; }
   .transit-controls-row.menu-open .transit-secondary-ctrl { display: flex !important; }
+  /* Zoom and Info never shown on mobile — override menu-open too */
+  .transit-desktop-only,
+  .transit-controls-row.menu-open .transit-desktop-only { display: none !important; }
 
   /* Date/time inputs smaller */
   .transit-date, .transit-time { font-size: 0.8rem; padding: 0.25rem 0.35rem; }
+  .transit-date-text { width: 6.5rem; font-size: 0.8rem; padding: 0.25rem 0.35rem; }
+  .transit-time-text { width: 3.5rem; font-size: 0.8rem; padding: 0.25rem 0.35rem; }
   .transit-today-btn, .transit-view-toggle { padding: 0.25rem 0.5rem; font-size: 0.78rem; }
 
   /* Dual view: show pill tabs, hide inactive chart */

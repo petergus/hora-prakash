@@ -2045,3 +2045,15 @@ h3 {
   cursor: pointer;
   font-weight: 600;
 }
+
+#btn-install {
+  background: var(--accent, #b91c1c);
+  color: #fff;
+  border: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: auto;
+}

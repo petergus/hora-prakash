@@ -9,6 +9,25 @@ import { createSession, switchSession } from './sessions.js'
 import { renderProfileTabs } from './ui/profile-tabs.js'
 import { updateFavicon } from './ui/favicon.js'
 
+// Capture install prompt and show install button when available.
+let _installPrompt = null
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault()
+  _installPrompt = e
+  if (document.getElementById('btn-install')) return
+  const btn = document.createElement('button')
+  btn.id = 'btn-install'
+  btn.textContent = '⬇ Install App'
+  btn.onclick = async () => {
+    if (!_installPrompt) return
+    _installPrompt.prompt()
+    const { outcome } = await _installPrompt.userChoice
+    if (outcome === 'accepted') btn.remove()
+    _installPrompt = null
+  }
+  document.querySelector('header')?.appendChild(btn)
+})
+
 // Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})

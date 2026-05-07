@@ -1,7 +1,7 @@
 // src/utils/geocoding.js
 import { searchCache } from './location-cache.js'
 
-const PLACES_URL = '/hora-prakash/places.json'
+const PLACES_URL = `${import.meta.env.BASE_URL}places.json`
 let placesData = null
 
 async function loadPlaces() {
@@ -30,7 +30,7 @@ function searchPlaces(query, data) {
 
 /**
  * Search locations. Returns array of { displayName, lat, lon, tz }.
- * tz is ±HH:MM for local results, IANA string for Nominatim fallback results.
+ * tz is ±HH:MM for local results, null for Nominatim fallback (resolve via getTimezone()).
  * Order: localStorage cache → places.json → Nominatim API.
  */
 export async function searchLocation(query) {

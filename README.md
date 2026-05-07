@@ -12,7 +12,7 @@ A browser-based Vedic astrology calculator. No backend, no API keys, no data lea
 - **Birth Chart** — North Indian (diamond/triangle) and South Indian (fixed sign grid) SVG charts
 - **Divisional Charts** — full D1–D12 suite plus Chalit; chart and planet table update instantly
   - D1 Rashi · D2 Hora · D3 Drekkana · D4 Chaturthamsha · D5 Panchamsha · D6 Shashthamsha · D7 Saptamsha · D8 Ashtamsha · D9 Navamsha · D10 Dashamsha · D11 Rudramsha · D12 Dwadashamsha · Chalit
-- **Transit Chart** — dual-chart overlay showing natal and transit positions simultaneously, with aspect table and hover tooltips
+- **Transit Chart** — dual-chart overlay (natal + transit) with per-planet color coding; aspect table with hover tooltips showing next ingress, retrograde, nakshatra, pada, gandanta, combust events, and natal aspects; inline row expansion for per-planet forecast; timezone-aware date display
 
 ### Planets & Dashas
 - **Planetary Positions** — all 9 Vedic grahas with sign, degree, D1 house, nakshatra, pada; retrograde **(R)** and combust **(C)** flagged

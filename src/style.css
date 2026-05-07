@@ -1454,8 +1454,7 @@ h3 {
   border-radius: 6px;
   margin-bottom: 0;
   overflow-x: auto;
-  white-space: nowrap;
-  overflow: hidden;
+  max-width: 100%;
 }
 .dasha-crumb-btn {
   background: none;

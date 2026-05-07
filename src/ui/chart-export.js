@@ -5,6 +5,15 @@ import { calcDivisional } from '../core/divisional.js'
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
+// Shared layout constants for both buildCanvas and exportSVG
+const EXPORT_W        = 1200
+const EXPORT_PAD      = 28
+const EXPORT_CHART_H  = 480
+const EXPORT_ROW_H    = 24
+const EXPORT_HEADER_H = 96
+const EXPORT_COLS     = [28, 130, 230, 380, 490, 660, 760]
+const EXPORT_HEADERS  = ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Pada', 'Retro']
+
 function fmtDeg(dec) {
   if (dec == null) return '—'
   const d = Math.floor(dec)
@@ -55,11 +64,11 @@ export async function buildCanvas(opts) {
   const { chartKeys, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
   const { birth, planets, lagna } = state
 
-  const W        = 1200
-  const PAD      = 28
-  const CHART_H  = 480
-  const ROW_H    = 24
-  const HEADER_H = 96
+  const W        = EXPORT_W
+  const PAD      = EXPORT_PAD
+  const CHART_H  = EXPORT_CHART_H
+  const ROW_H    = EXPORT_ROW_H
+  const HEADER_H = EXPORT_HEADER_H
 
   // Generate chart SVG strings
   const chartSvgs = chartKeys.map(key => {
@@ -83,8 +92,8 @@ export async function buildCanvas(opts) {
   // Transit rows (if any)
   const transitRows = transitPlanets ?? []
 
-  const natalTableH   = (tableRows.length + 1) * ROW_H + PAD * 2
-  const transitTableH = transitRows.length > 0 ? (transitRows.length + 1) * ROW_H + PAD * 2 : 0
+  const natalTableH   = (tableRows.length + 2) * ROW_H + PAD * 2
+  const transitTableH = transitRows.length > 0 ? (transitRows.length + 2) * ROW_H + PAD * 2 : 0
 
   const totalH = HEADER_H + CHART_H + natalTableH + transitTableH
 
@@ -124,8 +133,8 @@ export async function buildCanvas(opts) {
   }
 
   // ── Natal planet table ──
-  const COLS    = [PAD, 130, 230, 380, 490, 660, 760]
-  const HEADERS = ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Pada', 'Retro']
+  const COLS    = EXPORT_COLS
+  const HEADERS = EXPORT_HEADERS
 
   let ty = HEADER_H + CHART_H + PAD
 
@@ -196,7 +205,13 @@ export async function exportChart(format, opts) {
 
   if (format === 'png') {
     const canvas = await buildCanvas(opts)
-    canvas.toBlob(blob => downloadBlob(blob, makeFilename(state.birth, keys, 'png')), 'image/png')
+    await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('Canvas toBlob returned null')); return }
+        try { downloadBlob(blob, makeFilename(state.birth, keys, 'png')); resolve() }
+        catch (e) { reject(e) }
+      }, 'image/png')
+    })
     return
   }
 
@@ -209,8 +224,11 @@ export async function exportChart(format, opts) {
     const canvas = await buildCanvas(opts)
     const { jsPDF } = await import('jspdf')
     const W = canvas.width, H = canvas.height
-    const pdf = new jsPDF({ orientation: W > H ? 'landscape' : 'portrait', unit: 'px', format: [W, H] })
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, W, H)
+    // Scale to A4 width (210mm), preserving aspect ratio
+    const A4_W_MM = 210
+    const A4_H_MM = Math.round((H / W) * A4_W_MM)
+    const pdf = new jsPDF({ orientation: A4_H_MM > A4_W_MM ? 'portrait' : 'landscape', unit: 'mm', format: [A4_W_MM, A4_H_MM] })
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_W_MM, A4_H_MM)
     pdf.save(makeFilename(state.birth, keys, 'pdf'))
   }
 }
@@ -219,11 +237,11 @@ async function exportSVG(opts) {
   const { chartKeys, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
   const { birth, planets, lagna } = state
 
-  const W        = 1200
-  const PAD      = 28
-  const CHART_H  = 480
-  const ROW_H    = 24
-  const HEADER_H = 96
+  const W        = EXPORT_W
+  const PAD      = EXPORT_PAD
+  const CHART_H  = EXPORT_CHART_H
+  const ROW_H    = EXPORT_ROW_H
+  const HEADER_H = EXPORT_HEADER_H
 
   const chartSvgs = chartKeys.map(key => {
     const { planets: dp, lagna: dl } = calcDivisional(planets, lagna, key)
@@ -248,15 +266,20 @@ async function exportSVG(opts) {
   const totalH = HEADER_H + CHART_H + natalTableH + transitTableH
 
   // Embed each chart SVG as a <g> with transform (strip outer <svg> tag)
+  // Prefix all id attributes and references to avoid collisions across multiple embedded charts
   const embeddedCharts = allSvgs.map((svg, i) => {
-    const inner = svg.replace(/<svg[^>]*>/s, '').replace(/<\/svg>\s*$/, '')
+    let inner = svg.replace(/<svg[^>]*>/s, '').replace(/<\/svg>\s*$/, '')
+    inner = inner
+      .replace(/\bid="([^"]+)"/g, `id="chart${i}-$1"`)
+      .replace(/url\(#([^)]+)\)/g, `url(#chart${i}-$1)`)
+      .replace(/href="#([^"]+)"/g, `href="#chart${i}-$1"`)
     const x     = PAD + i * chartW
     const scale = chartSize / 480
     return `<g transform="translate(${x},${HEADER_H}) scale(${scale.toFixed(4)})">${inner}</g>`
   })
 
-  const COLS    = [PAD, 130, 230, 380, 490, 660, 760]
-  const HEADERS = ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Pada', 'Retro']
+  const COLS    = EXPORT_COLS
+  const HEADERS = EXPORT_HEADERS
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 

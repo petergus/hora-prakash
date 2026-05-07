@@ -67,7 +67,7 @@ function isGandanta(lon) {
   const sign0     = Math.floor(normLon / 30)
   const degInSign = normLon % 30
   if (GANDANTA_WATER_SIGNS.has(sign0) && degInSign >= (30 - GANDANTA_DEG)) return true
-  if (GANDANTA_FIRE_SIGNS.has(sign0)  && degInSign <  GANDANTA_DEG)         return true
+  if (GANDANTA_FIRE_SIGNS.has(sign0)  && degInSign <= GANDANTA_DEG)         return true
   return false
 }
 

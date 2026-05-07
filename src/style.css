@@ -1231,9 +1231,9 @@ h3 {
   .multi-planet-mobile  { display: block; }
 
   .prog-card-title { flex-wrap: wrap; gap: 0.4rem; }
-  .vims-breadcrumb-wrap { flex-basis: 100%; flex-grow: 0; order: 10; }
+  .vims-breadcrumb-wrap { flex-basis: 100%; flex-grow: 0; order: 10; min-width: 0; overflow: hidden; }
   .prog-card-title .dasha-options-btn { order: 5; margin-left: auto; }
-  .dasha-breadcrumb { font-size: 0.72rem; width: 100%; }
+  .dasha-breadcrumb { font-size: 0.72rem; max-width: calc(100vw - 5rem); }
 
   /* Chart/Dasha split layout mobile overrides */
   .split-handle { display: none !important; }

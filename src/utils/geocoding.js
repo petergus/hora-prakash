@@ -1,4 +1,5 @@
 // src/utils/geocoding.js
+// places.json schema: { n: name, a: lat, o: lon, z: tz_offset }
 import { searchCache } from './location-cache.js'
 
 const PLACES_URL = `${import.meta.env.BASE_URL}places.json`

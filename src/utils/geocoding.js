@@ -3,18 +3,15 @@
 import { searchCache } from './location-cache.js'
 
 const PLACES_URL = `${import.meta.env.BASE_URL}places.json`
-let placesData = null
+let placesPromise = null
 
-async function loadPlaces() {
-  if (placesData) return placesData
-  try {
-    const res = await fetch(PLACES_URL)
-    if (!res.ok) throw new Error(`places.json fetch failed: ${res.status}`)
-    placesData = await res.json()
-  } catch {
-    placesData = []
+function loadPlaces() {
+  if (!placesPromise) {
+    placesPromise = fetch(PLACES_URL)
+      .then(r => r.ok ? r.json() : [])
+      .catch(() => [])
   }
-  return placesData
+  return placesPromise
 }
 
 function searchPlaces(query, data) {

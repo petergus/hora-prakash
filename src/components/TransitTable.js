@@ -2,6 +2,11 @@ import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
 
 const SIGN_NAMES = ['','Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function fmtDate(date) {
+  return `${MONTH_ABBR[date.getUTCMonth()]} ${date.getUTCDate()}`
+}
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
@@ -20,22 +25,39 @@ function nakPada(p) {
 
 export class TransitTable {
   constructor(el, getState) {
-    this.el        = el
-    this._getState = getState
+    this.el              = el
+    this._getState       = getState
+    this._expanded       = new Set()
+    this._forecasts      = {}
+    this._onForecast     = null
+    this._lastRenderArgs = null
   }
 
   get ui() { return this._getState() }
 
+  setForecastProvider(fn) { this._onForecast = fn }
+
+  setForecast(abbr, events) {
+    this._forecasts[abbr] = events
+    const expansionEl = this.el.querySelector(`[data-expansion="${abbr}"]`)
+    if (expansionEl) {
+      expansionEl.innerHTML = this._buildExpansionContent(events)
+    }
+  }
+
+  clearForecasts() { this._forecasts = {}; this._expanded.clear() }
+
   destroy() { this.el.innerHTML = '' }
 
   render(natalPlanets, transitPlanets, _t2n, _t2t, natalLagna, transitLagna, div = 'D1') {
+    this._lastRenderArgs = [natalPlanets, transitPlanets, _t2n, _t2t, natalLagna, transitLagna, div]
     if (!natalPlanets) { this.el.innerHTML = ''; return }
-    const isD1       = !div || div === 'D1'
-    const divSuffix  = isD1 ? '' : ` — ${divLabel(div)}`
-    const isChalit   = div === 'Chalit'
-    const signName   = (sign) => isChalit ? `H${sign}` : (SIGN_NAMES[sign] ?? '—')
 
-    const filter = this.ui.transitFilter ?? new Set(['Ju','Sa'])
+    const isD1      = !div || div === 'D1'
+    const divSuffix = isD1 ? '' : ` — ${divLabel(div)}`
+    const isChalit  = div === 'Chalit'
+    const signName  = (sign) => isChalit ? `H${sign}` : (SIGN_NAMES[sign] ?? '—')
+    const filter    = this.ui.transitFilter ?? new Set(['Ju','Sa'])
 
     const tMap = {}
     if (transitPlanets) {
@@ -44,7 +66,6 @@ export class TransitTable {
 
     const retroMark = (p) => p?.retrograde ? ' (R)' : ''
 
-    // Lagna rows
     const nLagna = natalLagna
     const tLagna = transitLagna ?? this.ui.transitLagna
     const lagnaRow = `
@@ -59,10 +80,14 @@ export class TransitTable {
       </tr>`
 
     const rows = natalPlanets.map(np => {
-      const tp = filter.has(np.abbr) ? tMap[np.abbr] : null
-      return `
-        <tr>
-          <td><strong>${np.abbr}</strong></td>
+      const tp         = filter.has(np.abbr) ? tMap[np.abbr] : null
+      const isExpanded = this._expanded.has(np.abbr)
+      const clickable  = tp ? ` class="transit-row-clickable" data-abbr="${np.abbr}"` : ''
+      const expandIcon = tp ? (isExpanded ? '▼' : '▶') : ''
+
+      const mainRow = `
+        <tr${clickable}>
+          <td><strong>${np.abbr}</strong> <span class="expand-icon">${expandIcon}</span></td>
           <td>${signName(np.sign)}</td>
           <td>${fmtDeg(np.degree)}${retroMark(np)}</td>
           <td>${nakPada(np)}</td>
@@ -70,6 +95,19 @@ export class TransitTable {
           <td>${tp ? fmtDeg(tp.degree) + retroMark(tp) : '—'}</td>
           <td>${tp ? nakPada(tp) : '—'}</td>
         </tr>`
+
+      const expansionRow = tp && isExpanded ? `
+        <tr class="transit-expansion-row">
+          <td colspan="7">
+            <div class="transit-expansion" data-expansion="${np.abbr}">
+              ${this._forecasts[np.abbr]
+                ? this._buildExpansionContent(this._forecasts[np.abbr])
+                : '<div class="transit-expansion-loading">Computing forecast…</div>'}
+            </div>
+          </td>
+        </tr>` : ''
+
+      return mainRow + expansionRow
     }).join('')
 
     this.el.innerHTML = `
@@ -90,5 +128,48 @@ export class TransitTable {
           <tbody>${lagnaRow}${rows}</tbody>
         </table>
       </div>`
+
+    this.el.querySelectorAll('[data-abbr]').forEach(row => {
+      row.addEventListener('click', () => this._handleRowClick(row.dataset.abbr))
+    })
+  }
+
+  _handleRowClick(abbr) {
+    if (this._expanded.has(abbr)) {
+      this._expanded.delete(abbr)
+    } else {
+      this._expanded.add(abbr)
+      if (!this._forecasts[abbr] && this._onForecast) {
+        this._onForecast(abbr)
+      }
+    }
+    if (this._lastRenderArgs) this.render(...this._lastRenderArgs)
+  }
+
+  _buildExpansionContent(events) {
+    if (!events || events.length === 0) {
+      return '<div class="transit-expansion-empty">No upcoming events found in scan window.</div>'
+    }
+
+    const transitEvents = events.filter(e => e.type !== 'natal_aspect')
+    const aspectEvents  = events.filter(e => e.type === 'natal_aspect')
+
+    const renderRows = (evs) => evs.map(ev =>
+      `<div class="transit-exp-row">
+        <span class="transit-exp-date">${fmtDate(ev.date)}</span>
+        <span class="transit-exp-label">${ev.label}</span>
+      </div>`
+    ).join('')
+
+    return `
+      <div class="transit-exp-section">
+        <div class="transit-exp-heading">UPCOMING TRANSITS</div>
+        ${transitEvents.length ? renderRows(transitEvents) : '<div class="transit-exp-empty">None in scan window</div>'}
+      </div>
+      ${aspectEvents.length ? `
+      <div class="transit-exp-section">
+        <div class="transit-exp-heading">NATAL ASPECTS</div>
+        ${renderRows(aspectEvents)}
+      </div>` : ''}`
   }
 }

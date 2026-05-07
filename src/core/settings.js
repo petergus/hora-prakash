@@ -9,7 +9,7 @@ const DEFAULTS = {
   customYearDays:  365.25,
   planetPositions: 'true',        // 'apparent' | 'true'
   observerType:    'geocentric', // 'geocentric' | 'topocentric'
-  theme:           'indigo',
+  theme:           'crimson',
 }
 
 let _settings = { ...DEFAULTS }

@@ -3,6 +3,7 @@ import {
   getSettings, saveSettings, applyAyanamsa,
   AYANAMSA_OPTIONS, PLANET_POSITION_OPTIONS, OBSERVER_TYPE_OPTIONS, THEME_OPTIONS,
 } from '../core/settings.js'
+import { updateFavicon } from './favicon.js'
 
 export function initSettingsModal() {
   const gearBtn = document.createElement('button')
@@ -77,6 +78,7 @@ export function initSettingsModal() {
       const theme = sw.dataset.theme
       overlay.querySelectorAll('.theme-swatch').forEach(s => s.classList.toggle('active', s.dataset.theme === theme))
       document.documentElement.dataset.theme = theme
+      updateFavicon(theme)
       saveSettings({ theme })
     })
   })
@@ -86,9 +88,10 @@ export function initSettingsModal() {
     const planetPositions = document.getElementById('settings-planet-positions').value
     const observerType    = document.getElementById('settings-observer-type').value
     const activeThemeSwatch = overlay.querySelector('.theme-swatch.active')
-    const theme = activeThemeSwatch?.dataset.theme || 'indigo'
+    const theme = activeThemeSwatch?.dataset.theme || 'crimson'
     saveSettings({ ayanamsa, planetPositions, observerType, theme })
     document.documentElement.dataset.theme = theme
+    updateFavicon(theme)
     close()
     const { recalcAll } = await import('../tabs/input.js')
     await recalcAll()

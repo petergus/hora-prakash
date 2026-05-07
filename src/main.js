@@ -7,6 +7,7 @@ import { loadBranding } from './config/branding.js'
 import { initSettingsModal } from './ui/settings-modal.js'
 import { createSession, switchSession } from './sessions.js'
 import { renderProfileTabs } from './ui/profile-tabs.js'
+import { updateFavicon } from './ui/favicon.js'
 
 // Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
 if ('serviceWorker' in navigator) {
@@ -15,7 +16,9 @@ if ('serviceWorker' in navigator) {
 
 async function main() {
   loadSettings()
-  document.documentElement.dataset.theme = getSettings().theme || 'indigo'
+  const theme = getSettings().theme || 'crimson'
+  document.documentElement.dataset.theme = theme
+  updateFavicon(theme)
   await loadBranding()
 
   // Show UI immediately — don't block on 12MB ephemeris download

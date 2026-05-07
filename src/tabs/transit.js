@@ -2,12 +2,37 @@
 import { state }                                                from '../state.js'
 import { getActiveSession, defaultTransitUI }                   from '../sessions.js'
 import { getTransitPositions, getTransitLagna }                 from '../core/transit.js'
-import { getTransitToNatalAspects, getTransitToTransitAspects } from '../core/aspects.js'
+import { getTransitToNatalAspects, getTransitToTransitAspects, getAspectedSigns } from '../core/aspects.js'
 import { getSettings }                                          from '../core/settings.js'
 import { toJulianDay }                                          from '../utils/time.js'
+import { calcDivisional }                                       from '../core/divisional.js'
 import { TransitToolbar }                                       from '../components/TransitToolbar.js'
 import { TransitChartPane }                                     from '../components/TransitChartPane.js'
 import { TransitTable }                                         from '../components/TransitTable.js'
+
+// Set aspect sources to planets that aspect a given house number (1-12)
+function applyAspectToHouse(houseNum, natalDiv, natalDivLagna, transitDiv) {
+  if (!houseNum) return
+  const targetSign = ((houseNum - 1 + natalDivLagna.sign - 1) % 12) + 1
+  const isOverlay  = (getTransitUI().transitView ?? 'dual') === 'overlay'
+  const natalSet   = new Set(natalDiv.filter(p => getAspectedSigns(p.sign, p.abbr).includes(targetSign)).map(p => p.abbr))
+  const transitSet = new Set(transitDiv.filter(p => getAspectedSigns(p.sign, p.abbr).includes(targetSign)).map(p => p.abbr))
+  if (isOverlay) {
+    setTransitUI('overlayNatalAspectSource',   natalSet)
+    setTransitUI('overlayTransitAspectSource', transitSet)
+  } else {
+    setTransitUI('natalAspectSource',   natalSet)
+    setTransitUI('transitAspectSource', transitSet)
+  }
+}
+
+// Apply divisional transform and recompute house relative to divisional lagna
+function applyDivisional(planets, lagna, key) {
+  if (!key || key === 'D1') return { planets, lagna }
+  const { planets: dp, lagna: dl } = calcDivisional(planets, lagna, key)
+  const dPlanets = dp.map(p => ({ ...p, house: ((p.sign - dl.sign + 12) % 12) + 1 }))
+  return { planets: dPlanets, lagna: dl }
+}
 
 let _toolbar   = null
 let _chartPane = null
@@ -48,12 +73,19 @@ function calcAndRender() {
   setTransitUI('transitPlanets', transitPlanets)
   setTransitUI('transitLagna', transitLagna)
 
-  const t2n = getTransitToNatalAspects(transitPlanets, state.planets)
-  const t2t = getTransitToTransitAspects(transitPlanets)
+  const uiNow = getTransitUI()
+  const div = uiNow.transitDivisional ?? 'D1'
+  const { planets: natalDiv, lagna: natalDivLagna }     = applyDivisional(state.planets, state.lagna, div)
+  const { planets: transitDiv, lagna: transitDivLagna } = applyDivisional(transitPlanets, transitLagna, div)
+
+  if (uiNow.aspectToHouse) applyAspectToHouse(uiNow.aspectToHouse, natalDiv, natalDivLagna, transitDiv)
+
+  const t2n = getTransitToNatalAspects(transitDiv, natalDiv)
+  const t2t = getTransitToTransitAspects(transitDiv)
 
   _toolbar?.render()
-  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
-  _table?.render(state.planets, transitPlanets, t2n, t2t)
+  _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
+  _table?.render(natalDiv, transitDiv, t2n, t2t, natalDivLagna, transitDivLagna, div)
 }
 
 function handleToolbarChange(key, value) {
@@ -63,15 +95,30 @@ function handleToolbarChange(key, value) {
     _toolbar?.render()
     return
   }
-  if (key === 'transitView' || key === 'transitChartStyle' || key === 'chartZoom' || key === 'dualActiveTab') {
+  if (key === 'transitView' || key === 'transitChartStyle' || key === 'chartZoom' || key === 'dualActiveTab' || key === 'transitDivisional' || key === 'aspectToHouse') {
     const ui             = getTransitUI()
     const transitPlanets = ui.transitPlanets ?? []
     const transitLagna   = ui.transitLagna ?? state.lagna
-    const t2n = getTransitToNatalAspects(transitPlanets, state.planets)
-    const t2t = getTransitToTransitAspects(transitPlanets)
+    const div = ui.transitDivisional ?? 'D1'
+    const { planets: natalDiv, lagna: natalDivLagna }     = applyDivisional(state.planets, state.lagna, div)
+    const { planets: transitDiv, lagna: transitDivLagna } = applyDivisional(transitPlanets, transitLagna, div)
+    if (key === 'aspectToHouse') {
+      if (value) {
+        applyAspectToHouse(value, natalDiv, natalDivLagna, transitDiv)
+      } else {
+        setTransitUI('natalAspectSource',          new Set())
+        setTransitUI('transitAspectSource',        new Set())
+        setTransitUI('overlayNatalAspectSource',   new Set())
+        setTransitUI('overlayTransitAspectSource', new Set())
+      }
+    } else if (ui.aspectToHouse) {
+      applyAspectToHouse(ui.aspectToHouse, natalDiv, natalDivLagna, transitDiv)
+    }
+    const t2n = getTransitToNatalAspects(transitDiv, natalDiv)
+    const t2t = getTransitToTransitAspects(transitDiv)
     _toolbar?.render()
-    _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
-    _table?.render(state.planets, transitPlanets, t2n, t2t)
+    _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
+    _table?.render(natalDiv, transitDiv, t2n, t2t, natalDivLagna, transitDivLagna, div)
   } else {
     calcAndRender()
   }
@@ -90,9 +137,26 @@ function handlePlanetClick(abbr, chartType) {
   if (src.has(abbr)) src.delete(abbr)
   else src.add(abbr)
   setTransitUI(key, src)
-  const transitPlanets = getTransitUI().transitPlanets ?? []
-  const transitLagna   = getTransitUI().transitLagna ?? state.lagna
-  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
+  setTransitUI('aspectToHouse', null)
+  _reRenderChart()
+}
+
+function handleAspectToSign(chartType, sign) {
+  const ui             = getTransitUI()
+  const div            = ui.transitDivisional ?? 'D1'
+  const transitPlanets = ui.transitPlanets ?? []
+  const transitLagna   = ui.transitLagna ?? state.lagna
+  const isOverlay      = (ui.transitView ?? 'dual') === 'overlay'
+  const { planets: natalDiv }   = applyDivisional(state.planets, state.lagna, div)
+  const { planets: transitDiv } = applyDivisional(transitPlanets, transitLagna, div)
+  const planets   = chartType === 'transit' ? transitDiv : natalDiv
+  const aspecting = new Set(planets.filter(p => getAspectedSigns(p.sign, p.abbr).includes(sign)).map(p => p.abbr))
+  const sourceKey = isOverlay
+    ? (chartType === 'transit' ? 'overlayTransitAspectSource' : 'overlayNatalAspectSource')
+    : (chartType === 'transit' ? 'transitAspectSource'        : 'natalAspectSource')
+  setTransitUI(sourceKey, aspecting)
+  setTransitUI('aspectToHouse', null)
+  _reRenderChart()
 }
 
 function handleClearAspects() {
@@ -100,9 +164,20 @@ function handleClearAspects() {
   setTransitUI('transitAspectSource',        new Set())
   setTransitUI('overlayNatalAspectSource',   new Set())
   setTransitUI('overlayTransitAspectSource', new Set())
-  const transitPlanets = getTransitUI().transitPlanets ?? []
-  const transitLagna   = getTransitUI().transitLagna ?? state.lagna
-  _chartPane?.render(state.planets, state.lagna, transitPlanets, transitLagna)
+  setTransitUI('aspectToHouse', null)
+  _reRenderChart()
+}
+
+
+function _reRenderChart() {
+  const ui             = getTransitUI()
+  const transitPlanets = ui.transitPlanets ?? []
+  const div            = ui.transitDivisional ?? 'D1'
+  const transitLagna   = ui.transitLagna ?? state.lagna
+  const { planets: natalDiv, lagna: natalDivLagna }     = applyDivisional(state.planets, state.lagna, div)
+  const { planets: transitDiv, lagna: transitDivLagna } = applyDivisional(transitPlanets, transitLagna, div)
+  _chartPane?.render(natalDiv, natalDivLagna, transitDiv, transitDivLagna)
+  _toolbar?.render()
 }
 
 export function renderTransit() {
@@ -130,7 +205,7 @@ export function renderTransit() {
   _table?.destroy()
 
   _toolbar   = new TransitToolbar(document.getElementById('transit-toolbar-el'), getTransitUI, handleToolbarChange, handleClearAspects)
-  _chartPane = new TransitChartPane(document.getElementById('transit-chart-el'),  getTransitUI, handlePlanetClick, handleToolbarChange)
+  _chartPane = new TransitChartPane(document.getElementById('transit-chart-el'),  getTransitUI, handlePlanetClick, handleToolbarChange, handleAspectToSign)
   _table     = new TransitTable(document.getElementById('transit-table-el'),      getTransitUI)
 
   calcAndRender()

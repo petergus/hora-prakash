@@ -1525,6 +1525,52 @@ h3 {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
 }
+.transit-div-select {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  min-width: 3.5rem;
+  flex-shrink: 0;
+}
+
+/* House picker + clear aspects pill group */
+.transit-aspect-group {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.transit-house-select {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  min-width: 3.5rem;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.transit-house-select:focus {
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+}
+.transit-aspect-clear {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+.transit-aspect-clear:hover { background: #f1f5f9; color: var(--text); }
+.transit-aspect-clear.has-aspects { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
 .transit-style-group {
   display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden;
 }

@@ -1,5 +1,7 @@
 // src/components/TransitToolbar.js
 import { state } from '../state.js'
+import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
+import { CLEAR_ASPECTS_SVG } from '../ui/icons.js'
 
 function _trimPlace(s, max = 28) {
   if (!s) return ''
@@ -45,6 +47,8 @@ export class TransitToolbar {
     const chartStyle  = ui.transitChartStyle ?? 'north'
     const zoom        = ui.chartZoom ?? 3
     const showTooltip = ui.showTooltip ?? true
+    const divKey        = ui.transitDivisional ?? 'D1'
+    const aspectToHouse = ui.aspectToHouse ?? ''
 
     const birth = state.birth ?? {}
     const name  = birth.name ?? 'Unknown'
@@ -58,7 +62,6 @@ export class TransitToolbar {
     const aspectCount = [ui.natalAspectSource, ui.transitAspectSource,
                          ui.overlayNatalAspectSource, ui.overlayTransitAspectSource]
       .reduce((n, s) => n + (s instanceof Set ? s.size : 0), 0)
-    const clearLabel = aspectCount > 0 ? `✕ Aspects (${aspectCount})` : '✕ Aspects'
 
     this.el.innerHTML = `
       <div class="transit-toolbar">
@@ -76,6 +79,19 @@ export class TransitToolbar {
             <button class="transit-style-btn${chartStyle === 'north' ? ' active' : ''}" data-action="setStyle" data-style="north">N</button>
             <button class="transit-style-btn${chartStyle === 'south' ? ' active' : ''}" data-action="setStyle" data-style="south">S</button>
           </div>
+          <select class="transit-div-select div-select" data-action="setDivisional" title="Divisional chart">
+            ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === divKey ? ' selected' : ''}>${o.value}</option>`).join('')}
+          </select>
+          ${!isDual ? `
+          <div class="transit-aspect-group">
+            <select class="transit-house-select" data-action="setAspectHouse" title="Aspects to house">
+              <option value="">H—</option>
+              ${Array.from({length:12},(_,i)=>`<option value="${i+1}"${aspectToHouse==i+1?' selected':''}>H${i+1}</option>`).join('')}
+            </select>
+            <button class="transit-aspect-clear${aspectCount > 0 ? ' has-aspects' : ''}" data-action="clearAspects" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
+          </div>` : `
+          <button class="transit-aspect-clear${aspectCount > 0 ? ' has-aspects' : ''}" data-action="clearAspects" title="Clear aspects" style="border:1.5px solid var(--border);border-radius:7px;padding:0.3rem 0.5rem">${CLEAR_ASPECTS_SVG}</button>
+          `}
           <button class="transit-view-toggle" data-action="toggleView" title="Switch chart view">
             ${isDual ? 'Dual ⇌' : 'Overlay ⇌'}
           </button>
@@ -92,7 +108,6 @@ export class TransitToolbar {
             <button class="transit-zoom-btn" data-action="zoomIn" ${zoom >= 5 ? 'disabled' : ''}>+</button>
           </div>
           <button class="transit-style-btn transit-secondary-ctrl${showTooltip ? ' active' : ''}" data-action="toggleTooltip" title="Planet info on hover">ℹ Info</button>
-          <button class="transit-clear-aspects-btn${aspectCount > 0 ? ' has-aspects' : ''}" data-action="clearAspects" title="Clear all selected aspects">${clearLabel}</button>
           <button class="transit-menu-btn${menuOpen ? ' active' : ''}" data-action="toggleMenu" title="More options">⋮</button>
         </div>
       </div>`
@@ -153,6 +168,10 @@ export class TransitToolbar {
         this._onChange('transitDate', e.target.value)
       } else if (e.target.classList.contains('transit-time')) {
         this._onChange('transitTime', e.target.value)
+      } else if (e.target.classList.contains('transit-div-select')) {
+        this._onChange('transitDivisional', e.target.value)
+      } else if (e.target.classList.contains('transit-house-select')) {
+        this._onChange('aspectToHouse', e.target.value ? parseInt(e.target.value, 10) : null)
       }
     }
 

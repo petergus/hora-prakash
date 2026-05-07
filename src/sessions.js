@@ -63,6 +63,8 @@ export function defaultTransitUI() {
     dualActiveTab: 'natal',
     chartZoom: 4,
     showTooltip: false,
+    transitDivisional: 'D1',
+    aspectToHouse: null,
   }
 }
 

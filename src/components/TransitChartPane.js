@@ -17,12 +17,19 @@ function buildAspects(planets, sources) {
 }
 
 export class TransitChartPane {
-  constructor(el, getState, onPlanetClick, onChartControl) {
+  constructor(el, getState, onPlanetClick, onChartControl, onAspectToSign) {
     this.el               = el
     this._getState        = getState
     this._onPlanetClick   = onPlanetClick
     this._onChartControl  = onChartControl
+    this._onAspectToSign  = onAspectToSign
     this._onClick         = null
+    this._onCtxMenu       = null
+    this._natalLagna      = null
+    this._transitLagna    = null
+    this._natalPlanets    = null
+    this._transitPlanets  = null
+    this._lpTimer         = null
     this._tooltip         = new TransitTooltip()
     this._tooltip.mount()
   }
@@ -32,12 +39,18 @@ export class TransitChartPane {
   setTooltipEnabled(v) { this._tooltip.setEnabled(v) }
 
   destroy() {
-    if (this._onClick) this.el.removeEventListener('click', this._onClick)
-    this._onClick = null
+    if (this._onClick)   this.el.removeEventListener('click',       this._onClick)
+    if (this._onCtxMenu) this.el.removeEventListener('contextmenu', this._onCtxMenu)
+    clearTimeout(this._lpTimer)
+    this._onClick = this._onCtxMenu = null
     this._tooltip.destroy()
   }
 
   render(natalPlanets, natalLagna, transitPlanets, transitLagna) {
+    this._natalPlanets   = natalPlanets
+    this._natalLagna     = natalLagna
+    this._transitPlanets = transitPlanets
+    this._transitLagna   = transitLagna
     if (!natalPlanets || !natalLagna) {
       this.el.innerHTML = '<p class="transit-no-data">No birth chart loaded.</p>'
       return
@@ -99,6 +112,7 @@ export class TransitChartPane {
 
   _renderOverlay(natalPlanets, natalLagna, transitPlanets, transitLagna, chartStyle, filter, natalAsp, transitAsp) {
     const allAspects = [...natalAsp.activeAspects, ...transitAsp.activeAspects]
+    const zoom  = this.ui.chartZoom ?? 3
     const svg = renderTransitBorderSVG(
       natalPlanets, natalLagna,
       transitPlanets || [],
@@ -107,9 +121,9 @@ export class TransitChartPane {
       allAspects,
       natalAsp.activePlanetColors,
       transitLagna,
-      transitAsp.activePlanetColors
+      transitAsp.activePlanetColors,
+      zoom
     )
-    const zoom  = this.ui.chartZoom ?? 3
     const maxW  = [400, 520, 640, 760, 900][zoom - 1]
     this.el.innerHTML = `
       <div class="transit-overlay-pane">
@@ -118,8 +132,39 @@ export class TransitChartPane {
       </div>`
   }
 
+  _showCtxMenu(x, y, sign, chartType) {
+    if (!this._onAspectToSign) return
+    document.getElementById('transit-ctx-menu')?.remove()
+    const isOverlay    = (this.ui.transitView ?? 'dual') === 'overlay'
+    const natalHouse   = ((sign - (this._natalLagna?.sign ?? 1) + 12) % 12) + 1
+    const transitHouse = ((sign - (this._transitLagna?.sign ?? 1) + 12) % 12) + 1
+    const ITEM = `padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);white-space:nowrap`
+    const menu = document.createElement('div')
+    menu.id = 'transit-ctx-menu'
+    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:210px;font-size:0.85rem`
+    menu.style.left = Math.min(x, window.innerWidth  - 230) + 'px'
+    menu.style.top  = Math.min(y, window.innerHeight - 80)  + 'px'
+    menu.innerHTML = isOverlay ? `
+      <div style="${ITEM}" data-ct="natal">Natal aspects to House ${natalHouse}</div>
+      <div style="${ITEM}" data-ct="transit">Transit aspects to House ${natalHouse}</div>
+    ` : `
+      <div style="${ITEM}" data-ct="${chartType}">${chartType === 'transit' ? 'Transit' : 'Natal'} aspects to House ${chartType === 'transit' ? transitHouse : natalHouse}</div>
+    `
+    document.body.appendChild(menu)
+    menu.querySelectorAll('[data-ct]').forEach(item => {
+      item.addEventListener('click', () => {
+        menu.remove()
+        this._onAspectToSign(item.dataset.ct, sign)
+      })
+    })
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close) } }
+    setTimeout(() => document.addEventListener('click', close), 0)
+  }
+
   _bindEvents() {
-    if (this._onClick) this.el.removeEventListener('click', this._onClick)
+    if (this._onClick)   this.el.removeEventListener('click',       this._onClick)
+    if (this._onCtxMenu) this.el.removeEventListener('contextmenu', this._onCtxMenu)
+
     this._onClick = (e) => {
       const tabBtn = e.target.closest('[data-dual-tab]')
       if (tabBtn) {
@@ -132,6 +177,35 @@ export class TransitChartPane {
       const chartType = chartWrap?.dataset.chart ?? 'natal'
       this._onPlanetClick(planetEl.dataset.planet, chartType)
     }
-    this.el.addEventListener('click', this._onClick)
+
+    this._onCtxMenu = (e) => {
+      const cell = e.target.closest('[data-sign]')
+      if (!cell) return
+      e.preventDefault()
+      const chartWrap = e.target.closest('[data-chart]')
+      const chartType = chartWrap?.dataset.chart ?? 'natal'
+      this._showCtxMenu(e.clientX, e.clientY, parseInt(cell.dataset.sign, 10), chartType)
+    }
+
+    this.el.addEventListener('click',       this._onClick)
+    this.el.addEventListener('contextmenu', this._onCtxMenu)
+
+    // Long-press for mobile
+    this.el.addEventListener('touchstart', (e) => {
+      const cell = e.target.closest('[data-sign]')
+      if (!cell) return
+      const t = e.touches[0]
+      const chartWrap = e.target.closest('[data-chart]')
+      const chartType = chartWrap?.dataset.chart ?? 'natal'
+      const sign = parseInt(cell.dataset.sign, 10)
+      clearTimeout(this._lpTimer)
+      this._lpTimer = setTimeout(() => {
+        this._lpTimer = null
+        this._showCtxMenu(t.clientX, t.clientY, sign, chartType)
+      }, 500)
+    }, { passive: true })
+    this.el.addEventListener('touchmove',   () => { clearTimeout(this._lpTimer); this._lpTimer = null }, { passive: true })
+    this.el.addEventListener('touchend',    () => { clearTimeout(this._lpTimer); this._lpTimer = null }, { passive: true })
+    this.el.addEventListener('touchcancel', () => { clearTimeout(this._lpTimer); this._lpTimer = null }, { passive: true })
   }
 }

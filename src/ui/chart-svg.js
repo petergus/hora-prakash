@@ -295,8 +295,8 @@ function _calcBorders(byHouse) {
   return { BH: B, BV: B }
 }
 
-function _borderSections(BH, BV) {
-  const third = S / 3  // 160
+function _borderSections(BH, BV, Sc) {
+  const third = Sc / 3
   return [
     { house: 2,  x: BV,             y: 0,       w: third, h: BH, horiz: true },
     { house: 1,  x: BV + third,     y: 0,       w: third, h: BH, horiz: true },
@@ -304,16 +304,20 @@ function _borderSections(BH, BV) {
     { house: 3,  x: 0, y: BH,             w: BV, h: third, horiz: false },
     { house: 4,  x: 0, y: BH + third,     w: BV, h: third, horiz: false },
     { house: 5,  x: 0, y: BH + third * 2, w: BV, h: third, horiz: false },
-    { house: 6,  x: BV,             y: BH + S, w: third, h: BH, horiz: true },
-    { house: 7,  x: BV + third,     y: BH + S, w: third, h: BH, horiz: true },
-    { house: 8,  x: BV + third * 2, y: BH + S, w: third, h: BH, horiz: true },
-    { house: 11, x: BV + S, y: BH,             w: BV, h: third, horiz: false },
-    { house: 10, x: BV + S, y: BH + third,     w: BV, h: third, horiz: false },
-    { house: 9,  x: BV + S, y: BH + third * 2, w: BV, h: third, horiz: false },
+    { house: 6,  x: BV,             y: BH + Sc, w: third, h: BH, horiz: true },
+    { house: 7,  x: BV + third,     y: BH + Sc, w: third, h: BH, horiz: true },
+    { house: 8,  x: BV + third * 2, y: BH + Sc, w: third, h: BH, horiz: true },
+    { house: 11, x: BV + Sc, y: BH,             w: BV, h: third, horiz: false },
+    { house: 10, x: BV + Sc, y: BH + third,     w: BV, h: third, horiz: false },
+    { house: 9,  x: BV + Sc, y: BH + third * 2, w: BV, h: third, horiz: false },
   ]
 }
 
-export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets, style, filter, activeAspects = [], activePlanetColors = {}, transitLagna = null, transitActivePlanetColors = {}) {
+export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets, style, filter, activeAspects = [], activePlanetColors = {}, transitLagna = null, transitActivePlanetColors = {}, zoom = 3) {
+  // Scale viewBox by zoom so fonts remain readable at any zoom level
+  const zScale = [0.55, 0.70, 0.85, 1.00, 1.20][Math.max(0, Math.min(4, (zoom || 3) - 1))]
+  const Sc = Math.round(S * zScale)
+
   const tLagnaEntry = transitLagna
     ? { abbr: 'Asc', name: 'Transit Asc', sign: transitLagna.sign, degree: transitLagna.degree,
         nakshatra: transitLagna.nakshatra, pada: transitLagna.pada,
@@ -324,7 +328,7 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
   if (style === 'south') {
     const tPlanets = tLagnaEntry ? [...(transitPlanets || []), tLagnaEntry] : (transitPlanets || [])
     const parts = [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${S}px">`,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" style="width:100%;max-width:${Sc}px">`,
       `<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
       buildArrowDefs(activeAspects),
       ..._southChartParts(natalPlanets, natalLagna, SIGN_ABBR, 'Natal\nTransit', activeAspects, activePlanetColors, tPlanets, filter),
@@ -345,34 +349,35 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
     byHouse[tLagnaEntry.house].push(tLagnaEntry)
   }
 
-  const { BH, BV } = _calcBorders(byHouse)
-  const TW = S + BV * 2
-  const TH = S + BH * 2
-  const third = S / 3  // 160
+  const rawB = _calcBorders(byHouse).BH
+  const B  = Math.round(rawB * zScale)
+  const BH = B, BV = B
+  const TW = Sc + BV * 2
+  const TH = Sc + BH * 2
+  const third = Sc / 3
 
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TW} ${TH}" style="width:100%;height:auto">`,
     buildArrowDefs(activeAspects),
-    // Outer rect — same style as inner chart
     `<rect width="${TW}" height="${TH}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`,
   ]
 
-  // Corner diagonal lines: outer corners → chart corners (extend inner chart diagonals)
+  // Corner diagonal lines
   parts.push(`<line x1="0" y1="0" x2="${BV}" y2="${BH}" stroke="#94a3b8" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${TW}" y1="0" x2="${BV+S}" y2="${BH}" stroke="#94a3b8" stroke-width="0.8"/>`)
-  parts.push(`<line x1="0" y1="${TH}" x2="${BV}" y2="${BH+S}" stroke="#94a3b8" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${TW}" y1="${TH}" x2="${BV+S}" y2="${BH+S}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${TW}" y1="0" x2="${BV+Sc}" y2="${BH}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="0" y1="${TH}" x2="${BV}" y2="${BH+Sc}" stroke="#94a3b8" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${TW}" y1="${TH}" x2="${BV+Sc}" y2="${BH+Sc}" stroke="#94a3b8" stroke-width="0.8"/>`)
 
   // Section divider lines
   const sl = '#cbd5e1'
   parts.push(`<line x1="${BV+third}" y1="0" x2="${BV+third}" y2="${BH}" stroke="${sl}" stroke-width="0.8"/>`)
   parts.push(`<line x1="${BV+third*2}" y1="0" x2="${BV+third*2}" y2="${BH}" stroke="${sl}" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${BV+third}" y1="${BH+S}" x2="${BV+third}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${BV+third*2}" y1="${BH+S}" x2="${BV+third*2}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+third}" y1="${BH+Sc}" x2="${BV+third}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+third*2}" y1="${BH+Sc}" x2="${BV+third*2}" y2="${TH}" stroke="${sl}" stroke-width="0.8"/>`)
   parts.push(`<line x1="0" y1="${BH+third}" x2="${BV}" y2="${BH+third}" stroke="${sl}" stroke-width="0.8"/>`)
   parts.push(`<line x1="0" y1="${BH+third*2}" x2="${BV}" y2="${BH+third*2}" stroke="${sl}" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${BV+S}" y1="${BH+third}" x2="${TW}" y2="${BH+third}" stroke="${sl}" stroke-width="0.8"/>`)
-  parts.push(`<line x1="${BV+S}" y1="${BH+third*2}" x2="${TW}" y2="${BH+third*2}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+Sc}" y1="${BH+third}" x2="${TW}" y2="${BH+third}" stroke="${sl}" stroke-width="0.8"/>`)
+  parts.push(`<line x1="${BV+Sc}" y1="${BH+third*2}" x2="${TW}" y2="${BH+third*2}" stroke="${sl}" stroke-width="0.8"/>`)
 
   // Planet labels per border section
   function _renderTransitLabel(p, x, y, fs) {
@@ -387,12 +392,11 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
     return { label, color, abbrKey, fontSize, weight, tipAttr, activeColor }
   }
 
-  for (const sec of _borderSections(BH, BV)) {
+  for (const sec of _borderSections(BH, BV, Sc)) {
     const { house, x, y, w, h, horiz } = sec
     const ps = byHouse[house] || []
 
     if (horiz) {
-      // Top/bottom sections: horizontal slot layout
       parts.push(`<text x="${(x+3).toFixed(1)}" y="${(y+10).toFixed(1)}" font-size="9" fill="#94a3b8" ${FONT}>H${house}</text>`)
       if (ps.length > 0) {
         const rows = ps.length >= 4
@@ -412,30 +416,21 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
         })
       }
     } else {
-      // Left/right sections: text rotated -90° (reads upward)
-      // rotate(-90, cx, cy): screen_x = cx + (ly - cy), screen_y = cy + (cx - lx)
-      // So lx controls screen_y along section height; ly controls screen_x within strip width
       const cx_s = x + w / 2
       const cy_s = y + h / 2
       const rot  = `rotate(-90, ${cx_s.toFixed(1)}, ${cy_s.toFixed(1)})`
-
-      // House label at top of section, centered in strip
-      // target screen: (cx_s, y+9) → lx = cy_s + cx_s - y - 9, ly = cy_s
       const hlx = cy_s + cx_s - y - 9
       parts.push(`<text x="${hlx.toFixed(1)}" y="${cy_s.toFixed(1)}" text-anchor="middle" font-size="9" fill="#94a3b8" transform="${rot}" ${FONT}>H${house}</text>`)
 
       if (ps.length > 0) {
-        // Same row rules as horiz sections: ≥4 planets → 2 rows
         const rows = ps.length >= 4
           ? [ps.slice(0, Math.ceil(ps.length / 2)), ps.slice(Math.ceil(ps.length / 2))]
           : [ps]
         rows.forEach((rowPs, ri) => {
-          const rowSlotH = h / rowPs.length  // section height divided among planets
+          const rowSlotH = h / rowPs.length
           const fs = rowSlotH > 90 ? 12 : rowSlotH > 65 ? 11 : 10
-          // ly → screen_x: distribute rows evenly across strip width (w = BV)
           const ly = cy_s + w * ((ri + 0.5) / rows.length - 0.5)
           rowPs.forEach((p, i) => {
-            // lx → screen_y: planet i at y + rowSlotH*(i+0.5) within section height
             const lx = cy_s + cx_s - y - rowSlotH * (i + 0.5)
             const { label, color, abbrKey, fontSize, weight, tipAttr, activeColor } = _renderTransitLabel(p, x, y, fs)
             if (activeColor) parts.push(`<rect x="${(lx - 20).toFixed(1)}" y="${(ly - fontSize).toFixed(1)}" width="40" height="${fontSize + 3}" rx="3" fill="${activeColor}" opacity="0.2" transform="${rot}"/>`)
@@ -446,7 +441,8 @@ export function renderTransitBorderSVG(natalPlanets, natalLagna, transitPlanets,
     }
   }
 
-  parts.push(`<g transform="translate(${BV},${BH})">`)
+  // Inner natal chart scaled to Sc×Sc
+  parts.push(`<g transform="translate(${BV},${BH}) scale(${(Sc / S).toFixed(6)})">`)
   parts.push(`<rect width="${S}" height="${S}" fill="#fafafa" stroke="#334155" stroke-width="2" rx="4"/>`)
   parts.push(..._northChartParts(natalPlanets, natalLagna, SIGN_ABBR, activeAspects, activePlanetColors))
   parts.push(`</g>`)

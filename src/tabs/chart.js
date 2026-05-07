@@ -6,6 +6,7 @@ import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
+import { CLEAR_ASPECTS_SVG } from '../ui/icons.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -198,28 +199,9 @@ export function renderChart() {
     ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
   </select>`
 
-  const SHOW_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8.5" cy="8.5" r="2"/>
-    <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5">
-      <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
-      <line x1="6.5" y1="8.5" x2="1" y2="8.5"/><line x1="10.5" y1="8.5" x2="16" y2="8.5"/>
-      <line x1="7.1" y1="7.1" x2="2.5" y2="2.5"/><line x1="9.9" y1="9.9" x2="14.5" y2="14.5"/>
-      <line x1="9.9" y1="7.1" x2="14.5" y2="2.5"/><line x1="7.1" y1="9.9" x2="2.5" y2="14.5"/>
-    </g>
-  </svg>`
-  const CLEAR_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8.5" cy="8.5" r="2" fill="currentColor" opacity="0.35"/>
-    <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5" opacity="0.35">
-      <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
-      <line x1="6.5" y1="8.5" x2="1" y2="8.5"/><line x1="10.5" y1="8.5" x2="16" y2="8.5"/>
-    </g>
-    <line x1="2" y1="2" x2="15" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-  </svg>`
-
   // aspect buttons: always in DOM; hidden on desktop when multi-chart via CSS
   const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
-    <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">${SHOW_SVG}</button>
-    <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_SVG}</button>
+    <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
   </div>`
 
   // ── Chart area ──
@@ -562,10 +544,6 @@ export function renderChart() {
     else ui.multiActivePlanets[ui.activeMultiTab] = set
   }
 
-  panel.querySelector('#btn-show-all').addEventListener('click', () => {
-    if (_dPlanets) _dPlanets.forEach(p => getActiveAP().add(p.abbr))
-    renderSVGOnly()
-  })
   panel.querySelector('#btn-hide-all').addEventListener('click', () => {
     setActiveAP(new Set()); renderSVGOnly()
   })
@@ -581,31 +559,62 @@ export function renderChart() {
     renderSVGOnly()
   })
 
-  // Right-click context menu on chart cells
-  document.getElementById('chart-container')?.addEventListener('contextmenu', e => {
-    if (c().viewMode !== '1') return
-    const cell = e.target.closest('[data-sign]')
-    if (!cell) return
-    e.preventDefault()
+  // Context menu (right-click desktop, long-press mobile)
+  const MENU_ITEM = `padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);border-radius:4px`
+  function showChartCtxMenu(x, y, sign) {
     document.getElementById('chart-ctx-menu')?.remove()
-    const sign = parseInt(cell.dataset.sign, 10)
-    const lagnaSign = state.lagna?.sign ?? 1
+    const lagnaSign = _dLagna?.sign ?? state.lagna?.sign ?? 1
     const house = ((sign - lagnaSign + 12) % 12) + 1
     const menu = document.createElement('div')
     menu.id = 'chart-ctx-menu'
-    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:180px;font-size:0.85rem`
-    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px'
-    menu.style.top  = Math.min(e.clientY, window.innerHeight - 60) + 'px'
-    menu.innerHTML = `<div style="padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);border-radius:4px" id="ctx-from-house">Show chart from House ${house}</div>`
+    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:190px;font-size:0.85rem`
+    menu.style.left = Math.min(x, window.innerWidth  - 210) + 'px'
+    menu.style.top  = Math.min(y, window.innerHeight - 90)  + 'px'
+    menu.innerHTML = `
+      <div style="${MENU_ITEM}" id="ctx-from-house">View from House ${house}</div>
+      <div style="${MENU_ITEM}" id="ctx-aspects-house">Aspects to House ${house}</div>`
     document.body.appendChild(menu)
     menu.querySelector('#ctx-from-house').addEventListener('click', () => {
+      menu.remove(); c().fromHouseSign = sign; renderSVGOnly()
+    })
+    menu.querySelector('#ctx-aspects-house').addEventListener('click', () => {
       menu.remove()
-      c().fromHouseSign = sign
+      const aspecting = new Set(
+        (_dPlanets ?? []).filter(p => getAspectedSigns(p.sign, p.abbr).includes(sign)).map(p => p.abbr)
+      )
+      setActiveAP(aspecting)
       renderSVGOnly()
     })
     const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close) } }
     setTimeout(() => document.addEventListener('click', close), 0)
+  }
+
+  const chartContainer = document.getElementById('chart-container')
+
+  chartContainer?.addEventListener('contextmenu', e => {
+    if (c().viewMode !== '1') return
+    const cell = e.target.closest('[data-sign]')
+    if (!cell) return
+    e.preventDefault()
+    showChartCtxMenu(e.clientX, e.clientY, parseInt(cell.dataset.sign, 10))
   })
+
+  // Long-press for mobile (500ms)
+  let _lpTimer = null, _lpSign = null
+  chartContainer?.addEventListener('touchstart', e => {
+    if (c().viewMode !== '1') return
+    const cell = e.target.closest('[data-sign]')
+    if (!cell) return
+    _lpSign = parseInt(cell.dataset.sign, 10)
+    const t = e.touches[0]
+    _lpTimer = setTimeout(() => {
+      _lpTimer = null
+      showChartCtxMenu(t.clientX, t.clientY, _lpSign)
+    }, 500)
+  }, { passive: true })
+  chartContainer?.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
+  chartContainer?.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
+  chartContainer?.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
 
   // Reset chip click
   document.getElementById('from-house-chip')?.addEventListener('click', () => {

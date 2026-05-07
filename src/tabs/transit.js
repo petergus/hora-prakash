@@ -216,8 +216,13 @@ function requestForecast(abbr) {
   })
 }
 
+let _exportBtnListener = null
+
 function _wireExportBtn() {
-  document.getElementById('btn-export-transit')?.addEventListener('click', () => {
+  const btn = document.getElementById('btn-export-transit')
+  if (!btn) return
+  if (_exportBtnListener) btn.removeEventListener('click', _exportBtnListener)
+  _exportBtnListener = () => {
     const ui = getTransitUI()
     const transitView    = ui.transitView ?? 'dual'
     const chartStyle     = ui.transitChartStyle ?? 'north'
@@ -245,7 +250,8 @@ function _wireExportBtn() {
         ? () => _chartPane?.getSvgString() ?? ''
         : null,
     })
-  })
+  }
+  btn.addEventListener('click', _exportBtnListener)
 }
 
 function _reRenderChart() {

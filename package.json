@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:firebase": "DEPLOY_TARGET=firebase vite build",
+    "preview": "vite preview",
+    "deploy:firebase": "npm run build:firebase && firebase deploy --only hosting"
   },
   "keywords": [],
   "author": "",
@@ -17,9 +19,10 @@
   "type": "module",
   "devDependencies": {
     "vite": "^8.0.8",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.3.0"
   },
   "dependencies": {
+    "firebase": "^12.13.0",
     "swisseph-wasm": "^0.0.5"
   }
 }

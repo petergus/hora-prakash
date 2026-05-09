@@ -1,7 +1,7 @@
 // vite.config.js
 
 export default {
-  base: '/hora-prakash/',
+  base: process.env.DEPLOY_TARGET === 'firebase' ? '/' : '/hora-prakash/',
   build: {
     outDir: 'dist',
     rollupOptions: {

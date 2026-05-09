@@ -12,6 +12,14 @@ import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
 import { parseJhdFile } from '../utils/jhd.js'
+import { parseBirthPaste } from '../utils/paste-parse.js'
+import {
+  upsertProfile as cloudUpsertProfile,
+  deleteProfileCloud,
+  deleteAllProfilesCloud,
+  bulkUpsertProfiles,
+  saveHoroscope,
+} from '../cloud-store.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
 const STORAGE_KEY = 'hora-prakash-profiles'
@@ -42,10 +50,12 @@ function saveProfile(profile) {
   if (existing >= 0) profiles[existing] = profile
   else profiles.unshift(profile)
   saveProfiles(profiles)
+  cloudUpsertProfile(profile).catch(err => console.error('Cloud profile save failed:', err))
 }
 
 function deleteProfile(id) {
   saveProfiles(loadProfiles().filter(p => p.id !== id))
+  deleteProfileCloud(id).catch(err => console.error('Cloud profile delete failed:', err))
 }
 
 function exportProfiles() {
@@ -77,6 +87,7 @@ function importProfiles(file) {
         .map(({ id: _id, ...rest }) => ({ ...rest, id: genId() }))
       if (!toAdd.length) { alert('No new profiles found (all already exist).'); return }
       saveProfiles([...existing, ...toAdd])
+      bulkUpsertProfiles(toAdd).catch(err => console.error('Cloud bulk import failed:', err))
       renderSavedProfiles()
       alert(`Imported ${toAdd.length} profile${toAdd.length > 1 ? 's' : ''}.`)
     } catch (err) {
@@ -110,6 +121,7 @@ async function importJhdFiles(files) {
 
   if (successes.length > 0) {
     saveProfiles([...successes, ...existing])
+    bulkUpsertProfiles(successes).catch(err => console.error('Cloud JHD import failed:', err))
     renderSavedProfiles()
   }
 
@@ -161,13 +173,22 @@ export function renderInputTab() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem">
         <h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--muted);letter-spacing:0.03em;text-transform:uppercase">Birth Details</h3>
-        <button type="button" id="btn-new-entry" class="btn-secondary" title="New entry — clear all fields" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 1.5H2.5A1 1 0 0 0 1.5 2.5v8A1 1 0 0 0 2.5 11.5h8A1 1 0 0 0 11.5 10.5V7"/>
-            <path d="M10 1.2a1.1 1.1 0 0 1 1.6 1.6L7 7.5 5 8l.5-2 4.5-4.8z"/>
-          </svg>
-          New
-        </button>
+        <div style="display:flex;gap:0.4rem">
+          <button type="button" id="btn-paste-entry" class="btn-secondary" title="Paste birth data in any format" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="2.5" width="7" height="9" rx="1"/>
+              <path d="M5 2.5V2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v0.5"/>
+            </svg>
+            Paste
+          </button>
+          <button type="button" id="btn-new-entry" class="btn-secondary" title="New entry — clear all fields" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 1.5H2.5A1 1 0 0 0 1.5 2.5v8A1 1 0 0 0 2.5 11.5h8A1 1 0 0 0 11.5 10.5V7"/>
+              <path d="M10 1.2a1.1 1.1 0 0 1 1.6 1.6L7 7.5 5 8l.5-2 4.5-4.8z"/>
+            </svg>
+            New
+          </button>
+        </div>
       </div>
       <form id="birth-form">
         <div class="form-group">
@@ -261,6 +282,7 @@ export function renderInputTab() {
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
+  document.getElementById('btn-paste-entry').addEventListener('click', openPasteModal)
   document.getElementById('btn-new-entry').addEventListener('click', () => {
     editingProfileId = null
     document.getElementById('inp-name').value = ''
@@ -358,7 +380,11 @@ function renderSavedProfiles() {
     if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
   })
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
-    if (confirm('Delete all saved profiles?')) { saveProfiles([]); renderSavedProfiles() }
+    if (confirm('Delete all saved profiles?')) {
+      saveProfiles([])
+      deleteAllProfilesCloud().catch(err => console.error('Cloud clear-all failed:', err))
+      renderSavedProfiles()
+    }
   })
 
   section.querySelector('#btn-load-profile').addEventListener('click', () => {
@@ -538,6 +564,20 @@ async function onFormSubmit(e) {
     const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
     state.strength = { bhinna, sarva, shadbala }
 
+    // Persist horoscope to Firestore. Use editingProfileId if loaded from a saved
+    // profile, otherwise mint a stable id derived from name+dob+tob.
+    const horoscopeId = editingProfileId
+      || `${name}-${dob}-${tob}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    saveHoroscope(horoscopeId, {
+      birth: state.birth,
+      planets: state.planets,
+      lagna: state.lagna,
+      houses: state.houses,
+      dasha: state.dasha,
+      panchang: state.panchang,
+      strength: state.strength,
+    }).catch(err => console.error('Cloud horoscope save failed:', err))
+
     // Update session label and profile tab bar
     const { updateActiveLabel } = await import('../sessions.js')
     const { renderProfileTabs } = await import('../ui/profile-tabs.js')
@@ -668,6 +708,110 @@ export async function recalcAll() {
       btn.textContent = 'Calculate Chart'
     }
   }
+}
+
+// ── Paste-anything modal ──────────────────────────────────────────────────────
+
+function openPasteModal() {
+  if (document.getElementById('paste-modal-overlay')) return
+  const overlay = document.createElement('div')
+  overlay.id = 'paste-modal-overlay'
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem'
+  overlay.innerHTML = `
+    <div class="card" style="max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:0.85rem;margin:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;font-size:1rem">Paste birth data</h3>
+        <button type="button" id="paste-modal-close" class="btn-secondary" style="padding:0.2rem 0.55rem;font-size:0.85rem">✕</button>
+      </div>
+      <p style="margin:0;color:var(--muted);font-size:0.82rem;line-height:1.4">
+        Paste anything — name, date, time, place, coordinates, timezone — in any format.
+        Examples: <em>"Jane Doe, Jan 5 1990, 2:35 PM, New Delhi, India, +05:30"</em> or labelled lines like <em>Name:</em>, <em>DOB:</em>, <em>TOB:</em>.
+      </p>
+      <textarea id="paste-modal-input" placeholder="Paste here…" style="width:100%;min-height:180px;font-family:ui-monospace,monospace;font-size:0.85rem;padding:0.6rem;border:1px solid var(--border, #444);border-radius:6px;background:var(--bg, #1a1a1a);color:inherit;resize:vertical"></textarea>
+      <p id="paste-modal-preview" style="margin:0;font-size:0.78rem;color:var(--muted);min-height:1.2em;white-space:pre-wrap"></p>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+        <button type="button" id="paste-modal-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="paste-modal-apply">Fill Form</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  const ta = overlay.querySelector('#paste-modal-input')
+  const preview = overlay.querySelector('#paste-modal-preview')
+  const close = () => overlay.remove()
+
+  const updatePreview = () => {
+    const parsed = parseBirthPaste(ta.value)
+    const lines = []
+    lines.push(`name: ${parsed.name || 'NAME HERE'}`)
+    if (parsed.dob)      lines.push(`dob: ${parsed.dob}`)
+    if (parsed.tob)      lines.push(`tob: ${parsed.tob}`)
+    if (parsed.location) lines.push(`location: ${parsed.location}`)
+    if (parsed.lat !== undefined && parsed.lon !== undefined) lines.push(`coords: ${parsed.lat.toFixed(4)}, ${parsed.lon.toFixed(4)}`)
+    if (parsed.tz)       lines.push(`tz: ${parsed.tz}`)
+    preview.textContent = lines.length ? 'Detected →\n' + lines.join('\n') : ''
+  }
+
+  ta.addEventListener('input', updatePreview)
+  ta.focus()
+  setTimeout(() => { ta.focus() }, 0)
+
+  overlay.querySelector('#paste-modal-close').addEventListener('click', close)
+  overlay.querySelector('#paste-modal-cancel').addEventListener('click', close)
+  overlay.addEventListener('click', e => { if (e.target === overlay) close() })
+  document.addEventListener('keydown', function esc(ev) {
+    if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esc) }
+  })
+
+  overlay.querySelector('#paste-modal-apply').addEventListener('click', async () => {
+    const parsed = parseBirthPaste(ta.value)
+    await applyPastedData(parsed)
+    close()
+  })
+}
+
+async function applyPastedData(p) {
+  document.getElementById('inp-name').value = p.name || 'NAME HERE'
+  if (p.dob)      document.getElementById('inp-dob').value = p.dob
+  if (p.tob)      document.getElementById('inp-tob').value = p.tob
+  if (p.location) document.getElementById('inp-location').value = p.location
+
+  let lat = p.lat, lon = p.lon, tz = p.tz, displayName = p.location
+
+  // If we have a location string but no coords, try geocoding
+  if (p.location && (lat === undefined || lon === undefined)) {
+    try {
+      const results = await searchLocation(p.location)
+      if (results && results.length > 0) {
+        const r = results[0]
+        lat = r.lat; lon = r.lon; displayName = r.displayName
+        document.getElementById('inp-location').value = displayName
+      }
+    } catch { /* ignore */ }
+  }
+
+  // If we have coords but no tz, fetch timezone
+  if (lat !== undefined && lon !== undefined && !tz) {
+    try { tz = await getTimezone(lat, lon) } catch { /* ignore */ }
+  }
+
+  if (lat !== undefined && lon !== undefined) {
+    fillCoords(lat, lon, tz || readTz())
+  } else if (tz) {
+    const tzP = offsetParts(tz)
+    document.getElementById('inp-tz-sign').value = tzP.sign
+    document.getElementById('inp-tz-h').value = tzP.h
+    document.getElementById('inp-tz-m').value = tzP.m
+  }
+
+  if (lat !== undefined && lon !== undefined) {
+    selectedLocation = { displayName: displayName || p.location || '', lat, lon, timezone: tz || readTz() }
+  }
+
+  editingProfileId = null
+  const errEl = document.getElementById('calc-error')
+  if (errEl) errEl.textContent = ''
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

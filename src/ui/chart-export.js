@@ -6,7 +6,7 @@ const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
 
 // Layout constants
-const EXPORT_W         = 1200
+const EXPORT_W         = 1240  // A4 @ 150dpi (210mm)
 const EXPORT_PAD       = 32
 const EXPORT_CHART_H   = 480   // max chart size (square)
 const EXPORT_CHART_GAP = 24    // gap between charts horizontally and between rows
@@ -290,11 +290,24 @@ export async function exportChart(format, opts) {
   if (format === 'pdf') {
     const canvas = await buildCanvas(opts)
     const { jsPDF } = await import('jspdf')
-    const W = canvas.width, H = canvas.height
-    const A4_W_MM = 210
-    const A4_H_MM = Math.round((H / W) * A4_W_MM)
-    const pdf = new jsPDF({ orientation: A4_H_MM > A4_W_MM ? 'portrait' : 'landscape', unit: 'mm', format: [A4_W_MM, A4_H_MM] })
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_W_MM, A4_H_MM)
+    const A4_W_MM  = 210
+    const A4_H_MM  = 297
+    const pxPerMm  = canvas.width / A4_W_MM
+    const pageH_px = Math.round(A4_H_MM * pxPerMm)
+    const totalH   = canvas.height
+    const pages    = Math.ceil(totalH / pageH_px)
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+    for (let i = 0; i < pages; i++) {
+      if (i > 0) pdf.addPage()
+      const sliceH = Math.min(pageH_px, totalH - i * pageH_px)
+      const slice  = document.createElement('canvas')
+      slice.width  = canvas.width
+      slice.height = sliceH
+      slice.getContext('2d').drawImage(canvas, 0, -i * pageH_px)
+      pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, A4_W_MM, sliceH / pxPerMm)
+    }
     pdf.save(makeFilename(state.birth, keys, 'pdf'))
   }
 }
@@ -382,7 +395,7 @@ async function exportSVG(opts) {
   const natalStart  = tableStartY + ROW_H + 4
 
   const svgParts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="210mm" viewBox="0 0 ${W} ${totalH}">`,
     `<defs><filter id="card-shadow" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.08)"/></filter></defs>`,
     `<rect width="${W}" height="${totalH}" fill="#f8fafc"/>`,
     `<rect width="${W}" height="${HEADER_H}" fill="#ffffff"/>`,

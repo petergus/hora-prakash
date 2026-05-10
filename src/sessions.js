@@ -45,6 +45,7 @@ export function defaultChartUI() {
     mobileDashaTab: 'chart',
     chartDasha:     null,
     fromHouseSign:  null,
+    chalitMethod:   'equal',
   }
 }
 
@@ -96,7 +97,8 @@ function saveActiveSnapshot() {
   const cur = sessions.find(s => s.id === activeId)
   if (!cur) return
   cur.snap = { birth: state.birth, planets: state.planets, lagna: state.lagna,
-               houses: state.houses, dasha: state.dasha, panchang: state.panchang }
+               houses: state.houses, sripatiHouses: state.sripatiHouses,
+               dasha: state.dasha, panchang: state.panchang }
   cur.innerTab = currentInnerTab()
 }
 

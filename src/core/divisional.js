@@ -1,5 +1,15 @@
 // src/core/divisional.js
 
+// Assign planet longitude to house given an array of 12 cusp longitudes
+function houseFromCusps(pLon, cusps) {
+  for (let i = 0; i < 12; i++) {
+    const c1 = cusps[i]
+    const c2 = cusps[(i + 1) % 12]
+    if (((pLon - c1 + 360) % 360) < ((c2 - c1 + 360) % 360)) return i + 1
+  }
+  return 1
+}
+
 // Map divisor → human label (used by chart tab)
 export const DIVISIONAL_OPTIONS = [
   { value: 'D1',     label: 'D1 – Rashi' },
@@ -112,15 +122,25 @@ function transformLon(lon, key) {
  * @param {object}   lagna    - from state.lagna
  * @param {string}   key      - 'D1'|'D2'|...|'D12'|'Chalit'
  */
-export function calcDivisional(planets, lagna, key) {
+export function calcDivisional(planets, lagna, key, options = {}) {
   if (key === 'Chalit') {
-    // Equal bhava: each house is 30° wide, centered on Ascendant degree.
-    // Bhava sandhi (cusp of house 1) = lagna.lon - 15°
-    const sandhi1 = ((lagna.lon - 15) + 360) % 360
-    const chalitHouse = (pLon) => Math.floor(((pLon - sandhi1 + 360) % 360) / 30) + 1
+    const method = options.chalitMethod ?? 'equal'
+    let planetHouse
+    if (method === 'placidus' && options.houses?.length === 12) {
+      planetHouse = (pLon) => houseFromCusps(pLon, options.houses)
+    } else if (method === 'sripati' && options.sripatiHouses?.length === 12) {
+      planetHouse = (pLon) => houseFromCusps(pLon, options.sripatiHouses)
+    } else {
+      // Equal bhava: each house is 30° wide, centered on Ascendant degree.
+      // Bhava sandhi (cusp of house 1) = lagna.lon - 15°
+      const sandhi1 = ((lagna.lon - 15) + 360) % 360
+      planetHouse = (pLon) => Math.floor(((pLon - sandhi1 + 360) % 360) / 30) + 1
+    }
+    // Map bhava number → its rashi (madhya of bhava N is in consecutive signs from lagna.sign)
+    const houseToSign = (h) => ((lagna.sign - 1 + h - 1) % 12) + 1
     return {
-      planets: planets.map(p => ({ ...p, sign: chalitHouse(p.lon) })),
-      lagna:   { ...lagna, sign: 1 },
+      planets: planets.map(p => ({ ...p, sign: houseToSign(planetHouse(p.lon)) })),
+      lagna:   { ...lagna },
     }
   }
   return {

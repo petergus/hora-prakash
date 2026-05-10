@@ -59,6 +59,13 @@ export function calcBirthChart(jd, lat, lon, settings) {
   const lagnaLon = ((housesResult.ascmc[0] % 360) + 360) % 360
   const lagnaSign = Math.floor(lagnaLon / 30) + 1
   const houseCusps = Array.from(housesResult.cusps).slice(1, 13)
+  let sripatiCusps
+  try {
+    const sripatiResult = swe.houses_ex(jd, 65536, lat, lon, 'S')
+    sripatiCusps = Array.from(sripatiResult.cusps).slice(1, 13)
+  } catch (_) {
+    sripatiCusps = houseCusps // fallback to Placidus
+  }
 
   const rawPlanets = PLANETS.map(p => {
     const result = swe.calc_ut(jd, p.id, flags)
@@ -104,5 +111,5 @@ export function calcBirthChart(jd, lat, lon, settings) {
     pada: lagnaInfo.pada,
   }
 
-  return { planets, lagna, houses: houseCusps }
+  return { planets, lagna, houses: houseCusps, sripatiHouses: sripatiCusps }
 }

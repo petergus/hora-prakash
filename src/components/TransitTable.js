@@ -59,8 +59,7 @@ export class TransitTable {
 
     const isD1      = !div || div === 'D1'
     const divSuffix = isD1 ? '' : ` — ${divLabel(div)}`
-    const isChalit  = div === 'Chalit'
-    const signName  = (sign) => isChalit ? `H${sign}` : (SIGN_NAMES[sign] ?? '—')
+    const signName  = (sign) => SIGN_NAMES[sign] ?? '—'
     const filter    = this.ui.transitFilter ?? new Set(['Ju','Sa'])
 
     const tMap = {}

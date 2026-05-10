@@ -1,6 +1,6 @@
 // src/tabs/chart.js
 import { state } from '../state.js'
-import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
+import { renderChartSVG } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
@@ -60,18 +60,22 @@ function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
 }
 
+function chalitOptions() {
+  const { chalitMethod } = c()
+  return { chalitMethod, houses: state.houses, sripatiHouses: state.sripatiHouses }
+}
+
 function buildSingleChart(planets, lagna, key) {
-  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key)
-  const signLabels = key === 'Chalit' ? CHALIT_LABELS : undefined
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
+  const signLabels = undefined
   const label      = key === 'D1' ? 'Rashi\nChart' : divLabel(key).replace(' – ', '\n')
   return { dPlanets, dLagna, signLabels, label }
 }
 
 function buildPlanetTable(key, planets, lagna) {
-  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key)
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
-  const isChalit = key === 'Chalit'
   return `
     <div class="table-scroll"><table class="planet-table">
       <thead>
@@ -79,7 +83,7 @@ function buildPlanetTable(key, planets, lagna) {
       </thead>
       <tbody>
         ${dPlanets.map(p => {
-          const signLabel = isChalit ? `H${p.sign}` : SIGN_NAMES[p.sign - 1]
+          const signLabel = SIGN_NAMES[p.sign - 1]
           const orig = origByName[p.name]
           const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
           const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
@@ -101,7 +105,7 @@ function buildPlanetTable(key, planets, lagna) {
         }).join('')}
         <tr style="background:#fef3ff">
           <td><strong>Lagna</strong></td>
-          <td>${isChalit ? 'H1' : SIGN_NAMES[dLagna.sign - 1]}</td>
+          <td>${SIGN_NAMES[dLagna.sign - 1]}</td>
           <td>${fmtDeg(dLagna.degree)}</td>
           <td>1</td>
           <td>${lagna.nakshatra}</td>
@@ -201,6 +205,14 @@ export function renderChart() {
     ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
   </select>`
 
+  const chalitMethod = ui.chalitMethod ?? 'equal'
+  const chalitMethodHtml = activeSlotKey === 'Chalit' ? `
+    <select id="chalit-method-select" class="div-select" style="font-size:0.78rem;padding:0.2rem 0.4rem">
+      <option value="equal"${chalitMethod === 'equal' ? ' selected' : ''}>Equal House</option>
+      <option value="placidus"${chalitMethod === 'placidus' ? ' selected' : ''}>Placidus</option>
+      <option value="sripati"${chalitMethod === 'sripati' ? ' selected' : ''}>Sripati</option>
+    </select>` : ''
+
   // aspect buttons: always in DOM; hidden on desktop when multi-chart via CSS
   const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
     <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
@@ -283,6 +295,7 @@ export function renderChart() {
       ${birthCardHtml}
       <div class="chart-controls" style="margin-top:0.75rem">
         ${divSelectHtmlUnified}
+        ${chalitMethodHtml}
         <div class="chart-style-group">
           <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>
           <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South</button>
@@ -544,6 +557,13 @@ export function renderChart() {
       if (i === 0) ui.tableDiv = e.target.value
     }
     renderChart()
+  })
+
+  panel.addEventListener('change', e => {
+    if (e.target.id === 'chalit-method-select') {
+      c().chalitMethod = e.target.value
+      renderChart()
+    }
   })
 
   // Aspect helpers — for single view use activePlanets; mobile multi uses multiActivePlanets[activeTab]

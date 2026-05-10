@@ -696,7 +696,7 @@ async function onFormSubmit(e) {
     applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
     const settings = getSettings()
-    const { planets, lagna, houses } = calcBirthChart(jd, lat, lon, settings)
+    const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, lat, lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
@@ -704,10 +704,11 @@ async function onFormSubmit(e) {
     const panchang = calcPanchang(jd, lat, lon, { dateStr: dob, timezone: tz })
 
     const location = document.getElementById('inp-location').value.trim()
-    state.birth    = { name, dob, tob, lat, lon, timezone: tz, location }
-    state.planets  = planets
-    state.lagna    = lagna
-    state.houses   = houses
+    state.birth        = { name, dob, tob, lat, lon, timezone: tz, location }
+    state.planets      = planets
+    state.lagna        = lagna
+    state.houses       = houses
+    state.sripatiHouses = sripatiHouses
     state.dasha    = dasha
     state.panchang = panchang
 
@@ -866,7 +867,7 @@ export async function recalcAll() {
     }
     const jd = toJulianDay(state.birth.dob, state.birth.tob, state.birth.timezone)
     const settings = getSettings()
-    const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon, settings)
+    const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, state.birth.lat, state.birth.lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
@@ -876,9 +877,10 @@ export async function recalcAll() {
       timezone: state.birth.timezone,
     })
 
-    state.planets  = planets
-    state.lagna    = lagna
-    state.houses   = houses
+    state.planets       = planets
+    state.lagna         = lagna
+    state.houses        = houses
+    state.sripatiHouses = sripatiHouses
     state.dasha    = dasha
     state.panchang = panchang
 

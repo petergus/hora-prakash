@@ -126,3 +126,18 @@ Standard Parashari orbs: Moon 12°, Mars 17°, Mercury 14°, Jupiter 11°, Venus
 - Location field allows manual entry; ⟳ button auto-detects timezone from lat/lon
 
 **Deployment:** GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys to GitHub Pages on push to `main`. Base path is `/hora-prakash/`. Current release: v1.0.0.
+
+## Pending / Known Issues
+
+### Divisional Charts — Rules to Verify
+D5/D6/D8/D11 currently use generic **Parivritti Cyclic** formula. Traditional rules vary by source and are debated. Verify against JHora before changing.
+
+| Chart | Current | Traditional (to verify) |
+|-------|---------|------------------------|
+| D5 – Panchamsha | Parivritti | Movable→Aries, Fixed→Sag, Dual→Leo (JHora) |
+| D6 – Shashthamsha | Parivritti | Likely correct — sequential from own sign |
+| D8 – Ashtamsha | Parivritti | Movable→Aries, Fixed→Sag, Dual→Leo (disputed) |
+| D11 – Rudramsha | Parivritti | Likely correct — sequential Parivritti accepted |
+
+### Chalit Chart
+- `CHALIT_LABELS` export in `src/ui/chart-svg.js` is dead code — can remove.

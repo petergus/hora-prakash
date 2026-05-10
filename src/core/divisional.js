@@ -24,6 +24,14 @@ export const DIVISIONAL_OPTIONS = [
   { value: 'D10',    label: 'D10 – Dashamsha' },
   { value: 'D11',    label: 'D11 – Rudramsha' },
   { value: 'D12',    label: 'D12 – Dwadashamsha' },
+  { value: 'D16',    label: 'D16 – Shodashamsha' },
+  { value: 'D20',    label: 'D20 – Vimshamsha' },
+  { value: 'D24',    label: 'D24 – Siddhamsha' },
+  { value: 'D27',    label: 'D27 – Nakshatramsha' },
+  { value: 'D30',    label: 'D30 – Trimshamsha' },
+  { value: 'D40',    label: 'D40 – Khavedamsha' },
+  { value: 'D45',    label: 'D45 – Akshavedamsha' },
+  { value: 'D60',    label: 'D60 – Shashtyamsha' },
   { value: 'Chalit', label: 'Chalit' },
 ]
 
@@ -99,6 +107,77 @@ function parivritti(lon, n) {
   return { sign: dSign, degree: deg(lon, n) }
 }
 
+// D16 Shodashamsha: Movable→Aries(0), Fixed→Leo(4), Dual→Sagittarius(8)
+function d16(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 16)
+  const seed = ((sign - 1) % 3) * 4   // 0,4,8 repeating
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 16) }
+}
+
+// D20 Vimshamsha: Movable→Aries(0), Fixed→Sagittarius(8), Dual→Leo(4)
+function d20(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 20)
+  const SEEDS = [0,8,4, 0,8,4, 0,8,4, 0,8,4]  // index = sign-1
+  return { sign: (SEEDS[sign - 1] + l) % 12 + 1, degree: deg(lon, 20) }
+}
+
+// D24 Siddhamsha: Odd signs→Leo(4), Even signs→Cancer(3)
+function d24(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 24)
+  const seed = sign % 2 === 1 ? 4 : 3
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 24) }
+}
+
+// D27 Nakshatramsha: Fire→Aries(0), Earth→Cancer(3), Air→Libra(6), Water→Capricorn(9)
+function d27(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 27)
+  const seed = ((sign - 1) % 4) * 3   // 0,3,6,9 repeating
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 27) }
+}
+
+// D30 Trimshamsha: unequal Parashari portions, gender-based
+function d30(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const d    = lon % 30
+  let dSign
+  if (sign % 2 === 1) {
+    // Odd signs: Mars→Aries(1), Saturn→Aquarius(11), Jupiter→Sag(9), Mercury→Gemini(3), Venus→Libra(7)
+    if      (d <  5) dSign = 1
+    else if (d < 10) dSign = 11
+    else if (d < 18) dSign = 9
+    else if (d < 25) dSign = 3
+    else             dSign = 7
+  } else {
+    // Even signs: Venus→Taurus(2), Mercury→Virgo(6), Jupiter→Pisces(12), Saturn→Cap(10), Mars→Scorpio(8)
+    if      (d <  5) dSign = 2
+    else if (d < 12) dSign = 6
+    else if (d < 20) dSign = 12
+    else if (d < 25) dSign = 10
+    else             dSign = 8
+  }
+  return { sign: dSign, degree: d }
+}
+
+// D40 Khavedamsha: Odd signs→Aries(0), Even signs→Libra(6)
+function d40(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 40)
+  const seed = sign % 2 === 1 ? 0 : 6
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 40) }
+}
+
+// D45 Akshavedamsha: Movable→Aries(0), Fixed→Leo(4), Dual→Sagittarius(8)
+function d45(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 45)
+  const seed = ((sign - 1) % 3) * 4
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 45) }
+}
+
 function transformLon(lon, key) {
   if (key === 'D1')  return { sign: Math.floor(lon / 30) + 1, degree: lon % 30 }
   if (key === 'D2')  return hora(lon)
@@ -108,9 +187,16 @@ function transformLon(lon, key) {
   if (key === 'D9')  return d9(lon)
   if (key === 'D10') return d10(lon)
   if (key === 'D12') return d12(lon)
+  if (key === 'D16') return d16(lon)
+  if (key === 'D20') return d20(lon)
+  if (key === 'D24') return d24(lon)
+  if (key === 'D27') return d27(lon)
+  if (key === 'D30') return d30(lon)
+  if (key === 'D40') return d40(lon)
+  if (key === 'D45') return d45(lon)
   const n = parseInt(key.slice(1), 10)
   if (isNaN(n) || n < 1) throw new Error(`Unknown divisional key: ${key}`)
-  return parivritti(lon, n)
+  return parivritti(lon, n)  // D60 and others fall through to Parivritti
 }
 
 /**

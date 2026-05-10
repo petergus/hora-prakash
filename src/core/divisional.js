@@ -114,8 +114,12 @@ function transformLon(lon, key) {
  */
 export function calcDivisional(planets, lagna, key) {
   if (key === 'Chalit') {
+    // Equal bhava: each house is 30° wide, centered on Ascendant degree.
+    // Bhava sandhi (cusp of house 1) = lagna.lon - 15°
+    const sandhi1 = ((lagna.lon - 15) + 360) % 360
+    const chalitHouse = (pLon) => Math.floor(((pLon - sandhi1 + 360) % 360) / 30) + 1
     return {
-      planets: planets.map(p => ({ ...p, sign: p.house })),
+      planets: planets.map(p => ({ ...p, sign: chalitHouse(p.lon) })),
       lagna:   { ...lagna, sign: 1 },
     }
   }

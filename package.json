@@ -10,7 +10,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "parse-places": "node scripts/parse-places.js"
+    "parse-places": "node scripts/parse-places.js",
+    "build:firebase": "DEPLOY_TARGET=firebase vite build",
+    "deploy:firebase": "npm run build:firebase && firebase deploy --only hosting"
   },
   "keywords": [],
   "author": "",
@@ -19,9 +21,10 @@
   "devDependencies": {
     "sharp": "^0.34.5",
     "vite": "^8.0.8",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.3.0"
   },
   "dependencies": {
+    "firebase": "^12.13.0",
     "geo-tz": "^8.1.6",
     "jspdf": "^4.2.1",
     "swisseph-wasm": "^0.0.5"

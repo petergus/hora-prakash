@@ -21,13 +21,15 @@ function swHashPlugin() {
 
 export default defineConfig({
   plugins: [swHashPlugin()],
-  base: '/hora-prakash/',
+  base: process.env.DEPLOY_TARGET === 'firebase' ? '/' : '/hora-prakash/',
   build: {
     outDir: 'dist',
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Keep swisseph (WASM wrapper) in its own chunk
           if (id.includes('swisseph-wasm')) return 'swisseph'
+          // Group small core utilities together
           if (id.includes('/src/core/') || id.includes('/src/utils/') || id.includes('/src/state')) return 'core'
         },
       },

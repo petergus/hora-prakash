@@ -76,13 +76,14 @@ export async function searchOnline(query) {
 }
 
 /**
- * Get IANA timezone string for coordinates — resolved locally via geo-tz (offline-capable).
+ * Get IANA timezone string for coordinates via timeapi.io (free, no key).
  * Only needed for Nominatim fallback results (tz === null).
  */
 export async function getTimezone(lat, lon) {
   if (!isFinite(lat) || !isFinite(lon)) throw new Error('Invalid coordinates for timezone lookup')
-  const { find } = await import('geo-tz')
-  const zones = find(lat, lon)
-  if (!zones || zones.length === 0) throw new Error('No timezone found for coordinates')
-  return zones[0]  // e.g. "Asia/Kolkata"
+  const url = `https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lon}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Timezone lookup failed: ${res.status}`)
+  const data = await res.json()
+  return data.timeZone  // e.g. "Asia/Kolkata"
 }

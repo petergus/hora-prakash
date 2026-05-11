@@ -13,6 +13,13 @@ import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
 import { parseJhdFile } from '../utils/jhd.js'
+import {
+  upsertProfile as cloudUpsertProfile,
+  deleteProfileCloud,
+  deleteAllProfilesCloud,
+  bulkUpsertProfiles,
+  saveHoroscope,
+} from '../cloud-store.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
 const STORAGE_KEY = 'hora-prakash-profiles'
@@ -44,10 +51,12 @@ function saveProfile(profile) {
   if (existing >= 0) profiles[existing] = profile
   else profiles.unshift(profile)
   saveProfiles(profiles)
+  cloudUpsertProfile(profile).catch(err => console.error('Cloud save failed:', err))
 }
 
 function deleteProfile(id) {
   saveProfiles(loadProfiles().filter(p => p.id !== id))
+  deleteProfileCloud(id).catch(err => console.error('Cloud delete failed:', err))
 }
 
 function exportProfiles() {
@@ -79,6 +88,7 @@ function importProfiles(file) {
         .map(({ id: _id, ...rest }) => ({ ...rest, id: genId() }))
       if (!toAdd.length) { alert('No new profiles found (all already exist).'); return }
       saveProfiles([...existing, ...toAdd])
+      bulkUpsertProfiles(toAdd).catch(err => console.error('Cloud bulk import failed:', err))
       renderSavedProfiles()
       alert(`Imported ${toAdd.length} profile${toAdd.length > 1 ? 's' : ''}.`)
     } catch (err) {
@@ -112,6 +122,7 @@ async function importJhdFiles(files) {
 
   if (successes.length > 0) {
     saveProfiles([...successes, ...existing])
+    bulkUpsertProfiles(successes).catch(err => console.error('Cloud JHD import failed:', err))
     renderSavedProfiles()
   }
 
@@ -431,7 +442,11 @@ function renderSavedProfiles() {
     if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
   })
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
-    if (confirm('Delete all saved profiles?')) { saveProfiles([]); renderSavedProfiles() }
+    if (confirm('Delete all saved profiles?')) {
+      saveProfiles([])
+      deleteAllProfilesCloud().catch(err => console.error('Cloud clear-all failed:', err))
+      renderSavedProfiles()
+    }
   })
 
   section.querySelector('#btn-load-profile').addEventListener('click', () => {
@@ -717,6 +732,16 @@ async function onFormSubmit(e) {
     const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
     state.strength = { bhinna, sarva, shadbala }
 
+    // Fire off async cloud save if logged in. Generate a stable ID if none exists.
+    const horoscopeId = editingProfileId
+      || `${name}-${dob}-${tob}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    saveHoroscope(horoscopeId, {
+      birth: state.birth,
+      planets: state.planets,
+      lagna: state.lagna,
+      houses: state.houses,
+    }).catch(err => console.error('Cloud horoscope save failed:', err))
+
     // Update session label and profile tab bar
     const { updateActiveLabel } = await import('../sessions.js')
     const { renderProfileTabs } = await import('../ui/profile-tabs.js')
@@ -729,7 +754,7 @@ async function onFormSubmit(e) {
 
     const { renderStrength } = await import('./strength.js')
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
     switchTab('chart')
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
@@ -895,7 +920,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

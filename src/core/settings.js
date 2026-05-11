@@ -7,7 +7,7 @@ const DEFAULTS = {
   ayanamsa:        1,
   yearMethod:      'sidereal',
   customYearDays:  365.25,
-  planetPositions: 'true',        // 'apparent' | 'true'
+  planetPositions: 'apparent',     // 'apparent' | 'true'
   observerType:    'geocentric', // 'geocentric' | 'topocentric'
   theme:           'indigo',
 }

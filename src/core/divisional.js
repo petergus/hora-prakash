@@ -14,6 +14,7 @@ export const DIVISIONAL_OPTIONS = [
   { value: 'D10',    label: 'D10 – Dashamsha' },
   { value: 'D11',    label: 'D11 – Rudramsha' },
   { value: 'D12',    label: 'D12 – Dwadashamsha' },
+  { value: 'D30',    label: 'D30 – Trimshamsha' },
   { value: 'Chalit', label: 'Chalit' },
 ]
 
@@ -74,6 +75,28 @@ function d10(lon) {
   return { sign: ((sign - 1) + offset + l) % 12 + 1, degree: deg(lon, 10) }
 }
 
+// D30 Trimshamsha: Parashari rule — unequal partitions, different for odd/even signs
+function d30(lon) {
+  const sign  = Math.floor(lon / 30) + 1
+  const deg   = lon % 30
+  const isOdd = sign % 2 === 1
+  let dSign, partStart
+  if (isOdd) {
+    if (deg < 5)        { dSign = 1;  partStart = 0  }
+    else if (deg < 10)  { dSign = 11; partStart = 5  }
+    else if (deg < 18)  { dSign = 9;  partStart = 10 }
+    else if (deg < 25)  { dSign = 3;  partStart = 18 }
+    else                { dSign = 7;  partStart = 25 }
+  } else {
+    if (deg < 5)        { dSign = 7;  partStart = 0  }
+    else if (deg < 12)  { dSign = 6;  partStart = 5  }
+    else if (deg < 20)  { dSign = 12; partStart = 12 }
+    else if (deg < 25)  { dSign = 10; partStart = 20 }
+    else                { dSign = 8;  partStart = 25 }
+  }
+  return { sign: dSign, degree: deg - partStart }
+}
+
 // D12 Dwadasamsa: starts from the sign itself, advances +1 per part
 function d12(lon) {
   const sign = Math.floor(lon / 30) + 1
@@ -98,6 +121,7 @@ function transformLon(lon, key) {
   if (key === 'D9')  return d9(lon)
   if (key === 'D10') return d10(lon)
   if (key === 'D12') return d12(lon)
+  if (key === 'D30') return d30(lon)
   const n = parseInt(key.slice(1), 10)
   if (isNaN(n) || n < 1) throw new Error(`Unknown divisional key: ${key}`)
   return parivritti(lon, n)

@@ -2,6 +2,7 @@
 import { state } from '../state.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { getSettings } from '../core/settings.js'
+import { getAspectedSigns } from '../core/aspects.js'
 
 const APP_VERSION = '1.2.0'
 
@@ -11,6 +12,16 @@ function buildPayload() {
   const divisionals = {}
   for (const { value } of DIVISIONAL_OPTIONS) {
     divisionals[value] = calcDivisional(planets, lagna, value)
+  }
+
+  const aspects = {}
+  if (planets && lagna) {
+    for (const p of planets) {
+      aspects[p.name] = {
+        aspectedSigns: getAspectedSigns(p.sign, p.abbr),
+        aspectedHouses: getAspectedSigns(p.sign, p.abbr).map(s => ((s - lagna.sign + 12) % 12) + 1)
+      }
+    }
   }
 
   const s = getSettings()
@@ -29,6 +40,7 @@ function buildPayload() {
     lagna,
     houses,
     planets,
+    aspects,
     divisionals,
     dasha,
     panchang,

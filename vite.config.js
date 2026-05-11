@@ -21,7 +21,7 @@ function swHashPlugin() {
 
 export default defineConfig({
   plugins: [swHashPlugin()],
-  base: process.env.DEPLOY_TARGET === 'firebase' ? '/' : '/hora-prakash/',
+  base: '/',
   build: {
     outDir: 'dist',
     rollupOptions: {

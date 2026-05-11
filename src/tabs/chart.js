@@ -6,7 +6,7 @@ import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
-import { CLEAR_ASPECTS_SVG } from '../ui/icons.js'
+import { CLEAR_ASPECTS_SVG, SHOW_ALL_ASPECTS_SVG } from '../ui/icons.js'
 import { showExportModal } from '../ui/chart-export.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -215,6 +215,7 @@ export function renderChart() {
 
   // aspect buttons: always in DOM; hidden on desktop when multi-chart via CSS
   const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
+    <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">${SHOW_ALL_ASPECTS_SVG}</button>
     <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
   </div>`
   const downloadBtn = `<div class="chart-style-group">
@@ -577,6 +578,10 @@ export function renderChart() {
     else ui.multiActivePlanets[ui.activeMultiTab] = set
   }
 
+  panel.querySelector('#btn-show-all').addEventListener('click', () => {
+    if (_dPlanets) _dPlanets.forEach(p => getActiveAP().add(p.abbr))
+    renderSVGOnly()
+  })
   panel.querySelector('#btn-hide-all').addEventListener('click', () => {
     setActiveAP(new Set()); renderSVGOnly()
   })

@@ -1,7 +1,7 @@
 // src/tabs/input.js
 import { searchLocation, searchOnline, getTimezone } from '../utils/geocoding.js'
 import { addToCache } from '../utils/location-cache.js'
-import { toJulianDay } from '../utils/time.js'
+import { toJulianDay, localToUTC } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
@@ -13,6 +13,7 @@ import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
 import { parseJhdFile } from '../utils/jhd.js'
+import { parseBirthPaste } from '../utils/paste-parse.js'
 import {
   upsertProfile as cloudUpsertProfile,
   deleteProfileCloud,
@@ -174,13 +175,23 @@ export function renderInputTab() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem">
         <h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--muted);letter-spacing:0.03em;text-transform:uppercase">Birth Details</h3>
-        <button type="button" id="btn-new-entry" class="btn-secondary" title="New entry — clear all fields" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 1.5H2.5A1 1 0 0 0 1.5 2.5v8A1 1 0 0 0 2.5 11.5h8A1 1 0 0 0 11.5 10.5V7"/>
-            <path d="M10 1.2a1.1 1.1 0 0 1 1.6 1.6L7 7.5 5 8l.5-2 4.5-4.8z"/>
-          </svg>
-          New
-        </button>
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <button type="button" id="btn-paste-details" class="btn-secondary" title="Paste birth details from text" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.5" y="1" width="6" height="2.5" rx="0.6"/>
+              <path d="M3 2.5H2.2A1.2 1.2 0 0 0 1 3.7v7.6A1.2 1.2 0 0 0 2.2 12.5h8.6A1.2 1.2 0 0 0 12 11.3V3.7A1.2 1.2 0 0 0 10.8 2.5H10"/>
+              <line x1="4" y1="6.5" x2="9" y2="6.5"/><line x1="4" y1="8.5" x2="7.5" y2="8.5"/>
+            </svg>
+            Paste
+          </button>
+          <button type="button" id="btn-new-entry" class="btn-secondary" title="New entry — clear all fields" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 1.5H2.5A1 1 0 0 0 1.5 2.5v8A1 1 0 0 0 2.5 11.5h8A1 1 0 0 0 11.5 10.5V7"/>
+              <path d="M10 1.2a1.1 1.1 0 0 1 1.6 1.6L7 7.5 5 8l.5-2 4.5-4.8z"/>
+            </svg>
+            New
+          </button>
+        </div>
       </div>
       <form id="birth-form">
         <div class="form-group">
@@ -316,12 +327,34 @@ export function renderInputTab() {
             </div>
           </div>
         </div>
+        <div id="utc-preview" class="utc-preview" style="margin:0.6rem 0;padding:0.5rem 0.7rem;border:1px solid var(--border,#444);border-radius:6px;font-size:0.85rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center">
+          <span style="opacity:0.7">UTC used for calculation:</span>
+          <span id="utc-preview-text" style="font-weight:600">—</span>
+          <span style="opacity:0.5">·</span>
+          <span id="utc-preview-jd" style="opacity:0.85">JD —</span>
+        </div>
         <div class="form-actions">
           <button type="submit" id="btn-calculate">Calculate Chart</button>
           <button type="button" id="btn-save-profile" class="btn-secondary">Save Profile</button>
         </div>
         <p id="calc-error" class="error"></p>
       </form>
+    </div>
+    <!-- Paste birth details modal -->
+    <div id="paste-modal" class="paste-modal-overlay">
+      <div class="paste-modal">
+        <div class="paste-modal-header">
+          <h3>Paste Birth Details</h3>
+          <button type="button" id="paste-modal-close" class="paste-modal-close" title="Close">✕</button>
+        </div>
+        <p class="paste-modal-hint">Paste text containing birth information — name, date, time, place, coordinates, timezone. The parser will extract what it can.</p>
+        <textarea id="paste-textarea" class="paste-textarea" rows="6" placeholder="e.g.\nName: Ramesh Kumar\nDOB: 15/03/1985\nTime: 14:30\nPlace: Mumbai, India\n\nor just free-form text…"></textarea>
+        <div id="paste-preview" class="paste-preview"></div>
+        <div class="paste-modal-actions">
+          <button type="button" id="paste-apply" class="btn-primary" disabled>Fill Form</button>
+          <button type="button" id="paste-cancel" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
     </div>
   `
 
@@ -343,6 +376,9 @@ export function renderInputTab() {
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
   document.getElementById('btn-fetch-tz-dec').addEventListener('click', onFetchTz)
   document.getElementById('btn-coord-mode').addEventListener('click', toggleCoordMode)
+  initPasteModal()
+  attachUtcPreviewListeners()
+  updateUtcPreview()
   document.getElementById('btn-new-entry').addEventListener('click', () => {
     editingProfileId = null
     document.getElementById('inp-name').value = ''
@@ -853,6 +889,64 @@ function readTimezone() {
   return sameCoords ? selectedTz : offset
 }
 
+function readDob() {
+  if (datetimeMode === 'text') {
+    return parseDateText(document.getElementById('inp-dob-text').value.trim()) || ''
+  }
+  return document.getElementById('inp-dob').value
+}
+
+function readTob() {
+  if (datetimeMode === 'text') {
+    const raw = document.getElementById('inp-tob-text').value.trim()
+    return /^\d{1,2}:\d{2}$/.test(raw) ? raw.padStart(5, '0') : ''
+  }
+  return document.getElementById('inp-tob').value
+}
+
+function updateUtcPreview() {
+  const textEl = document.getElementById('utc-preview-text')
+  const jdEl   = document.getElementById('utc-preview-jd')
+  if (!textEl || !jdEl) return
+  try {
+    const dob = readDob()
+    const tob = readTob()
+    const tz  = readTimezone()
+    if (!dob || !tob || !tz) {
+      textEl.textContent = '—'
+      jdEl.textContent = 'JD —'
+      return
+    }
+    const utc = localToUTC(`${dob}T${tob}:00`, tz)
+    const jd  = toJulianDay(dob, tob, tz)
+    const pad = n => String(n).padStart(2, '0')
+    const utcStr = `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())} ${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())} UTC`
+    textEl.textContent = `${dob} ${tob} (${tz})  →  ${utcStr}`
+    jdEl.textContent = `JD ${jd.toFixed(6)}`
+  } catch {
+    textEl.textContent = '—'
+    jdEl.textContent = 'JD —'
+  }
+}
+
+function attachUtcPreviewListeners() {
+  const ids = [
+    'inp-dob', 'inp-tob', 'inp-dob-text', 'inp-tob-text',
+    'inp-tz-sign', 'inp-tz-h', 'inp-tz-m',
+    'inp-tz-sign-dec', 'inp-tz-h-dec', 'inp-tz-m-dec',
+    'inp-lat-d', 'inp-lat-m', 'inp-lat-s', 'inp-lat-dir',
+    'inp-lon-d', 'inp-lon-m', 'inp-lon-s', 'inp-lon-dir',
+    'inp-lat-dec', 'inp-lon-dec',
+  ]
+  ids.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) {
+      el.addEventListener('input', updateUtcPreview)
+      el.addEventListener('change', updateUtcPreview)
+    }
+  })
+}
+
 function fillCoordsDMS(lat, lon) {
   const ld = decToDMS(Math.abs(lat)); const lDir = lat >= 0 ? 'N' : 'S'
   const od = decToDMS(Math.abs(lon)); const oDir = lon >= 0 ? 'E' : 'W'
@@ -878,6 +972,7 @@ function fillCoords(lat, lon, timezone) {
   document.getElementById('inp-tz-sign-dec').value = tzP.sign
   document.getElementById('inp-tz-h-dec').value    = tzP.h
   document.getElementById('inp-tz-m-dec').value    = tzP.m
+  updateUtcPreview()
 }
 
 /** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */
@@ -931,6 +1026,165 @@ export async function recalcAll() {
       btn.disabled = false
       btn.textContent = 'Calculate Chart'
     }
+  }
+}
+
+// ── Paste modal ───────────────────────────────────────────────────────────────
+
+function initPasteModal() {
+  const openBtn    = document.getElementById('btn-paste-details')
+  const overlay    = document.getElementById('paste-modal')
+  const textarea   = document.getElementById('paste-textarea')
+  const preview    = document.getElementById('paste-preview')
+  const applyBtn   = document.getElementById('paste-apply')
+  const cancelBtn  = document.getElementById('paste-cancel')
+  const closeBtn   = document.getElementById('paste-modal-close')
+
+  let lastParsed = {}
+
+  const openModal = () => {
+    textarea.value = ''
+    preview.innerHTML = ''
+    applyBtn.disabled = true
+    lastParsed = {}
+    overlay.classList.add('open')
+    // Focus textarea after transition
+    setTimeout(() => textarea.focus(), 80)
+  }
+
+  const closeModal = () => {
+    overlay.classList.remove('open')
+  }
+
+  openBtn.addEventListener('click', openModal)
+  closeBtn.addEventListener('click', closeModal)
+  cancelBtn.addEventListener('click', closeModal)
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal() })
+
+  textarea.addEventListener('input', () => {
+    const text = textarea.value.trim()
+    if (!text) {
+      preview.innerHTML = ''
+      applyBtn.disabled = true
+      lastParsed = {}
+      return
+    }
+    const parsed = parseBirthPaste(text)
+    lastParsed = parsed
+    renderPastePreview(preview, parsed)
+    // Enable apply if we got at least one useful field
+    const hasData = parsed.name || parsed.dob || parsed.tob || parsed.location ||
+      (parsed.lat !== undefined && parsed.lon !== undefined)
+    applyBtn.disabled = !hasData
+  })
+
+  applyBtn.addEventListener('click', async () => {
+    if (!lastParsed || applyBtn.disabled) return
+    editingProfileId = null
+    await applyParsedData(lastParsed)
+    closeModal()
+  })
+}
+
+function renderPastePreview(container, parsed) {
+  const fields = []
+  if (parsed.name)     fields.push({ label: 'Name',     value: parsed.name })
+  if (parsed.dob)      fields.push({ label: 'Date',     value: parsed.dob })
+  if (parsed.tob)      fields.push({ label: 'Time',     value: parsed.tob })
+  if (parsed.location) fields.push({ label: 'Location', value: parsed.location })
+  if (parsed.lat !== undefined && parsed.lon !== undefined)
+    fields.push({ label: 'Coords', value: `${parsed.lat.toFixed(4)}°, ${parsed.lon.toFixed(4)}°` })
+  if (parsed.tz)       fields.push({ label: 'Timezone', value: 'UTC' + parsed.tz })
+
+  if (fields.length === 0) {
+    container.innerHTML = '<span class="paste-preview-empty">No birth details detected yet…</span>'
+    return
+  }
+
+  container.innerHTML = `
+    <div class="paste-preview-label">Detected fields:</div>
+    <div class="paste-preview-fields">
+      ${fields.map(f => `
+        <span class="paste-field">
+          <span class="paste-field-key">${f.label}</span>
+          <span class="paste-field-val">${escapeHtml(f.value)}</span>
+        </span>
+      `).join('')}
+    </div>
+  `
+}
+
+async function applyParsedData(parsed) {
+  // Name
+  if (parsed.name) {
+    document.getElementById('inp-name').value = parsed.name
+  }
+
+  // Date
+  if (parsed.dob) {
+    document.getElementById('inp-dob').value = parsed.dob
+    const [y, mo, d] = parsed.dob.split('-')
+    document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  }
+
+  // Time
+  if (parsed.tob) {
+    document.getElementById('inp-tob').value = parsed.tob
+    document.getElementById('inp-tob-text').value = parsed.tob
+  }
+
+  // Location — fill the text field and try to geocode
+  if (parsed.location) {
+    document.getElementById('inp-location').value = parsed.location
+  }
+
+  // Coordinates — if parser found them, fill directly
+  if (parsed.lat !== undefined && parsed.lon !== undefined) {
+    const lat = parsed.lat
+    const lon = parsed.lon
+    let tz = parsed.tz || null
+
+    // Try to auto-detect timezone from coords if not parsed
+    if (!tz) {
+      try { tz = await getTimezone(lat, lon) } catch { /* leave tz null */ }
+    }
+
+    if (tz) {
+      fillCoords(lat, lon, tz)
+      selectedLocation = {
+        displayName: parsed.location || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`,
+        lat, lon, timezone: tz,
+      }
+    } else {
+      // Fill coords without timezone
+      fillCoordsDMS(lat, lon)
+      document.getElementById('inp-lat-dec').value = Math.round(lat * 10000) / 10000
+      document.getElementById('inp-lon-dec').value = Math.round(lon * 10000) / 10000
+    }
+  } else if (parsed.location) {
+    // No coords parsed — try geocoding the location text
+    try {
+      const { results } = await searchLocation(parsed.location)
+      if (results.length > 0) {
+        const r = results[0]
+        const tz = r.tz || await getTimezone(r.lat, r.lon)
+        selectedLocation = { displayName: r.displayName, lat: r.lat, lon: r.lon, timezone: tz }
+        addToCache({ displayName: r.displayName, lat: r.lat, lon: r.lon, tz })
+        document.getElementById('inp-location').value = r.displayName
+        fillCoords(r.lat, r.lon, tz)
+      }
+    } catch { /* geocoding failed — user can fill manually */ }
+  }
+
+  // Timezone only (no coords)
+  if (parsed.tz && parsed.lat === undefined) {
+    const p = offsetParts(parsed.tz)
+    document.getElementById('inp-tz-sign').value     = p.sign
+    document.getElementById('inp-tz-h').value         = p.h
+    document.getElementById('inp-tz-m').value         = p.m
+    document.getElementById('inp-tz-sign-dec').value  = p.sign
+    document.getElementById('inp-tz-h-dec').value     = p.h
+    document.getElementById('inp-tz-m-dec').value     = p.m
   }
 }
 

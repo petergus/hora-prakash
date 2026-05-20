@@ -55,6 +55,8 @@ const EYE_OPEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" st
 const EYE_SHUT = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14"/></svg>`
 const GEAR_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>`
 const DOWNLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg>`
+const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5v-7A1.5 1.5 0 0 1 3.5 1h7A1.5 1.5 0 0 1 12 2.5V5"/></svg>`
+const CHECK_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-7"/></svg>`
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
@@ -76,15 +78,17 @@ function buildPlanetTable(key, planets, lagna) {
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
+  const houseLabel = key === 'Chalit' ? 'House' : `${key} House`
   return `
     <div class="table-scroll"><table class="planet-table">
       <thead>
-        <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>D1 House</th><th>Nakshatra</th><th>Pada</th></tr>
+        <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>${houseLabel}</th><th>Nakshatra</th><th>Pada</th></tr>
       </thead>
       <tbody>
         ${dPlanets.map(p => {
           const signLabel = SIGN_NAMES[p.sign - 1]
           const orig = origByName[p.name]
+          const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
           const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
           const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
           const rowCls = isExalt ? ' class="row-exalt"' : isDebil ? ' class="row-debil"' : ''
@@ -98,7 +102,7 @@ function buildPlanetTable(key, planets, lagna) {
             <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
             <td>${signLabel}</td>
             <td>${fmtDeg(p.degree)}</td>
-            <td>${orig?.house ?? '—'}</td>
+            <td>${divHouse}</td>
             <td>${orig?.nakshatra ?? '—'}</td>
             <td>${orig?.pada ?? '—'}</td>
           </tr>`
@@ -113,6 +117,43 @@ function buildPlanetTable(key, planets, lagna) {
         </tr>
       </tbody>
     </table></div>`
+}
+
+function buildPlanetJSON(key, planets, lagna) {
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
+  const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
+  const isD1 = key === 'D1'
+  return {
+    division: key,
+    divisionLabel: divLabel(key),
+    lagna: {
+      sign: SIGN_NAMES[dLagna.sign - 1],
+      signNumber: dLagna.sign,
+      degree: fmtDeg(dLagna.degree),
+      degreeDecimal: Math.round(dLagna.degree * 1e4) / 1e4,
+      house: 1,
+      nakshatra: lagna.nakshatra,
+      pada: lagna.pada,
+    },
+    planets: dPlanets.map(p => {
+      const orig = origByName[p.name]
+      const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
+      return {
+        name: p.name,
+        sign: SIGN_NAMES[p.sign - 1],
+        signNumber: p.sign,
+        degree: fmtDeg(p.degree),
+        degreeDecimal: Math.round(p.degree * 1e4) / 1e4,
+        house: divHouse,
+        nakshatra: orig?.nakshatra ?? null,
+        pada: orig?.pada ?? null,
+        retrograde: !!p.retrograde,
+        combust: !!p.combust,
+        exalted: isD1 && EXALT_SIGN[p.name] === p.sign,
+        debilitated: isD1 && DEBIL_SIGN[p.name] === p.sign,
+      }
+    }),
+  }
 }
 
 function renderSVGOnly() {
@@ -274,10 +315,12 @@ export function renderChart() {
     </div>
   </div>` : ''
 
+  const copyBtnHtml = `<button id="btn-copy-planet-json" class="chart-style-btn chart-icon-btn copy-json-btn" title="Copy positions as JSON">${COPY_ICON}</button>`
+
   const planetCardInner = viewMode === '1'
-    ? `<h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
+    ? `<div class="planet-positions-header"><h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>${copyBtnHtml}</div>
        ${buildPlanetTable(divisional, planets, lagna)}`
-    : `${tableDivSelect}
+    : `<div class="planet-positions-header">${tableDivSelect}${copyBtnHtml}</div>
        ${buildPlanetTable(tableDiv, planets, lagna)}`
 
   const planetCard = `<div class="card planet-positions-card">${planetCardInner}</div>`
@@ -518,6 +561,21 @@ export function renderChart() {
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
+
+  // Copy planet positions as JSON
+  panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget
+    const activeKey = viewMode === '1' ? divisional : tableDiv
+    const json = buildPlanetJSON(activeKey, planets, lagna)
+    navigator.clipboard.writeText(JSON.stringify(json, null, 2)).then(() => {
+      btn.innerHTML = CHECK_ICON
+      btn.classList.add('copy-success')
+      setTimeout(() => { btn.innerHTML = COPY_ICON; btn.classList.remove('copy-success') }, 1500)
+    }).catch(() => {
+      btn.title = 'Copy failed'
+      setTimeout(() => { btn.title = 'Copy positions as JSON' }, 2000)
+    })
+  })
 
   document.getElementById('btn-export-chart')?.addEventListener('click', () => {
     const { chartStyle, divisional, viewMode, multiDivs } = c()

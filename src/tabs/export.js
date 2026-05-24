@@ -184,9 +184,13 @@ function buildPayload(cfg) {
     for (const { value } of DIVISIONAL_OPTIONS) {
       if (!cfg.divisionals[value]) continue
       const d = calcDivisional(planets, lagna, value)
+      const dLagnaSign = d.lagna.sign
       divisionals[value] = {
         lagna: d.lagna,
-        planets: d.planets.map(p => filterPlanet(p, cfg.planetFields)),
+        planets: d.planets.map(p => {
+          const divHouse = ((p.sign - dLagnaSign + 12) % 12) + 1
+          return filterPlanet({ ...p, house: divHouse }, cfg.planetFields)
+        }),
       }
     }
     payload.divisionals = divisionals

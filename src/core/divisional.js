@@ -27,14 +27,17 @@ function hora(lon) {
   // Odd sign 0-15° → Leo(5), 15-30° → Cancer(4)
   // Even sign 0-15° → Cancer(4), 15-30° → Leo(5)
   const dSign = (isOdd === firstHalf) ? 5 : 4
-  return { sign: dSign, degree: degInSign % 15 }
+  // Each hora spans 15°, mapped onto a full 30° sign → scale ×2
+  return { sign: dSign, degree: (degInSign % 15) * 2 }
 }
 
 function part(lon, n) {
   return Math.floor((lon % 30) * n / 30)   // 0..n-1
 }
+// Degree within the divisional sign, scaled to the full 0–30° range.
+// Each part spans (30/n)°; the position inside it is stretched back to 30°.
 function deg(lon, n) {
-  return ((lon % 30) * n) % 30 / n
+  return ((lon % 30) * n) % 30
 }
 
 // D3 Drekkana: each sign maps to its trikona; advance +4 signs per part
@@ -75,26 +78,19 @@ function d10(lon) {
   return { sign: ((sign - 1) + offset + l) % 12 + 1, degree: deg(lon, 10) }
 }
 
-// D30 Trimshamsha: Parashari rule — unequal partitions, different for odd/even signs
+// D30 Trimshamsha: Parashari rule — unequal partitions, different for odd/even signs.
+// bounds = cumulative partition edges (length 6); signs = lord's sign per partition.
+const D30_ODD  = { bounds: [0, 5, 10, 18, 25, 30], signs: [1, 11, 9, 3, 7] }
+const D30_EVEN = { bounds: [0, 5, 12, 20, 25, 30], signs: [7, 6, 12, 10, 8] }
 function d30(lon) {
-  const sign  = Math.floor(lon / 30) + 1
-  const deg   = lon % 30
-  const isOdd = sign % 2 === 1
-  let dSign, partStart
-  if (isOdd) {
-    if (deg < 5)        { dSign = 1;  partStart = 0  }
-    else if (deg < 10)  { dSign = 11; partStart = 5  }
-    else if (deg < 18)  { dSign = 9;  partStart = 10 }
-    else if (deg < 25)  { dSign = 3;  partStart = 18 }
-    else                { dSign = 7;  partStart = 25 }
-  } else {
-    if (deg < 5)        { dSign = 7;  partStart = 0  }
-    else if (deg < 12)  { dSign = 6;  partStart = 5  }
-    else if (deg < 20)  { dSign = 12; partStart = 12 }
-    else if (deg < 25)  { dSign = 10; partStart = 20 }
-    else                { dSign = 8;  partStart = 25 }
-  }
-  return { sign: dSign, degree: deg - partStart }
+  const sign     = Math.floor(lon / 30) + 1
+  const degree   = lon % 30
+  const { bounds, signs } = sign % 2 === 1 ? D30_ODD : D30_EVEN
+  let i = 0
+  while (i < signs.length - 1 && degree >= bounds[i + 1]) i++
+  // Stretch the position within this (unequal) partition to the full 0–30° sign
+  const width = bounds[i + 1] - bounds[i]
+  return { sign: signs[i], degree: (degree - bounds[i]) / width * 30 }
 }
 
 // D12 Dwadasamsa: starts from the sign itself, advances +1 per part

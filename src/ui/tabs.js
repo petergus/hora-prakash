@@ -17,6 +17,9 @@ export function initTabs() {
     } else if (name === 'strength') {
       const { renderStrength } = await import('../tabs/strength.js')
       renderStrength()
+    } else if (name === 'transit') {
+      const { renderTransit } = await import('../tabs/transit.js')
+      renderTransit()
     } else if (name === 'input') {
       const { renderInputTab } = await import('../tabs/input.js')
       renderInputTab()
@@ -28,7 +31,7 @@ export function initTabs() {
 
   // Global swipe navigation between top-level tabs (mobile)
   // "Hard swipe": must be fast, far, and clearly horizontal — not a scroll gesture.
-  const TAB_ORDER = ['input', 'chart', 'dasha', 'panchang', 'strength', 'export']
+  const TAB_ORDER = ['input', 'chart', 'dasha', 'transit', 'panchang', 'strength', 'export']
   let swipeStartX = 0, swipeStartY = 0, swipeStartTime = 0, swipeCancelled = false
 
   // Returns true if el (or any ancestor up to <main>) can scroll horizontally.
@@ -97,6 +100,9 @@ export function initTabs() {
       } else if (nextTab === 'strength') {
         const { renderStrength } = await import('../tabs/strength.js')
         renderStrength()
+      } else if (nextTab === 'transit') {
+        const { renderTransit } = await import('../tabs/transit.js')
+        renderTransit()
       } else if (nextTab === 'input') {
         const { renderInputTab } = await import('../tabs/input.js')
         renderInputTab()

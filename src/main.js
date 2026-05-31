@@ -7,19 +7,53 @@ import { loadBranding } from './config/branding.js'
 import { initSettingsModal } from './ui/settings-modal.js'
 import { createSession, switchSession } from './sessions.js'
 import { renderProfileTabs } from './ui/profile-tabs.js'
+import { updateFavicon } from './ui/favicon.js'
 import { requireAuth, logout } from './auth-ui.js'
 import { fetchProfiles } from './cloud-store.js'
 
 const PROFILES_KEY = 'hora-prakash-profiles'
 
+// Capture install prompt and show install button when available.
+let _installPrompt = null
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault()
+  _installPrompt = e
+  if (document.getElementById('btn-install')) return
+  const btn = document.createElement('button')
+  btn.id = 'btn-install'
+  btn.textContent = '⬇ Install App'
+  btn.onclick = async () => {
+    if (!_installPrompt) return
+    _installPrompt.prompt()
+    const { outcome } = await _installPrompt.userChoice
+    if (outcome === 'accepted') btn.remove()
+    _installPrompt = null
+  }
+  document.querySelector('header')?.appendChild(btn)
+})
+
 // Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type !== 'SW_UPDATED') return
+    if (document.getElementById('update-banner')) return  // already shown
+    const banner = document.createElement('div')
+    banner.id = 'update-banner'
+    banner.textContent = 'App updated. '
+    const btn = document.createElement('button')
+    btn.textContent = 'Reload'
+    btn.onclick = () => location.reload()
+    banner.appendChild(btn)
+    document.body.prepend(banner)
+  })
 }
 
 async function main() {
   loadSettings()
-  document.documentElement.dataset.theme = getSettings().theme || 'indigo'
+  const theme = getSettings().theme || 'crimson'
+  document.documentElement.dataset.theme = theme
+  updateFavicon(theme)
   await loadBranding()
 
   // Block the app behind authentication. Nothing — profiles, charts — is shown until signed in.
@@ -58,14 +92,26 @@ function installAuthHeader(user) {
   const wrap = document.createElement('div')
   wrap.id = 'auth-status'
   wrap.style.cssText = 'margin-left:auto;display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--muted,#94a3b8)'
-  wrap.innerHTML = `
-    <span title="${user.email}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${user.email}</span>
-    <button type="button" id="btn-logout" class="btn-secondary" style="padding:0.2rem 0.55rem;font-size:0.75rem">Sign out</button>
-  `
+
+  const emailSpan = document.createElement('span')
+  emailSpan.title = user.email
+  emailSpan.textContent = user.email
+  emailSpan.style.cssText = 'max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
+
+  const logoutBtn = document.createElement('button')
+  logoutBtn.type = 'button'
+  logoutBtn.id = 'btn-logout'
+  logoutBtn.className = 'btn-secondary'
+  logoutBtn.style.cssText = 'padding:0.2rem 0.55rem;font-size:0.75rem'
+  logoutBtn.textContent = 'Sign out'
+  logoutBtn.addEventListener('click', logout)
+
+  wrap.appendChild(emailSpan)
+  wrap.appendChild(logoutBtn)
+
   header.style.display = header.style.display || 'flex'
   header.style.alignItems = 'center'
   header.appendChild(wrap)
-  wrap.querySelector('#btn-logout').addEventListener('click', logout)
 }
 
 main()

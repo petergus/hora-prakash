@@ -108,7 +108,7 @@ The `change` event on `#inp-import-jhd` calls `importJhdFiles(e.target.files)` t
 ## Validation
 
 Test with sample files from `/Users/priyankgahtori/Astrology/charts/`:
-- `Priyank_Gahtori.jhd` → name "Priyank Gahtori", DOB 1990-07-26, TOB 08:30, lat 29.25, lon 80.06, tz +05:30, location "Lohaghat, India"
+- `Chart A_Gahtori.jhd` → name "Chart A", DOB 1990-07-26, TOB 08:30, lat 29.25, lon 80.06, tz +05:30, location "Location A, India"
 - `Narendra_Modi.jhd` → name "Narendra Modi", DOB 1950-09-17, TOB 09:34, lat 23.47, lon 72.38, tz +05:30, location "Vadnagar, India"
 - Re-importing same files → "All profiles already exist."
 - Selecting a `.txt` file renamed to `.jhd` with wrong format → skipped with error count

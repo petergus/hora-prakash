@@ -1,7 +1,27 @@
 // vite.config.js
+import { defineConfig } from 'vite'
+import fs from 'fs'
+import path from 'path'
 
-export default {
-  base: process.env.DEPLOY_TARGET === 'firebase' ? '/' : '/hora-prakash/',
+const BUILD_HASH = Date.now().toString(36)
+
+// Replaces __BUILD_HASH__ in public/sw.js → dist/sw.js after build.
+// Vite's `define` only processes bundled JS, not files copied from public/.
+function swHashPlugin() {
+  return {
+    name: 'sw-hash',
+    closeBundle() {
+      const sw = path.resolve('dist/sw.js')
+      if (!fs.existsSync(sw)) return
+      const src = fs.readFileSync(sw, 'utf8')
+      fs.writeFileSync(sw, src.replaceAll('__BUILD_HASH__', BUILD_HASH))
+    },
+  }
+}
+
+export default defineConfig({
+  plugins: [swHashPlugin()],
+  base: '/',
   build: {
     outDir: 'dist',
     rollupOptions: {
@@ -15,6 +35,9 @@ export default {
       },
     },
   },
+  define: {
+    __BUILD_HASH__: JSON.stringify(BUILD_HASH),
+  },
   optimizeDeps: {
     exclude: ['swisseph-wasm'],
   },
@@ -24,4 +47,4 @@ export default {
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
-}
+})

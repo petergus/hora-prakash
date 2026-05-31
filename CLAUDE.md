@@ -62,6 +62,37 @@ All fields are `null` until the user submits the form. Tabs check for null and r
 
 The Chart tab (`src/tabs/chart.js`) has a `<select class="div-select">` dropdown with all 13 options. `divisional` and `chartStyle` are module-level state that persist across re-renders.
 
+### Sessions (`src/sessions.js`)
+
+Multi-profile tab system. Each "session" = one loaded chart with its own state snapshot + per-tab UI state.
+
+- `createSession(label)` → pushes new session, returns `id`
+- `switchSession(id)` → saves current tab UI state, restores target session's state into `state.js`
+- `closeSession(id)` → removes session; switches to nearest remaining session
+- `getSessions()`, `getActiveSession()`, `getActiveId()` — read-only accessors
+- Per-tab UI state initialized via `defaultDashaUI()`, `defaultChartUI()`
+- Sessions are in-memory only (not persisted to localStorage)
+
+`src/ui/profile-tabs.js` renders the tab bar; `renderProfileTabs()` redraws on session changes.
+
+### Strength tab (`src/tabs/strength.js`)
+
+Renders Shadbala and Ashtakavarga sub-tabs.
+
+**Shadbala (`src/core/shadbala.js`):**
+- `calcShadbala(planets, lagna, houses, jd, panchang)` → array of `{ name, total, units, components }` for 7 planets (Sun–Saturn; Rahu/Ketu excluded)
+- Components: Sthana, Dig, Kala, Chesta, Naisargika, Drik bala
+- Returns rupas (1 rupa = 60 shashtiamsas)
+
+**Ashtakavarga (`src/core/ashtakavarga.js`):**
+- `calcBhinnashtakavarga(planets, lagna)` → Bhinnashtakavarga (BAV) for each planet — benefic point count per sign contributed by each graha + lagna
+- `calcSarvashtakavarga(bhinna)` → Sarvashtakavarga (SAV) — sum of all BAVs per sign
+- Display order: SAV first, then Lagna BAV, then planets
+
+### JHD file import (`src/utils/jhd.js`)
+
+`parseJhdFile(text, filename)` — parses Jagannatha Hora `.jhd` birth data files into form-compatible fields (name, dob, tob, lat, lon, tz). Used for drag-drop or file-input import.
+
 ### Key implementation details
 
 **swisseph-wasm v0.0.5 quirks:**
@@ -95,3 +126,18 @@ Standard Parashari orbs: Moon 12°, Mars 17°, Mercury 14°, Jupiter 11°, Venus
 - Location field allows manual entry; ⟳ button auto-detects timezone from lat/lon
 
 **Deployment:** GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys to GitHub Pages on push to `main`. Base path is `/hora-prakash/`. Current release: v1.0.0.
+
+## Pending / Known Issues
+
+### Divisional Charts — Rules to Verify
+D5/D6/D8/D11 currently use generic **Parivritti Cyclic** formula. Traditional rules vary by source and are debated. Verify against JHora before changing.
+
+| Chart | Current | Traditional (to verify) |
+|-------|---------|------------------------|
+| D5 – Panchamsha | Parivritti | Movable→Aries, Fixed→Sag, Dual→Leo (JHora) |
+| D6 – Shashthamsha | Parivritti | Likely correct — sequential from own sign |
+| D8 – Ashtamsha | Parivritti | Movable→Aries, Fixed→Sag, Dual→Leo (disputed) |
+| D11 – Rudramsha | Parivritti | Likely correct — sequential Parivritti accepted |
+
+### Chalit Chart
+- `CHALIT_LABELS` export in `src/ui/chart-svg.js` is dead code — can remove.

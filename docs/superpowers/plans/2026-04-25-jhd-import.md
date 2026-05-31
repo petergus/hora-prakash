@@ -316,14 +316,14 @@ Open `http://localhost:5173/hora-prakash/`. Go to the Input tab.
 **Test A — empty profiles state:**
 1. Clear all profiles (if any) via Clear All
 2. Confirm `↑ JHD` button appears alongside `↑ Import`
-3. Click `↑ JHD`, select `Priyank_Gahtori.jhd` from `/Users/priyankgahtori/Astrology/charts/`
+3. Click `↑ JHD`, select `Chart A_Gahtori.jhd` from `/Users/priyankgahtori/Astrology/charts/`
 4. Alert should say `Imported 1 profile.`
-5. Profile `Priyank Gahtori` appears in the select, with DOB `1990-07-26`, TOB `08:30`
+5. Profile `Chart A` appears in the select, with DOB `1990-07-26`, TOB `08:30`
 
 **Test B — non-empty state:**
 1. Confirm `↑ JHD` button appears in the button row
-2. Click `↑ JHD`, select both `Priyank_Gahtori.jhd` and `Narendra_Modi.jhd`
-3. Alert should say `Imported 1 profile.` (Priyank already exists → 1 dup, Modi is new)
+2. Click `↑ JHD`, select both `Chart A_Gahtori.jhd` and `Narendra_Modi.jhd`
+3. Alert should say `Imported 1 profile.` (Chart A already exists → 1 dup, Modi is new)
 4. Both profiles now in the select list
 
 **Test C — re-import (all dups):**

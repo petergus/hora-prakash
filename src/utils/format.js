@@ -41,6 +41,41 @@ export function ianaToOffset(iana) {
   return offsetStr(offsetParts(iana))
 }
 
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+// IANA timezone → { offsetMin, abbr }
+export function parseTzInfo(iana) {
+  if (!iana) return { offsetMin: 0, abbr: 'UTC' }
+  try {
+    const ref   = new Date()
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: iana, timeZoneName: 'short',
+      hour: 'numeric', minute: 'numeric', hour12: false,
+    }).formatToParts(ref)
+    const abbr       = parts.find(p => p.type === 'timeZoneName')?.value ?? 'UTC'
+    const localStr   = ref.toLocaleString('en-US', { timeZone: iana })
+    const offsetMin  = Math.round((new Date(localStr) - new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' }))) / 60000)
+    return { offsetMin, abbr }
+  } catch {
+    return { offsetMin: 0, abbr: 'UTC' }
+  }
+}
+
+// Browser local timezone offset in minutes
+export function browserOffsetMin() {
+  return -new Date().getTimezoneOffset()
+}
+
+// Format a Date into transit display string.
+// tzAbbr omitted when birth tz offset matches browser local offset.
+export function fmtTransitDate(date, tzOffsetMin = 0, tzAbbr = 'UTC') {
+  const local = new Date(date.getTime() + tzOffsetMin * 60000)
+  const h = String(local.getUTCHours()).padStart(2, '0')
+  const m = String(local.getUTCMinutes()).padStart(2, '0')
+  const showTz = tzOffsetMin !== browserOffsetMin()
+  return `${MONTH_ABBR[local.getUTCMonth()]} ${local.getUTCDate()} ${local.getUTCFullYear()}, ${h}:${m}${showTz ? ' ' + tzAbbr : ''}`
+}
+
 // Display helpers kept for chart.js birth details line
 export function fmtLat(dec) {
   const { d, m, s } = decToDMS(dec)

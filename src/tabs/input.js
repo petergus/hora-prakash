@@ -1,6 +1,7 @@
 // src/tabs/input.js
-import { searchLocation, getTimezone } from '../utils/geocoding.js'
-import { toJulianDay } from '../utils/time.js'
+import { searchLocation, searchOnline, getTimezone } from '../utils/geocoding.js'
+import { addToCache } from '../utils/location-cache.js'
+import { toJulianDay, localToUTC } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
@@ -27,6 +28,7 @@ const STORAGE_KEY = 'hora-prakash-profiles'
 let selectedLocation = null
 let autocompleteTimeout = null
 let editingProfileId = null
+let datetimeMode = 'picker' // 'picker' | 'text'
 
 // ── LocalStorage helpers ──────────────────────────────────────────────────────
 
@@ -50,12 +52,12 @@ function saveProfile(profile) {
   if (existing >= 0) profiles[existing] = profile
   else profiles.unshift(profile)
   saveProfiles(profiles)
-  cloudUpsertProfile(profile).catch(err => console.error('Cloud profile save failed:', err))
+  cloudUpsertProfile(profile).catch(err => console.error('Cloud save failed:', err))
 }
 
 function deleteProfile(id) {
   saveProfiles(loadProfiles().filter(p => p.id !== id))
-  deleteProfileCloud(id).catch(err => console.error('Cloud profile delete failed:', err))
+  deleteProfileCloud(id).catch(err => console.error('Cloud delete failed:', err))
 }
 
 function exportProfiles() {
@@ -173,11 +175,12 @@ export function renderInputTab() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem">
         <h3 style="margin:0;font-size:0.95rem;font-weight:600;color:var(--muted);letter-spacing:0.03em;text-transform:uppercase">Birth Details</h3>
-        <div style="display:flex;gap:0.4rem">
-          <button type="button" id="btn-paste-entry" class="btn-secondary" title="Paste birth data in any format" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
+        <div style="display:flex;gap:0.4rem;align-items:center">
+          <button type="button" id="btn-paste-details" class="btn-secondary" title="Paste birth details from text" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.82rem">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="2.5" width="7" height="9" rx="1"/>
-              <path d="M5 2.5V2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v0.5"/>
+              <rect x="3.5" y="1" width="6" height="2.5" rx="0.6"/>
+              <path d="M3 2.5H2.2A1.2 1.2 0 0 0 1 3.7v7.6A1.2 1.2 0 0 0 2.2 12.5h8.6A1.2 1.2 0 0 0 12 11.3V3.7A1.2 1.2 0 0 0 10.8 2.5H10"/>
+              <line x1="4" y1="6.5" x2="9" y2="6.5"/><line x1="4" y1="8.5" x2="7.5" y2="8.5"/>
             </svg>
             Paste
           </button>
@@ -195,14 +198,41 @@ export function renderInputTab() {
           <label>Name</label>
           <input type="text" id="inp-name" required placeholder="Full name" value="${escapeAttr(fill.name)}" />
         </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>Date of Birth</label>
-            <input type="date" id="inp-dob" required value="${fill.dob}" />
+        <div class="datetime-section">
+          <div class="datetime-section-header">
+            <span></span>
+            <div class="datetime-header-actions">
+              <button type="button" id="btn-use-now" class="btn-icon-svg" title="Use current date &amp; time">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-datetime-mode" class="btn-icon-svg" title="Type manually" data-mode="picker">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h4M14 14h4"/>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Time of Birth</label>
-            <input type="time" id="inp-tob" required value="${fill.tob}" />
+          <div class="form-row-2" id="datetime-picker">
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" id="inp-dob" required value="${fill.dob}" />
+            </div>
+            <div class="form-group">
+              <label>Time of Birth</label>
+              <input type="time" id="inp-tob" required value="${fill.tob}" />
+            </div>
+          </div>
+          <div class="form-row-2" id="datetime-text" style="display:none">
+            <div class="form-group">
+              <label>Date of Birth <span class="label-hint">DD/MM/YYYY</span></label>
+              <input type="text" id="inp-dob-text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" />
+            </div>
+            <div class="form-group">
+              <label>Time of Birth <span class="label-hint">HH:MM</span></label>
+              <input type="text" id="inp-tob-text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -210,57 +240,98 @@ export function renderInputTab() {
           <input type="text" id="inp-location" placeholder="City, Country…" autocomplete="off" value="${escapeAttr(fill.location)}" />
           <ul id="location-suggestions"></ul>
         </div>
-        <div class="form-group coords-row">
-          <div>
-            <label>Latitude</label>
-            <div class="dms-group">
-              <input type="number" id="inp-lat-d" class="dms-seg-d" min="0" max="90"  value="${latDMS.d}" placeholder="0" />
-              <span class="dms-sep">°</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lat-m" class="dms-seg"   min="0" max="59"  value="${latDMS.m}" placeholder="0" />
-              <span class="dms-sep">'</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lat-s" class="dms-seg"   min="0" max="59"  value="${latDMS.s}" placeholder="0" />
-              <span class="dms-sep">"</span>
-              <span class="dms-divider"></span>
-              <select id="inp-lat-dir" class="dms-seg-dir">
-                <option value="N"${latDir === 'N' ? ' selected' : ''}>N</option>
-                <option value="S"${latDir === 'S' ? ' selected' : ''}>S</option>
-              </select>
+        <div class="coords-section">
+          <div class="coords-section-header">
+            <label style="margin:0">Coordinates &amp; Timezone</label>
+            <button type="button" id="btn-coord-mode" class="btn-icon-svg" title="Toggle DMS / decimal input">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 4 21 4 21 8"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                <polyline points="7 20 3 20 3 16"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+            </button>
+          </div>
+          <div class="form-group coords-row" id="coords-dms">
+            <div>
+              <label>Latitude</label>
+              <div class="dms-group">
+                <input type="number" id="inp-lat-d" class="dms-seg-d" min="0" max="90"  value="${latDMS.d}" placeholder="0" />
+                <span class="dms-sep">°</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lat-m" class="dms-seg"   min="0" max="59"  value="${latDMS.m}" placeholder="0" />
+                <span class="dms-sep">'</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lat-s" class="dms-seg"   min="0" max="59"  value="${latDMS.s}" placeholder="0" />
+                <span class="dms-sep">"</span>
+                <span class="dms-divider"></span>
+                <select id="inp-lat-dir" class="dms-seg-dir">
+                  <option value="N"${latDir === 'N' ? ' selected' : ''}>N</option>
+                  <option value="S"${latDir === 'S' ? ' selected' : ''}>S</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>Longitude</label>
+              <div class="dms-group">
+                <input type="number" id="inp-lon-d" class="dms-seg-d" min="0" max="180" value="${lonDMS.d}" placeholder="0" />
+                <span class="dms-sep">°</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lon-m" class="dms-seg"   min="0" max="59"  value="${lonDMS.m}" placeholder="0" />
+                <span class="dms-sep">'</span>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-lon-s" class="dms-seg"   min="0" max="59"  value="${lonDMS.s}" placeholder="0" />
+                <span class="dms-sep">"</span>
+                <span class="dms-divider"></span>
+                <select id="inp-lon-dir" class="dms-seg-dir">
+                  <option value="E"${lonDir === 'E' ? ' selected' : ''}>E</option>
+                  <option value="W"${lonDir === 'W' ? ' selected' : ''}>W</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>UTC Offset</label>
+              <div class="dms-group">
+                <select id="inp-tz-sign" class="dms-seg-sign">
+                  <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
+                  <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
+                </select>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-tz-h" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
+                <span class="dms-sep">:</span>
+                <input type="number" id="inp-tz-m" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
+                <button type="button" id="btn-fetch-tz" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
+              </div>
             </div>
           </div>
-          <div>
-            <label>Longitude</label>
-            <div class="dms-group">
-              <input type="number" id="inp-lon-d" class="dms-seg-d" min="0" max="180" value="${lonDMS.d}" placeholder="0" />
-              <span class="dms-sep">°</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lon-m" class="dms-seg"   min="0" max="59"  value="${lonDMS.m}" placeholder="0" />
-              <span class="dms-sep">'</span>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-lon-s" class="dms-seg"   min="0" max="59"  value="${lonDMS.s}" placeholder="0" />
-              <span class="dms-sep">"</span>
-              <span class="dms-divider"></span>
-              <select id="inp-lon-dir" class="dms-seg-dir">
-                <option value="E"${lonDir === 'E' ? ' selected' : ''}>E</option>
-                <option value="W"${lonDir === 'W' ? ' selected' : ''}>W</option>
-              </select>
+          <div class="form-group coords-row-dec" id="coords-dec" style="display:none">
+            <div>
+              <label>Latitude °</label>
+              <input type="number" id="inp-lat-dec" step="0.0001" min="-90" max="90" placeholder="e.g. 28.6139" style="width:100%" />
+            </div>
+            <div>
+              <label>Longitude °</label>
+              <input type="number" id="inp-lon-dec" step="0.0001" min="-180" max="180" placeholder="e.g. 77.209" style="width:100%" />
+            </div>
+            <div>
+              <label>UTC Offset</label>
+              <div class="dms-group">
+                <select id="inp-tz-sign-dec" class="dms-seg-sign">
+                  <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
+                  <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
+                </select>
+                <span class="dms-divider"></span>
+                <input type="number" id="inp-tz-h-dec" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
+                <span class="dms-sep">:</span>
+                <input type="number" id="inp-tz-m-dec" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
+                <button type="button" id="btn-fetch-tz-dec" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
+              </div>
             </div>
           </div>
-          <div>
-            <label>UTC Offset</label>
-            <div class="dms-group">
-              <select id="inp-tz-sign" class="dms-seg-sign">
-                <option value="+"${tzP.sign === '+' ? ' selected' : ''}>+</option>
-                <option value="-"${tzP.sign === '-' ? ' selected' : ''}>−</option>
-              </select>
-              <span class="dms-divider"></span>
-              <input type="number" id="inp-tz-h" class="dms-seg-tz-h" min="0" max="14" value="${tzP.h}" placeholder="0" />
-              <span class="dms-sep">:</span>
-              <input type="number" id="inp-tz-m" class="dms-seg-tz-m" min="0" max="59" value="${tzP.m}" placeholder="0" />
-              <button type="button" id="btn-fetch-tz" class="btn-tz-inline" title="Auto-detect from coordinates">⟳</button>
-            </div>
-          </div>
+        </div>
+        <div id="utc-preview" class="utc-preview" style="margin:0.6rem 0;padding:0.5rem 0.7rem;border:1px solid var(--border,#444);border-radius:6px;font-size:0.85rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center">
+          <span style="opacity:0.7">UTC used for calculation:</span>
+          <span id="utc-preview-text" style="font-weight:600">—</span>
+          <span style="opacity:0.5">·</span>
+          <span id="utc-preview-jd" style="opacity:0.85">JD —</span>
         </div>
         <div class="form-actions">
           <button type="submit" id="btn-calculate">Calculate Chart</button>
@@ -268,6 +339,22 @@ export function renderInputTab() {
         </div>
         <p id="calc-error" class="error"></p>
       </form>
+    </div>
+    <!-- Paste birth details modal -->
+    <div id="paste-modal" class="paste-modal-overlay">
+      <div class="paste-modal">
+        <div class="paste-modal-header">
+          <h3>Paste Birth Details</h3>
+          <button type="button" id="paste-modal-close" class="paste-modal-close" title="Close">✕</button>
+        </div>
+        <p class="paste-modal-hint">Paste text containing birth information — name, date, time, place, coordinates, timezone. The parser will extract what it can.</p>
+        <textarea id="paste-textarea" class="paste-textarea" rows="6" placeholder="e.g.\nName: Ramesh Kumar\nDOB: 15/03/1985\nTime: 14:30\nPlace: Mumbai, India\n\nor just free-form text…"></textarea>
+        <div id="paste-preview" class="paste-preview"></div>
+        <div class="paste-modal-actions">
+          <button type="button" id="paste-apply" class="btn-primary" disabled>Fill Form</button>
+          <button type="button" id="paste-cancel" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
     </div>
   `
 
@@ -277,17 +364,28 @@ export function renderInputTab() {
     : { ...DELHI }
   renderSavedProfiles()
 
+  datetimeMode = 'picker'
+  document.getElementById('btn-use-now').addEventListener('click', onUseNow)
+  document.getElementById('btn-datetime-mode').addEventListener('click', toggleDatetimeMode)
+  document.getElementById('inp-dob-text').addEventListener('input', autoSlashDate)
+  document.getElementById('inp-tob-text').addEventListener('input', autoColonTime)
   document.getElementById('inp-location').addEventListener('input', onLocationInput)
   document.getElementById('birth-form').addEventListener('submit', onFormSubmit)
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
   document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
-  document.getElementById('btn-paste-entry').addEventListener('click', openPasteModal)
+  document.getElementById('btn-fetch-tz-dec').addEventListener('click', onFetchTz)
+  document.getElementById('btn-coord-mode').addEventListener('click', toggleCoordMode)
+  initPasteModal()
+  attachUtcPreviewListeners()
+  updateUtcPreview()
   document.getElementById('btn-new-entry').addEventListener('click', () => {
     editingProfileId = null
     document.getElementById('inp-name').value = ''
-    document.getElementById('inp-dob').value = todayStr()
-    document.getElementById('inp-tob').value = nowTimeStr()
+    document.getElementById('inp-dob').value      = todayStr()
+    document.getElementById('inp-tob').value      = nowTimeStr()
+    document.getElementById('inp-dob-text').value = ''
+    document.getElementById('inp-tob-text').value = ''
     document.getElementById('inp-location').value = ''
     ;['inp-lat-d','inp-lat-m','inp-lat-s','inp-lon-d','inp-lon-m','inp-lon-s','inp-tz-h','inp-tz-m']
       .forEach(id => { document.getElementById(id).value = '' })
@@ -414,6 +512,12 @@ function fillForm(p) {
   document.getElementById('inp-name').value     = p.name
   document.getElementById('inp-dob').value      = p.dob
   document.getElementById('inp-tob').value      = p.tob
+  // keep text fields in sync too
+  if (p.dob) {
+    const [y, mo, d] = p.dob.split('-')
+    document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  }
+  document.getElementById('inp-tob-text').value  = p.tob || ''
   document.getElementById('inp-location').value = p.location || ''
   fillCoords(p.lat, p.lon, p.timezone)
   selectedLocation = { displayName: p.location, lat: p.lat, lon: p.lon, timezone: p.timezone }
@@ -456,9 +560,12 @@ async function onFetchTz() {
   try {
     const tz = await getTimezone(lat, lon)
     const p  = offsetParts(tz)
-    document.getElementById('inp-tz-sign').value = p.sign
-    document.getElementById('inp-tz-h').value    = p.h
-    document.getElementById('inp-tz-m').value    = p.m
+    document.getElementById('inp-tz-sign').value    = p.sign
+    document.getElementById('inp-tz-h').value        = p.h
+    document.getElementById('inp-tz-m').value        = p.m
+    document.getElementById('inp-tz-sign-dec').value = p.sign
+    document.getElementById('inp-tz-h-dec').value    = p.h
+    document.getElementById('inp-tz-m-dec').value    = p.m
     selectedLocation = {
       ...(selectedLocation || {}),
       displayName: document.getElementById('inp-location').value.trim(),
@@ -475,6 +582,75 @@ async function onFetchTz() {
   }
 }
 
+// ── Date/time mode helpers ────────────────────────────────────────────────────
+
+function onUseNow() {
+  const dob = todayStr()
+  const tob = nowTimeStr()
+  document.getElementById('inp-dob').value      = dob
+  document.getElementById('inp-tob').value      = tob
+  // Also fill text fields so switching modes keeps values
+  const [y, mo, d] = dob.split('-')
+  document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  document.getElementById('inp-tob-text').value  = tob
+}
+
+function toggleDatetimeMode() {
+  const toText = datetimeMode === 'picker'
+  if (toText) {
+    // copy picker values → text fields
+    const dob = document.getElementById('inp-dob').value
+    const tob = document.getElementById('inp-tob').value
+    if (dob) {
+      const [y, mo, d] = dob.split('-')
+      document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+    }
+    document.getElementById('inp-tob-text').value = tob || ''
+    datetimeMode = 'text'
+  } else {
+    // copy text values → picker fields (best-effort)
+    const dobRaw = document.getElementById('inp-dob-text').value.trim()
+    const tobRaw = document.getElementById('inp-tob-text').value.trim()
+    const parsed = parseDateText(dobRaw)
+    if (parsed) document.getElementById('inp-dob').value = parsed
+    if (/^\d{1,2}:\d{2}$/.test(tobRaw)) {
+      document.getElementById('inp-tob').value = tobRaw.padStart(5, '0')
+    }
+    datetimeMode = 'picker'
+  }
+  document.getElementById('datetime-picker').style.display = toText  ? 'none' : ''
+  document.getElementById('datetime-text').style.display   = toText  ? ''     : 'none'
+  const btn = document.getElementById('btn-datetime-mode')
+  if (toText) {
+    btn.title = 'Use date/time picker'
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
+  } else {
+    btn.title = 'Type manually'
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h4M14 14h4"/></svg>`
+  }
+}
+
+function parseDateText(str) {
+  // accepts DD/MM/YYYY or DD-MM-YYYY
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (!m) return null
+  const [, d, mo, y] = m
+  return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`
+}
+
+function autoSlashDate(e) {
+  let v = e.target.value.replace(/[^\d]/g, '')
+  if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2)
+  if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5)
+  e.target.value = v.slice(0, 10)
+}
+
+function autoColonTime(e) {
+  let v = e.target.value.replace(/[^\d]/g, '')
+  if (v.length > 2) v = v.slice(0,2) + ':' + v.slice(2)
+  e.target.value = v.slice(0, 5)
+}
+
 // ── Location autocomplete ─────────────────────────────────────────────────────
 
 async function onLocationInput(e) {
@@ -482,15 +658,19 @@ async function onLocationInput(e) {
   const q = e.target.value
   if (q.length < 3) { clearSuggestions(); return }
   autocompleteTimeout = setTimeout(async () => {
-    try { renderSuggestions(await searchLocation(q)) } catch { clearSuggestions() }
+    try { const { results, isLocal } = await searchLocation(q); renderSuggestions(results, isLocal, q) } catch { clearSuggestions() }
   }, 400)
 }
 
-function renderSuggestions(results) {
+function renderSuggestions(results, isLocal = false, query = '') {
   const ul = document.getElementById('location-suggestions')
-  ul.innerHTML = results.map((r, i) =>
-    `<li data-index="${i}" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${escapeAttr(r.displayName)}">${escapeHtml(r.displayName)}</li>`
+  const items = results.map((r, i) =>
+    `<li data-index="${i}" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${escapeAttr(r.displayName)}" data-tz="${escapeAttr(r.tz || '')}">${escapeHtml(r.displayName)}</li>`
   ).join('')
+  const onlineLink = isLocal && results.length > 0
+    ? `<li data-online="1" data-query="${escapeAttr(query)}" class="suggestion-online">Search online →</li>`
+    : ''
+  ul.innerHTML = items + onlineLink
 }
 
 function clearSuggestions() {
@@ -501,11 +681,24 @@ function clearSuggestions() {
 async function onSuggestionClick(e) {
   const li = e.target.closest('li')
   if (!li) return
+
+  if (li.dataset.online) {
+    const q = li.dataset.query
+    try {
+      const results = await searchOnline(q)
+      renderSuggestions(results, false, q)
+    } catch {
+      document.getElementById('calc-error').textContent = 'Online search failed. Please try again.'
+    }
+    return
+  }
+
   const lat = parseFloat(li.dataset.lat)
   const lon = parseFloat(li.dataset.lon)
   try {
-    const tz = await getTimezone(lat, lon)
+    const tz = li.dataset.tz || await getTimezone(lat, lon)
     selectedLocation = { displayName: li.dataset.name, lat, lon, timezone: tz }
+    addToCache({ displayName: li.dataset.name, lat, lon, tz })
     document.getElementById('inp-location').value = li.dataset.name
     fillCoords(lat, lon, tz)
     clearSuggestions()
@@ -521,8 +714,18 @@ async function onFormSubmit(e) {
   const errEl = document.getElementById('calc-error')
   errEl.textContent = ''
   const name = document.getElementById('inp-name').value.trim()
-  const dob  = document.getElementById('inp-dob').value
-  const tob  = document.getElementById('inp-tob').value
+  let dob, tob
+  if (datetimeMode === 'text') {
+    const dobRaw = document.getElementById('inp-dob-text').value.trim()
+    const tobRaw = document.getElementById('inp-tob-text').value.trim()
+    dob = parseDateText(dobRaw)
+    tob = /^\d{1,2}:\d{2}$/.test(tobRaw) ? tobRaw.padStart(5, '0') : ''
+    if (!dob) { errEl.textContent = 'Date must be DD/MM/YYYY.'; return }
+    if (!tob) { errEl.textContent = 'Time must be HH:MM.'; return }
+  } else {
+    dob = document.getElementById('inp-dob').value
+    tob = document.getElementById('inp-tob').value
+  }
   const lat  = Math.round(readLat() * 10000) / 10000
   const lon  = Math.round(readLon() * 10000) / 10000
   const tz   = readTimezone()
@@ -544,7 +747,7 @@ async function onFormSubmit(e) {
     applyAyanamsa()
     const jd = toJulianDay(dob, tob, tz)
     const settings = getSettings()
-    const { planets, lagna, houses } = calcBirthChart(jd, lat, lon, settings)
+    const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, lat, lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
@@ -552,10 +755,11 @@ async function onFormSubmit(e) {
     const panchang = calcPanchang(jd, lat, lon, { dateStr: dob, timezone: tz })
 
     const location = document.getElementById('inp-location').value.trim()
-    state.birth    = { name, dob, tob, lat, lon, timezone: tz, location }
-    state.planets  = planets
-    state.lagna    = lagna
-    state.houses   = houses
+    state.birth        = { name, dob, tob, lat, lon, timezone: tz, location }
+    state.planets      = planets
+    state.lagna        = lagna
+    state.houses       = houses
+    state.sripatiHouses = sripatiHouses
     state.dasha    = dasha
     state.panchang = panchang
 
@@ -564,8 +768,7 @@ async function onFormSubmit(e) {
     const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
     state.strength = { bhinna, sarva, shadbala }
 
-    // Persist horoscope to Firestore. Use editingProfileId if loaded from a saved
-    // profile, otherwise mint a stable id derived from name+dob+tob.
+    // Fire off async cloud save if logged in. Generate a stable ID if none exists.
     const horoscopeId = editingProfileId
       || `${name}-${dob}-${tob}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     saveHoroscope(horoscopeId, {
@@ -573,9 +776,6 @@ async function onFormSubmit(e) {
       planets: state.planets,
       lagna: state.lagna,
       houses: state.houses,
-      dasha: state.dasha,
-      panchang: state.panchang,
-      strength: state.strength,
     }).catch(err => console.error('Cloud horoscope save failed:', err))
 
     // Update session label and profile tab bar
@@ -590,7 +790,7 @@ async function onFormSubmit(e) {
 
     const { renderStrength } = await import('./strength.js')
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('export')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
     switchTab('chart')
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
@@ -601,9 +801,47 @@ async function onFormSubmit(e) {
   }
 }
 
+// ── Coord mode toggle ─────────────────────────────────────────────────────────
+
+let coordMode = 'dms' // 'dms' | 'dec'
+
+function toggleCoordMode() {
+  const isDec = coordMode === 'dms'
+  if (isDec) {
+    // switching dms → dec: copy current DMS values into decimal fields
+    const lat = readLatDMS()
+    const lon = readLonDMS()
+    document.getElementById('inp-lat-dec').value = isNaN(lat) ? '' : lat
+    document.getElementById('inp-lon-dec').value = isNaN(lon) ? '' : lon
+    const tzH = document.getElementById('inp-tz-h').value
+    const tzM = document.getElementById('inp-tz-m').value
+    const tzS = document.getElementById('inp-tz-sign').value
+    document.getElementById('inp-tz-h-dec').value    = tzH
+    document.getElementById('inp-tz-m-dec').value    = tzM
+    document.getElementById('inp-tz-sign-dec').value = tzS
+    coordMode = 'dec'
+  } else {
+    // switching dec → dms: copy decimal into DMS fields
+    const lat = parseFloat(document.getElementById('inp-lat-dec').value)
+    const lon = parseFloat(document.getElementById('inp-lon-dec').value)
+    const tzH = document.getElementById('inp-tz-h-dec').value
+    const tzM = document.getElementById('inp-tz-m-dec').value
+    const tzS = document.getElementById('inp-tz-sign-dec').value
+    if (!isNaN(lat) && !isNaN(lon)) fillCoordsDMS(lat, lon)
+    document.getElementById('inp-tz-h').value    = tzH
+    document.getElementById('inp-tz-m').value    = tzM
+    document.getElementById('inp-tz-sign').value = tzS
+    coordMode = 'dms'
+  }
+  document.getElementById('coords-dms').style.display = coordMode === 'dms' ? '' : 'none'
+  document.getElementById('coords-dec').style.display = coordMode === 'dec' ? '' : 'none'
+  const btn = document.getElementById('btn-coord-mode')
+  btn.title = coordMode === 'dms' ? 'Toggle DMS / decimal input' : 'Toggle decimal / DMS input'
+}
+
 // ── Split-input readers ───────────────────────────────────────────────────────
 
-function readLat() {
+function readLatDMS() {
   const d   = parseFloat(document.getElementById('inp-lat-d').value) || 0
   const m   = parseFloat(document.getElementById('inp-lat-m').value) || 0
   const s   = parseFloat(document.getElementById('inp-lat-s').value) || 0
@@ -612,7 +850,7 @@ function readLat() {
   return dir === 'S' ? -dec : dec
 }
 
-function readLon() {
+function readLonDMS() {
   const d   = parseFloat(document.getElementById('inp-lon-d').value) || 0
   const m   = parseFloat(document.getElementById('inp-lon-m').value) || 0
   const s   = parseFloat(document.getElementById('inp-lon-s').value) || 0
@@ -621,10 +859,21 @@ function readLon() {
   return dir === 'W' ? -dec : dec
 }
 
+function readLat() {
+  if (coordMode === 'dec') return parseFloat(document.getElementById('inp-lat-dec').value) || 0
+  return readLatDMS()
+}
+
+function readLon() {
+  if (coordMode === 'dec') return parseFloat(document.getElementById('inp-lon-dec').value) || 0
+  return readLonDMS()
+}
+
 function readTz() {
-  const sign = document.getElementById('inp-tz-sign').value
-  const h    = parseInt(document.getElementById('inp-tz-h').value) || 0
-  const m    = parseInt(document.getElementById('inp-tz-m').value) || 0
+  const suffix = coordMode === 'dec' ? '-dec' : ''
+  const sign = document.getElementById(`inp-tz-sign${suffix}`).value
+  const h    = parseInt(document.getElementById(`inp-tz-h${suffix}`).value) || 0
+  const m    = parseInt(document.getElementById(`inp-tz-m${suffix}`).value) || 0
   return offsetStr({ sign, h, m })
 }
 
@@ -640,10 +889,67 @@ function readTimezone() {
   return sameCoords ? selectedTz : offset
 }
 
-function fillCoords(lat, lon, timezone) {
-  const ld = decToDMS(lat);  const lDir = lat  >= 0 ? 'N' : 'S'
-  const od = decToDMS(lon);  const oDir = lon  >= 0 ? 'E' : 'W'
-  const tzP = offsetParts(timezone)
+function readDob() {
+  if (datetimeMode === 'text') {
+    return parseDateText(document.getElementById('inp-dob-text').value.trim()) || ''
+  }
+  return document.getElementById('inp-dob').value
+}
+
+function readTob() {
+  if (datetimeMode === 'text') {
+    const raw = document.getElementById('inp-tob-text').value.trim()
+    return /^\d{1,2}:\d{2}$/.test(raw) ? raw.padStart(5, '0') : ''
+  }
+  return document.getElementById('inp-tob').value
+}
+
+function updateUtcPreview() {
+  const textEl = document.getElementById('utc-preview-text')
+  const jdEl   = document.getElementById('utc-preview-jd')
+  if (!textEl || !jdEl) return
+  try {
+    const dob = readDob()
+    const tob = readTob()
+    const tz  = readTimezone()
+    if (!dob || !tob || !tz) {
+      textEl.textContent = '—'
+      jdEl.textContent = 'JD —'
+      return
+    }
+    const utc = localToUTC(`${dob}T${tob}:00`, tz)
+    const jd  = toJulianDay(dob, tob, tz)
+    const pad = n => String(n).padStart(2, '0')
+    const utcStr = `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())} ${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())} UTC`
+    textEl.textContent = `${dob} ${tob} (${tz})  →  ${utcStr}`
+    jdEl.textContent = `JD ${jd.toFixed(6)}`
+  } catch {
+    textEl.textContent = '—'
+    jdEl.textContent = 'JD —'
+  }
+}
+
+function attachUtcPreviewListeners() {
+  const ids = [
+    'inp-dob', 'inp-tob', 'inp-dob-text', 'inp-tob-text',
+    'inp-tz-sign', 'inp-tz-h', 'inp-tz-m',
+    'inp-tz-sign-dec', 'inp-tz-h-dec', 'inp-tz-m-dec',
+    'inp-lat-d', 'inp-lat-m', 'inp-lat-s', 'inp-lat-dir',
+    'inp-lon-d', 'inp-lon-m', 'inp-lon-s', 'inp-lon-dir',
+    'inp-lat-dec', 'inp-lon-dec',
+  ]
+  ids.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) {
+      el.addEventListener('input', updateUtcPreview)
+      el.addEventListener('change', updateUtcPreview)
+    }
+  })
+}
+
+function fillCoordsDMS(lat, lon) {
+  const ld = decToDMS(Math.abs(lat)); const lDir = lat >= 0 ? 'N' : 'S'
+  const od = decToDMS(Math.abs(lon)); const oDir = lon >= 0 ? 'E' : 'W'
   document.getElementById('inp-lat-d').value   = ld.d
   document.getElementById('inp-lat-m').value   = ld.m
   document.getElementById('inp-lat-s').value   = ld.s
@@ -652,9 +958,21 @@ function fillCoords(lat, lon, timezone) {
   document.getElementById('inp-lon-m').value   = od.m
   document.getElementById('inp-lon-s').value   = od.s
   document.getElementById('inp-lon-dir').value = oDir
-  document.getElementById('inp-tz-sign').value = tzP.sign
-  document.getElementById('inp-tz-h').value    = tzP.h
-  document.getElementById('inp-tz-m').value    = tzP.m
+}
+
+function fillCoords(lat, lon, timezone) {
+  const tzP = offsetParts(timezone)
+  fillCoordsDMS(lat, lon)
+  // Also keep decimal fields in sync
+  document.getElementById('inp-lat-dec').value = Math.round(lat * 10000) / 10000
+  document.getElementById('inp-lon-dec').value = Math.round(lon * 10000) / 10000
+  document.getElementById('inp-tz-sign').value    = tzP.sign
+  document.getElementById('inp-tz-h').value        = tzP.h
+  document.getElementById('inp-tz-m').value        = tzP.m
+  document.getElementById('inp-tz-sign-dec').value = tzP.sign
+  document.getElementById('inp-tz-h-dec').value    = tzP.h
+  document.getElementById('inp-tz-m-dec').value    = tzP.m
+  updateUtcPreview()
 }
 
 /** Recalculate all charts when settings change (e.g., ayanamsa). Only works if a birth chart already exists. */
@@ -669,7 +987,7 @@ export async function recalcAll() {
     }
     const jd = toJulianDay(state.birth.dob, state.birth.tob, state.birth.timezone)
     const settings = getSettings()
-    const { planets, lagna, houses } = calcBirthChart(jd, state.birth.lat, state.birth.lon, settings)
+    const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, state.birth.lat, state.birth.lon, settings)
     const moon = planets.find(p => p.name === 'Moon')
     if (!moon) throw new Error('Moon position could not be calculated.')
     const swe      = getSwe()
@@ -679,9 +997,10 @@ export async function recalcAll() {
       timezone: state.birth.timezone,
     })
 
-    state.planets  = planets
-    state.lagna    = lagna
-    state.houses   = houses
+    state.planets       = planets
+    state.lagna         = lagna
+    state.houses        = houses
+    state.sripatiHouses = sripatiHouses
     state.dasha    = dasha
     state.panchang = panchang
 
@@ -696,7 +1015,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('export')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`
@@ -710,108 +1029,163 @@ export async function recalcAll() {
   }
 }
 
-// ── Paste-anything modal ──────────────────────────────────────────────────────
+// ── Paste modal ───────────────────────────────────────────────────────────────
 
-function openPasteModal() {
-  if (document.getElementById('paste-modal-overlay')) return
-  const overlay = document.createElement('div')
-  overlay.id = 'paste-modal-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem'
-  overlay.innerHTML = `
-    <div class="card" style="max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:0.85rem;margin:0">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="margin:0;font-size:1rem">Paste birth data</h3>
-        <button type="button" id="paste-modal-close" class="btn-secondary" style="padding:0.2rem 0.55rem;font-size:0.85rem">✕</button>
-      </div>
-      <p style="margin:0;color:var(--muted);font-size:0.82rem;line-height:1.4">
-        Paste anything — name, date, time, place, coordinates, timezone — in any format.
-        Examples: <em>"Jane Doe, Jan 5 1990, 2:35 PM, New Delhi, India, +05:30"</em> or labelled lines like <em>Name:</em>, <em>DOB:</em>, <em>TOB:</em>.
-      </p>
-      <textarea id="paste-modal-input" placeholder="Paste here…" style="width:100%;min-height:180px;font-family:ui-monospace,monospace;font-size:0.85rem;padding:0.6rem;border:1px solid var(--border, #444);border-radius:6px;background:var(--bg, #1a1a1a);color:inherit;resize:vertical"></textarea>
-      <p id="paste-modal-preview" style="margin:0;font-size:0.78rem;color:var(--muted);min-height:1.2em;white-space:pre-wrap"></p>
-      <div style="display:flex;gap:0.5rem;justify-content:flex-end">
-        <button type="button" id="paste-modal-cancel" class="btn-secondary">Cancel</button>
-        <button type="button" id="paste-modal-apply">Fill Form</button>
-      </div>
-    </div>
-  `
-  document.body.appendChild(overlay)
+function initPasteModal() {
+  const openBtn    = document.getElementById('btn-paste-details')
+  const overlay    = document.getElementById('paste-modal')
+  const textarea   = document.getElementById('paste-textarea')
+  const preview    = document.getElementById('paste-preview')
+  const applyBtn   = document.getElementById('paste-apply')
+  const cancelBtn  = document.getElementById('paste-cancel')
+  const closeBtn   = document.getElementById('paste-modal-close')
 
-  const ta = overlay.querySelector('#paste-modal-input')
-  const preview = overlay.querySelector('#paste-modal-preview')
-  const close = () => overlay.remove()
+  let lastParsed = {}
 
-  const updatePreview = () => {
-    const parsed = parseBirthPaste(ta.value)
-    const lines = []
-    lines.push(`name: ${parsed.name || 'NAME HERE'}`)
-    if (parsed.dob)      lines.push(`dob: ${parsed.dob}`)
-    if (parsed.tob)      lines.push(`tob: ${parsed.tob}`)
-    if (parsed.location) lines.push(`location: ${parsed.location}`)
-    if (parsed.lat !== undefined && parsed.lon !== undefined) lines.push(`coords: ${parsed.lat.toFixed(4)}, ${parsed.lon.toFixed(4)}`)
-    if (parsed.tz)       lines.push(`tz: ${parsed.tz}`)
-    preview.textContent = lines.length ? 'Detected →\n' + lines.join('\n') : ''
+  const openModal = () => {
+    textarea.value = ''
+    preview.innerHTML = ''
+    applyBtn.disabled = true
+    lastParsed = {}
+    overlay.classList.add('open')
+    // Focus textarea after transition
+    setTimeout(() => textarea.focus(), 80)
   }
 
-  ta.addEventListener('input', updatePreview)
-  ta.focus()
-  setTimeout(() => { ta.focus() }, 0)
+  const closeModal = () => {
+    overlay.classList.remove('open')
+  }
 
-  overlay.querySelector('#paste-modal-close').addEventListener('click', close)
-  overlay.querySelector('#paste-modal-cancel').addEventListener('click', close)
-  overlay.addEventListener('click', e => { if (e.target === overlay) close() })
-  document.addEventListener('keydown', function esc(ev) {
-    if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esc) }
+  openBtn.addEventListener('click', openModal)
+  closeBtn.addEventListener('click', closeModal)
+  cancelBtn.addEventListener('click', closeModal)
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal() })
+
+  textarea.addEventListener('input', () => {
+    const text = textarea.value.trim()
+    if (!text) {
+      preview.innerHTML = ''
+      applyBtn.disabled = true
+      lastParsed = {}
+      return
+    }
+    const parsed = parseBirthPaste(text)
+    lastParsed = parsed
+    renderPastePreview(preview, parsed)
+    // Enable apply if we got at least one useful field
+    const hasData = parsed.name || parsed.dob || parsed.tob || parsed.location ||
+      (parsed.lat !== undefined && parsed.lon !== undefined)
+    applyBtn.disabled = !hasData
   })
 
-  overlay.querySelector('#paste-modal-apply').addEventListener('click', async () => {
-    const parsed = parseBirthPaste(ta.value)
-    await applyPastedData(parsed)
-    close()
+  applyBtn.addEventListener('click', async () => {
+    if (!lastParsed || applyBtn.disabled) return
+    editingProfileId = null
+    await applyParsedData(lastParsed)
+    closeModal()
   })
 }
 
-async function applyPastedData(p) {
-  document.getElementById('inp-name').value = p.name || 'NAME HERE'
-  if (p.dob)      document.getElementById('inp-dob').value = p.dob
-  if (p.tob)      document.getElementById('inp-tob').value = p.tob
-  if (p.location) document.getElementById('inp-location').value = p.location
+function renderPastePreview(container, parsed) {
+  const fields = []
+  if (parsed.name)     fields.push({ label: 'Name',     value: parsed.name })
+  if (parsed.dob)      fields.push({ label: 'Date',     value: parsed.dob })
+  if (parsed.tob)      fields.push({ label: 'Time',     value: parsed.tob })
+  if (parsed.location) fields.push({ label: 'Location', value: parsed.location })
+  if (parsed.lat !== undefined && parsed.lon !== undefined)
+    fields.push({ label: 'Coords', value: `${parsed.lat.toFixed(4)}°, ${parsed.lon.toFixed(4)}°` })
+  if (parsed.tz)       fields.push({ label: 'Timezone', value: 'UTC' + parsed.tz })
 
-  let lat = p.lat, lon = p.lon, tz = p.tz, displayName = p.location
+  if (fields.length === 0) {
+    container.innerHTML = '<span class="paste-preview-empty">No birth details detected yet…</span>'
+    return
+  }
 
-  // If we have a location string but no coords, try geocoding
-  if (p.location && (lat === undefined || lon === undefined)) {
-    try {
-      const results = await searchLocation(p.location)
-      if (results && results.length > 0) {
-        const r = results[0]
-        lat = r.lat; lon = r.lon; displayName = r.displayName
-        document.getElementById('inp-location').value = displayName
+  container.innerHTML = `
+    <div class="paste-preview-label">Detected fields:</div>
+    <div class="paste-preview-fields">
+      ${fields.map(f => `
+        <span class="paste-field">
+          <span class="paste-field-key">${f.label}</span>
+          <span class="paste-field-val">${escapeHtml(f.value)}</span>
+        </span>
+      `).join('')}
+    </div>
+  `
+}
+
+async function applyParsedData(parsed) {
+  // Name
+  if (parsed.name) {
+    document.getElementById('inp-name').value = parsed.name
+  }
+
+  // Date
+  if (parsed.dob) {
+    document.getElementById('inp-dob').value = parsed.dob
+    const [y, mo, d] = parsed.dob.split('-')
+    document.getElementById('inp-dob-text').value = `${d}/${mo}/${y}`
+  }
+
+  // Time
+  if (parsed.tob) {
+    document.getElementById('inp-tob').value = parsed.tob
+    document.getElementById('inp-tob-text').value = parsed.tob
+  }
+
+  // Location — fill the text field and try to geocode
+  if (parsed.location) {
+    document.getElementById('inp-location').value = parsed.location
+  }
+
+  // Coordinates — if parser found them, fill directly
+  if (parsed.lat !== undefined && parsed.lon !== undefined) {
+    const lat = parsed.lat
+    const lon = parsed.lon
+    let tz = parsed.tz || null
+
+    // Try to auto-detect timezone from coords if not parsed
+    if (!tz) {
+      try { tz = await getTimezone(lat, lon) } catch { /* leave tz null */ }
+    }
+
+    if (tz) {
+      fillCoords(lat, lon, tz)
+      selectedLocation = {
+        displayName: parsed.location || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`,
+        lat, lon, timezone: tz,
       }
-    } catch { /* ignore */ }
+    } else {
+      // Fill coords without timezone
+      fillCoordsDMS(lat, lon)
+      document.getElementById('inp-lat-dec').value = Math.round(lat * 10000) / 10000
+      document.getElementById('inp-lon-dec').value = Math.round(lon * 10000) / 10000
+    }
+  } else if (parsed.location) {
+    // No coords parsed — try geocoding the location text
+    try {
+      const { results } = await searchLocation(parsed.location)
+      if (results.length > 0) {
+        const r = results[0]
+        const tz = r.tz || await getTimezone(r.lat, r.lon)
+        selectedLocation = { displayName: r.displayName, lat: r.lat, lon: r.lon, timezone: tz }
+        addToCache({ displayName: r.displayName, lat: r.lat, lon: r.lon, tz })
+        document.getElementById('inp-location').value = r.displayName
+        fillCoords(r.lat, r.lon, tz)
+      }
+    } catch { /* geocoding failed — user can fill manually */ }
   }
 
-  // If we have coords but no tz, fetch timezone
-  if (lat !== undefined && lon !== undefined && !tz) {
-    try { tz = await getTimezone(lat, lon) } catch { /* ignore */ }
+  // Timezone only (no coords)
+  if (parsed.tz && parsed.lat === undefined) {
+    const p = offsetParts(parsed.tz)
+    document.getElementById('inp-tz-sign').value     = p.sign
+    document.getElementById('inp-tz-h').value         = p.h
+    document.getElementById('inp-tz-m').value         = p.m
+    document.getElementById('inp-tz-sign-dec').value  = p.sign
+    document.getElementById('inp-tz-h-dec').value     = p.h
+    document.getElementById('inp-tz-m-dec').value     = p.m
   }
-
-  if (lat !== undefined && lon !== undefined) {
-    fillCoords(lat, lon, tz || readTz())
-  } else if (tz) {
-    const tzP = offsetParts(tz)
-    document.getElementById('inp-tz-sign').value = tzP.sign
-    document.getElementById('inp-tz-h').value = tzP.h
-    document.getElementById('inp-tz-m').value = tzP.m
-  }
-
-  if (lat !== undefined && lon !== undefined) {
-    selectedLocation = { displayName: displayName || p.location || '', lat, lon, timezone: tz || readTz() }
-  }
-
-  editingProfileId = null
-  const errEl = document.getElementById('calc-error')
-  if (errEl) errEl.textContent = ''
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

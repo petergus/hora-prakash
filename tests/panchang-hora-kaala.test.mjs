@@ -42,7 +42,7 @@ function horaNumFromTimes(sunriseSec, birthSec) {
 
 const cases = [
   {
-    name: 'Priyank Gahtori — Jul 26 1990 8:30am (pyjhora)',
+    name: 'Chart A — Jul 26 1990 8:30am (pyjhora)',
     weekday: 4,  // Thursday
     sunriseSec: 5 * 3600 + 43 * 60 + 44,   // 5:43:44am (our Hindu-rising sunrise)
     sunsetSec:  18 * 3600 + 52 * 60 + 57,  // 6:52:57pm
@@ -51,7 +51,7 @@ const cases = [
     expectedKaalaLord: 'Mercury',
   },
   {
-    name: 'Neetu Joshi — Jan 11 1992 3:13pm (JHora)',
+    name: 'Chart B — Jan 11 1992 3:13pm (JHora)',
     weekday: 6,  // Saturday
     sunriseSec: 7 * 3600 + 18 * 60 + 21,
     sunsetSec:  17 * 3600 + 35 * 60 + 32,

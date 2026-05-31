@@ -1,11 +1,13 @@
 // src/tabs/chart.js
 import { state } from '../state.js'
-import { renderChartSVG, CHALIT_LABELS } from '../ui/chart-svg.js'
+import { renderChartSVG } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
+import { CLEAR_ASPECTS_SVG, SHOW_ALL_ASPECTS_SVG } from '../ui/icons.js'
+import { showExportModal } from '../ui/chart-export.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -52,32 +54,41 @@ const MASK = '••••••••'
 const EYE_OPEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>`
 const EYE_SHUT = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14"/></svg>`
 const GEAR_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>`
+const DOWNLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg>`
+const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5v-7A1.5 1.5 0 0 1 3.5 1h7A1.5 1.5 0 0 1 12 2.5V5"/></svg>`
+const CHECK_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-7"/></svg>`
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
 }
 
+function chalitOptions() {
+  const { chalitMethod } = c()
+  return { chalitMethod, houses: state.houses, sripatiHouses: state.sripatiHouses }
+}
+
 function buildSingleChart(planets, lagna, key) {
-  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key)
-  const signLabels = key === 'Chalit' ? CHALIT_LABELS : undefined
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
+  const signLabels = undefined
   const label      = key === 'D1' ? 'Rashi\nChart' : divLabel(key).replace(' – ', '\n')
   return { dPlanets, dLagna, signLabels, label }
 }
 
 function buildPlanetTable(key, planets, lagna) {
-  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key)
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
-  const isChalit = key === 'Chalit'
+  const houseLabel = key === 'Chalit' ? 'House' : `${key} House`
   return `
     <div class="table-scroll"><table class="planet-table">
       <thead>
-        <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>D1 House</th><th>Nakshatra</th><th>Pada</th></tr>
+        <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>${houseLabel}</th><th>Nakshatra</th><th>Pada</th></tr>
       </thead>
       <tbody>
         ${dPlanets.map(p => {
-          const signLabel = isChalit ? `H${p.sign}` : SIGN_NAMES[p.sign - 1]
+          const signLabel = SIGN_NAMES[p.sign - 1]
           const orig = origByName[p.name]
+          const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
           const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
           const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
           const rowCls = isExalt ? ' class="row-exalt"' : isDebil ? ' class="row-debil"' : ''
@@ -91,14 +102,14 @@ function buildPlanetTable(key, planets, lagna) {
             <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
             <td>${signLabel}</td>
             <td>${fmtDeg(p.degree)}</td>
-            <td>${orig?.house ?? '—'}</td>
+            <td>${divHouse}</td>
             <td>${orig?.nakshatra ?? '—'}</td>
             <td>${orig?.pada ?? '—'}</td>
           </tr>`
         }).join('')}
         <tr style="background:#fef3ff">
           <td><strong>Lagna</strong></td>
-          <td>${isChalit ? 'H1' : SIGN_NAMES[dLagna.sign - 1]}</td>
+          <td>${SIGN_NAMES[dLagna.sign - 1]}</td>
           <td>${fmtDeg(dLagna.degree)}</td>
           <td>1</td>
           <td>${lagna.nakshatra}</td>
@@ -106,6 +117,43 @@ function buildPlanetTable(key, planets, lagna) {
         </tr>
       </tbody>
     </table></div>`
+}
+
+function buildPlanetJSON(key, planets, lagna) {
+  const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
+  const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
+  const isD1 = key === 'D1'
+  return {
+    division: key,
+    divisionLabel: divLabel(key),
+    lagna: {
+      sign: SIGN_NAMES[dLagna.sign - 1],
+      signNumber: dLagna.sign,
+      degree: fmtDeg(dLagna.degree),
+      degreeDecimal: Math.round(dLagna.degree * 1e4) / 1e4,
+      house: 1,
+      nakshatra: lagna.nakshatra,
+      pada: lagna.pada,
+    },
+    planets: dPlanets.map(p => {
+      const orig = origByName[p.name]
+      const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
+      return {
+        name: p.name,
+        sign: SIGN_NAMES[p.sign - 1],
+        signNumber: p.sign,
+        degree: fmtDeg(p.degree),
+        degreeDecimal: Math.round(p.degree * 1e4) / 1e4,
+        house: divHouse,
+        nakshatra: orig?.nakshatra ?? null,
+        pada: orig?.pada ?? null,
+        retrograde: !!p.retrograde,
+        combust: !!p.combust,
+        exalted: isD1 && EXALT_SIGN[p.name] === p.sign,
+        debilitated: isD1 && DEBIL_SIGN[p.name] === p.sign,
+      }
+    }),
+  }
 }
 
 function renderSVGOnly() {
@@ -170,11 +218,27 @@ export function renderChart() {
     ? (divisional === 'D1' ? 'Birth Chart' : divLabel(divisional))
     : 'Birth Charts'
 
-  const maskedName    = privacyOn ? MASK : heading
-  const maskedPerson  = privacyOn ? MASK : (birth.name ? esc(birth.name) : '')
-  const maskedDetails = privacyOn
-    ? `${MASK} &nbsp;${MASK} &nbsp;·&nbsp; ${MASK}`
-    : `${birth.dob} &nbsp;${birth.tob} &nbsp;·&nbsp; ${esc(birth.location) || fmtLat(birth.lat) + ' ' + fmtLon(birth.lon)} &nbsp;·&nbsp; ${ianaToOffset(birth.timezone)}`
+  const maskedName  = privacyOn ? MASK : heading
+
+  const _name  = birth.name ?? ''
+  const _place = (() => { const s = birth.location || ''; return s.length > 28 ? s.slice(0, 27).trimEnd() + '…' : s })()
+  const _lat   = birth.lat, _lon = birth.lon
+  const _coords = (_lat != null && _lon != null)
+    ? `${Math.abs(_lat).toFixed(2)}°${_lat >= 0 ? 'N' : 'S'} ${Math.abs(_lon).toFixed(2)}°${_lon >= 0 ? 'E' : 'W'}`
+    : (fmtLat(_lat) + ' ' + fmtLon(_lon)).trim()
+  const _init  = _name ? _name.trim()[0].toUpperCase() : '?'
+
+  const birthCardHtml = privacyOn
+    ? `<div class="birth-info-strip"><div class="tbc-avatar">?</div><div class="tbc-name">${MASK}</div></div>`
+    : `<div class="birth-info-strip">
+        <div class="tbc-avatar">${_init}</div>
+        <div class="tbc-name">${esc(_name)}</div>
+        <div class="tbc-divider"></div>
+        ${_place   ? `<div class="tbc-pill"><span class="tbc-icon">📍</span><span>${esc(_place)}</span></div>` : ''}
+        ${_coords.trim()  ? `<div class="tbc-pill"><span class="tbc-icon">🌐</span><span>${_coords}</span></div>` : ''}
+        ${birth.dob ? `<div class="tbc-pill"><span class="tbc-icon">📅</span><span>${birth.dob}</span></div>` : ''}
+        ${birth.tob ? `<div class="tbc-pill"><span class="tbc-icon">🕐</span><span>${birth.tob}</span></div>` : ''}
+      </div>`
 
   // Unified div select — works for both single (divisional) and multi (active slot)
   const activeSlotKey = viewMode === '1' ? divisional : (keys[ui.activeMultiTab] ?? keys[0])
@@ -182,28 +246,21 @@ export function renderChart() {
     ${DIVISIONAL_OPTIONS.map(o => `<option value="${o.value}"${o.value === activeSlotKey ? ' selected' : ''}>${o.label}</option>`).join('')}
   </select>`
 
-  const SHOW_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8.5" cy="8.5" r="2"/>
-    <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5">
-      <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
-      <line x1="6.5" y1="8.5" x2="1" y2="8.5"/><line x1="10.5" y1="8.5" x2="16" y2="8.5"/>
-      <line x1="7.1" y1="7.1" x2="2.5" y2="2.5"/><line x1="9.9" y1="9.9" x2="14.5" y2="14.5"/>
-      <line x1="9.9" y1="7.1" x2="14.5" y2="2.5"/><line x1="7.1" y1="9.9" x2="2.5" y2="14.5"/>
-    </g>
-  </svg>`
-  const CLEAR_SVG = `<svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8.5" cy="8.5" r="2" fill="currentColor" opacity="0.35"/>
-    <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.5 1.5" opacity="0.35">
-      <line x1="8.5" y1="6.5" x2="8.5" y2="1"/><line x1="8.5" y1="10.5" x2="8.5" y2="16"/>
-      <line x1="6.5" y1="8.5" x2="1" y2="8.5"/><line x1="10.5" y1="8.5" x2="16" y2="8.5"/>
-    </g>
-    <line x1="2" y1="2" x2="15" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-  </svg>`
+  const chalitMethod = ui.chalitMethod ?? 'equal'
+  const chalitMethodHtml = activeSlotKey === 'Chalit' ? `
+    <select id="chalit-method-select" class="div-select" style="font-size:0.78rem;padding:0.2rem 0.4rem">
+      <option value="equal"${chalitMethod === 'equal' ? ' selected' : ''}>Equal House</option>
+      <option value="placidus"${chalitMethod === 'placidus' ? ' selected' : ''}>Placidus</option>
+      <option value="sripati"${chalitMethod === 'sripati' ? ' selected' : ''}>Sripati</option>
+    </select>` : ''
 
   // aspect buttons: always in DOM; hidden on desktop when multi-chart via CSS
   const aspectBtns = `<div class="chart-style-group aspect-btns${viewMode !== '1' ? ' aspect-btns--multi' : ''}">
-    <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">${SHOW_SVG}</button>
-    <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_SVG}</button>
+    <button id="btn-show-all" class="chart-style-btn chart-icon-btn" title="Show all aspects">${SHOW_ALL_ASPECTS_SVG}</button>
+    <button id="btn-hide-all" class="chart-style-btn chart-icon-btn" title="Clear aspects">${CLEAR_ASPECTS_SVG}</button>
+  </div>`
+  const downloadBtn = `<div class="chart-style-group">
+    <button id="btn-export-chart" class="chart-style-btn chart-icon-btn" title="Download chart">${DOWNLOAD_ICON}</button>
   </div>`
 
   // ── Chart area ──
@@ -258,31 +315,31 @@ export function renderChart() {
     </div>
   </div>` : ''
 
+  const copyBtnHtml = `<button id="btn-copy-planet-json" class="chart-style-btn chart-icon-btn copy-json-btn" title="Copy positions as JSON">${COPY_ICON}</button>`
+
   const planetCardInner = viewMode === '1'
-    ? `<h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>
+    ? `<div class="planet-positions-header"><h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>${copyBtnHtml}</div>
        ${buildPlanetTable(divisional, planets, lagna)}`
-    : `${tableDivSelect}
+    : `<div class="planet-positions-header">${tableDivSelect}${copyBtnHtml}</div>
        ${buildPlanetTable(tableDiv, planets, lagna)}`
 
   const planetCard = `<div class="card planet-positions-card">${planetCardInner}</div>`
 
-  const splitRatio = ui.splitRatio ?? 0.55
+  const splitRatio = ui.splitRatio ?? 0.40
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
   panel.classList.toggle('has-dasha', showDasha)
 
   panel.innerHTML = `
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem">
-        <div style="display:flex;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
-          <h2 style="margin:0;font-size:1.1rem;font-weight:600">${maskedName}</h2>
-          ${maskedPerson ? `<span style="font-size:0.9rem;font-weight:500;color:var(--muted)">${maskedPerson}</span>` : ''}
-        </div>
-        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2rem;margin-top:0.1rem;border-radius:4px;line-height:1;display:flex;align-items:center" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
+      <div class="chart-card-header">
+        <h2 class="chart-card-title">${maskedName}</h2>
+        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" class="chart-privacy-btn">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
       </div>
-      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.15rem;margin-bottom:1rem;line-height:1.5">${maskedDetails}</p>
-      <div class="chart-controls">
+      ${birthCardHtml}
+      <div class="chart-controls" style="margin-top:0.75rem">
         ${divSelectHtmlUnified}
+        ${chalitMethodHtml}
         <div class="chart-style-group">
           <button id="btn-north" class="chart-style-btn${chartStyle === 'north' ? ' active' : ''}">North</button>
           <button id="btn-south" class="chart-style-btn${chartStyle === 'south' ? ' active' : ''}">South</button>
@@ -293,6 +350,7 @@ export function renderChart() {
           <button id="btn-view-4" class="chart-style-btn${viewMode === '4' ? ' active' : ''}" title="Four charts">4</button>
         </div>
         ${aspectBtns}
+        ${downloadBtn}
         <span id="from-house-chip" style="display:${ui.fromHouseSign ? 'inline-flex' : 'none'};align-items:center;gap:0.3rem;background:var(--accent,#6366f1);color:#fff;font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:999px;cursor:pointer" title="Reset to natal lagna">H${ui.fromHouseSign ? ((ui.fromHouseSign - (state.lagna?.sign ?? 1) + 12) % 12) + 1 : ''} view &times;</span>
         ${viewMode !== '4' ? `
           <span class="ctrl-sep"></span>
@@ -503,6 +561,28 @@ export function renderChart() {
 
   // ── Events ──
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
+
+  // Copy planet positions as JSON
+  panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget
+    const activeKey = viewMode === '1' ? divisional : tableDiv
+    const json = buildPlanetJSON(activeKey, planets, lagna)
+    navigator.clipboard.writeText(JSON.stringify(json, null, 2)).then(() => {
+      btn.innerHTML = CHECK_ICON
+      btn.classList.add('copy-success')
+      setTimeout(() => { btn.innerHTML = COPY_ICON; btn.classList.remove('copy-success') }, 1500)
+    }).catch(() => {
+      btn.title = 'Copy failed'
+      setTimeout(() => { btn.title = 'Copy positions as JSON' }, 2000)
+    })
+  })
+
+  document.getElementById('btn-export-chart')?.addEventListener('click', () => {
+    const { chartStyle, divisional, viewMode, multiDivs } = c()
+    const slots = viewMode === '1' ? 1 : viewMode === '2' ? 2 : 4
+    const activeKeys = viewMode === '1' ? [divisional] : multiDivs.slice(0, slots)
+    showExportModal({ context: 'chart', activeKeys, chartStyle, state })
+  })
   panel.querySelector('#btn-north').addEventListener('click', () => { c().chartStyle = 'north'; renderChart() })
   panel.querySelector('#btn-south').addEventListener('click', () => { c().chartStyle = 'south'; renderChart() })
 
@@ -538,6 +618,13 @@ export function renderChart() {
     renderChart()
   })
 
+  panel.addEventListener('change', e => {
+    if (e.target.id === 'chalit-method-select') {
+      c().chalitMethod = e.target.value
+      renderChart()
+    }
+  })
+
   // Aspect helpers — for single view use activePlanets; mobile multi uses multiActivePlanets[activeTab]
   function getActiveAP() {
     const ui = c()
@@ -568,31 +655,62 @@ export function renderChart() {
     renderSVGOnly()
   })
 
-  // Right-click context menu on chart cells
-  document.getElementById('chart-container')?.addEventListener('contextmenu', e => {
-    if (c().viewMode !== '1') return
-    const cell = e.target.closest('[data-sign]')
-    if (!cell) return
-    e.preventDefault()
+  // Context menu (right-click desktop, long-press mobile)
+  const MENU_ITEM = `padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);border-radius:4px`
+  function showChartCtxMenu(x, y, sign) {
     document.getElementById('chart-ctx-menu')?.remove()
-    const sign = parseInt(cell.dataset.sign, 10)
-    const lagnaSign = state.lagna?.sign ?? 1
+    const lagnaSign = _dLagna?.sign ?? state.lagna?.sign ?? 1
     const house = ((sign - lagnaSign + 12) % 12) + 1
     const menu = document.createElement('div')
     menu.id = 'chart-ctx-menu'
-    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:180px;font-size:0.85rem`
-    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px'
-    menu.style.top  = Math.min(e.clientY, window.innerHeight - 60) + 'px'
-    menu.innerHTML = `<div style="padding:0.35rem 0.9rem;cursor:pointer;color:var(--text);border-radius:4px" id="ctx-from-house">Show chart from House ${house}</div>`
+    menu.style.cssText = `position:fixed;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#e2e8f0);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.13);padding:0.3rem 0;min-width:190px;font-size:0.85rem`
+    menu.style.left = Math.min(x, window.innerWidth  - 210) + 'px'
+    menu.style.top  = Math.min(y, window.innerHeight - 90)  + 'px'
+    menu.innerHTML = `
+      <div style="${MENU_ITEM}" id="ctx-from-house">View from House ${house}</div>
+      <div style="${MENU_ITEM}" id="ctx-aspects-house">Aspects to House ${house}</div>`
     document.body.appendChild(menu)
     menu.querySelector('#ctx-from-house').addEventListener('click', () => {
+      menu.remove(); c().fromHouseSign = sign; renderSVGOnly()
+    })
+    menu.querySelector('#ctx-aspects-house').addEventListener('click', () => {
       menu.remove()
-      c().fromHouseSign = sign
+      const aspecting = new Set(
+        (_dPlanets ?? []).filter(p => getAspectedSigns(p.sign, p.abbr).includes(sign)).map(p => p.abbr)
+      )
+      setActiveAP(aspecting)
       renderSVGOnly()
     })
     const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close) } }
     setTimeout(() => document.addEventListener('click', close), 0)
+  }
+
+  const chartContainer = document.getElementById('chart-container')
+
+  chartContainer?.addEventListener('contextmenu', e => {
+    if (c().viewMode !== '1') return
+    const cell = e.target.closest('[data-sign]')
+    if (!cell) return
+    e.preventDefault()
+    showChartCtxMenu(e.clientX, e.clientY, parseInt(cell.dataset.sign, 10))
   })
+
+  // Long-press for mobile (500ms)
+  let _lpTimer = null, _lpSign = null
+  chartContainer?.addEventListener('touchstart', e => {
+    if (c().viewMode !== '1') return
+    const cell = e.target.closest('[data-sign]')
+    if (!cell) return
+    _lpSign = parseInt(cell.dataset.sign, 10)
+    const t = e.touches[0]
+    _lpTimer = setTimeout(() => {
+      _lpTimer = null
+      showChartCtxMenu(t.clientX, t.clientY, _lpSign)
+    }, 500)
+  }, { passive: true })
+  chartContainer?.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
+  chartContainer?.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
+  chartContainer?.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTimer = null }, { passive: true })
 
   // Reset chip click
   document.getElementById('from-house-chip')?.addEventListener('click', () => {

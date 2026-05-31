@@ -1,5 +1,15 @@
 // src/core/divisional.js
 
+// Assign planet longitude to house given an array of 12 cusp longitudes
+function houseFromCusps(pLon, cusps) {
+  for (let i = 0; i < 12; i++) {
+    const c1 = cusps[i]
+    const c2 = cusps[(i + 1) % 12]
+    if (((pLon - c1 + 360) % 360) < ((c2 - c1 + 360) % 360)) return i + 1
+  }
+  return 1
+}
+
 // Map divisor → human label (used by chart tab)
 export const DIVISIONAL_OPTIONS = [
   { value: 'D1',     label: 'D1 – Rashi' },
@@ -14,7 +24,14 @@ export const DIVISIONAL_OPTIONS = [
   { value: 'D10',    label: 'D10 – Dashamsha' },
   { value: 'D11',    label: 'D11 – Rudramsha' },
   { value: 'D12',    label: 'D12 – Dwadashamsha' },
+  { value: 'D16',    label: 'D16 – Shodashamsha' },
+  { value: 'D20',    label: 'D20 – Vimshamsha' },
+  { value: 'D24',    label: 'D24 – Siddhamsha' },
+  { value: 'D27',    label: 'D27 – Nakshatramsha' },
   { value: 'D30',    label: 'D30 – Trimshamsha' },
+  { value: 'D40',    label: 'D40 – Khavedamsha' },
+  { value: 'D45',    label: 'D45 – Akshavedamsha' },
+  { value: 'D60',    label: 'D60 – Shashtyamsha' },
   { value: 'Chalit', label: 'Chalit' },
 ]
 
@@ -108,6 +125,54 @@ function parivritti(lon, n) {
   return { sign: dSign, degree: deg(lon, n) }
 }
 
+// D16 Shodashamsha: Movable→Aries(0), Fixed→Leo(4), Dual→Sagittarius(8)
+function d16(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 16)
+  const seed = ((sign - 1) % 3) * 4   // 0,4,8 repeating
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 16) }
+}
+
+// D20 Vimshamsha: Movable→Aries(0), Fixed→Sagittarius(8), Dual→Leo(4)
+function d20(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 20)
+  const SEEDS = [0,8,4, 0,8,4, 0,8,4, 0,8,4]  // index = sign-1
+  return { sign: (SEEDS[sign - 1] + l) % 12 + 1, degree: deg(lon, 20) }
+}
+
+// D24 Siddhamsha: Odd signs→Leo(4), Even signs→Cancer(3)
+function d24(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 24)
+  const seed = sign % 2 === 1 ? 4 : 3
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 24) }
+}
+
+// D27 Nakshatramsha: Fire→Aries(0), Earth→Cancer(3), Air→Libra(6), Water→Capricorn(9)
+function d27(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 27)
+  const seed = ((sign - 1) % 4) * 3   // 0,3,6,9 repeating
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 27) }
+}
+
+// D40 Khavedamsha: Odd signs→Aries(0), Even signs→Libra(6)
+function d40(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 40)
+  const seed = sign % 2 === 1 ? 0 : 6
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 40) }
+}
+
+// D45 Akshavedamsha: Movable→Aries(0), Fixed→Leo(4), Dual→Sagittarius(8)
+function d45(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 45)
+  const seed = ((sign - 1) % 3) * 4
+  return { sign: (seed + l) % 12 + 1, degree: deg(lon, 45) }
+}
+
 function transformLon(lon, key) {
   if (key === 'D1')  return { sign: Math.floor(lon / 30) + 1, degree: lon % 30 }
   if (key === 'D2')  return hora(lon)
@@ -117,10 +182,16 @@ function transformLon(lon, key) {
   if (key === 'D9')  return d9(lon)
   if (key === 'D10') return d10(lon)
   if (key === 'D12') return d12(lon)
+  if (key === 'D16') return d16(lon)
+  if (key === 'D20') return d20(lon)
+  if (key === 'D24') return d24(lon)
+  if (key === 'D27') return d27(lon)
   if (key === 'D30') return d30(lon)
+  if (key === 'D40') return d40(lon)
+  if (key === 'D45') return d45(lon)
   const n = parseInt(key.slice(1), 10)
   if (isNaN(n) || n < 1) throw new Error(`Unknown divisional key: ${key}`)
-  return parivritti(lon, n)
+  return parivritti(lon, n)  // D60 and others fall through to Parivritti
 }
 
 /**
@@ -132,11 +203,25 @@ function transformLon(lon, key) {
  * @param {object}   lagna    - from state.lagna
  * @param {string}   key      - 'D1'|'D2'|...|'D12'|'Chalit'
  */
-export function calcDivisional(planets, lagna, key) {
+export function calcDivisional(planets, lagna, key, options = {}) {
   if (key === 'Chalit') {
+    const method = options.chalitMethod ?? 'equal'
+    let planetHouse
+    if (method === 'placidus' && options.houses?.length === 12) {
+      planetHouse = (pLon) => houseFromCusps(pLon, options.houses)
+    } else if (method === 'sripati' && options.sripatiHouses?.length === 12) {
+      planetHouse = (pLon) => houseFromCusps(pLon, options.sripatiHouses)
+    } else {
+      // Equal bhava: each house is 30° wide, centered on Ascendant degree.
+      // Bhava sandhi (cusp of house 1) = lagna.lon - 15°
+      const sandhi1 = ((lagna.lon - 15) + 360) % 360
+      planetHouse = (pLon) => Math.floor(((pLon - sandhi1 + 360) % 360) / 30) + 1
+    }
+    // Map bhava number → its rashi (madhya of bhava N is in consecutive signs from lagna.sign)
+    const houseToSign = (h) => ((lagna.sign - 1 + h - 1) % 12) + 1
     return {
-      planets: planets.map(p => ({ ...p, sign: p.house })),
-      lagna:   { ...lagna, sign: 1 },
+      planets: planets.map(p => ({ ...p, sign: houseToSign(planetHouse(p.lon)) })),
+      lagna:   { ...lagna },
     }
   }
   return {

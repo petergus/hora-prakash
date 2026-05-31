@@ -6,11 +6,17 @@
   <title>Hora Prakash</title>
   <meta name="description" content="Vedic Astrology" />
   <meta property="og:title" content="Hora Prakash" />
+  <meta name="theme-color" content="#7f1d1d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Hora" />
+  <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
   <!-- Preload the large ephemeris files so the browser fetches them in parallel with JS -->
-  <link rel="preload" href="/hora-prakash/wasm/swisseph.wasm" as="fetch" crossorigin>
-  <link rel="preload" href="/hora-prakash/wasm/swisseph.data" as="fetch" crossorigin>
+  <link rel="preload" href="/wasm/swisseph.wasm" as="fetch" crossorigin>
+  <link rel="preload" href="/wasm/swisseph.data" as="fetch" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,6 +57,7 @@
     <button data-tab="input" class="tab-btn active">Birth Details</button>
     <button data-tab="chart" class="tab-btn" disabled>Birth Chart</button>
     <button data-tab="dasha" class="tab-btn" disabled>Dasha</button>
+    <button data-tab="transit" class="tab-btn" disabled>Transit</button>
     <button data-tab="panchang" class="tab-btn" disabled>Panchang</button>
     <button data-tab="strength" class="tab-btn" disabled>Strength</button>
     <button data-tab="export" class="tab-btn" disabled>Export JSON</button>
@@ -65,6 +72,7 @@
     <section id="tab-dasha" class="tab-panel"></section>
     <section id="tab-panchang" class="tab-panel"></section>
     <section id="tab-strength" class="tab-panel"></section>
+    <section id="tab-transit" class="tab-panel"></section>
     <section id="tab-export" class="tab-panel"></section>
   </main>
   <script type="module" src="/src/main.js"></script>

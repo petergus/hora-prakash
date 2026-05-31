@@ -12,10 +12,11 @@ function emptySnap() {
 }
 
 export function defaultDashaUI() {
+  const mobile = window.innerWidth < 600
   return {
     dashaCollapsed:  false,
-    ageCollapsed:    false,
-    progCollapsed:   false,
+    ageCollapsed:    mobile,
+    progCollapsed:   mobile,
     selectedProgLord: null,
     ageNavCycle:     null,
     ageAsOf:         null,
@@ -24,7 +25,7 @@ export function defaultDashaUI() {
     expandedAntars:  new Map(),          // Map<mahaName, Set<antarName>>
     expandedPaths:   new Set(),          // Set<"maha/antar/prat"> for levels 3-4
     focusedMode:     true,
-    focusedPath:     [],
+    focusedPath:     null,
   }
 }
 
@@ -40,10 +41,32 @@ export function defaultChartUI() {
     multiActivePlanets: [new Set(), new Set(), new Set(), new Set()],
     showDasha:      false,
     dashaCards:     ['vimshottari'],
-    splitRatio:     0.55,
+    splitRatio:     0.40,
     mobileDashaTab: 'chart',
     chartDasha:     null,
     fromHouseSign:  null,
+    chalitMethod:   'equal',
+  }
+}
+
+export function defaultTransitUI() {
+  return {
+    transitDate: null,
+    transitTime: null,
+    transitPlanets: [],
+    transitLagna: null,
+    transitFilter: new Set(['Su','Mo','Ma','Me','Ju','Ve','Sa','Ra','Ke']),
+    transitView: 'dual',
+    transitChartStyle: 'north',
+    natalAspectSource: new Set(),
+    transitAspectSource: new Set(),
+    overlayNatalAspectSource: new Set(),
+    overlayTransitAspectSource: new Set(),
+    dualActiveTab: 'natal',
+    chartZoom: 2,
+    showTooltip: false,
+    transitDivisional: 'D1',
+    aspectToHouse: null,
   }
 }
 
@@ -61,7 +84,7 @@ export function createSession(label = 'New Profile') {
     label,
     snap:    emptySnap(),
     innerTab: 'input',
-    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI() },
+    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI() },
   })
   return id
 }
@@ -74,7 +97,8 @@ function saveActiveSnapshot() {
   const cur = sessions.find(s => s.id === activeId)
   if (!cur) return
   cur.snap = { birth: state.birth, planets: state.planets, lagna: state.lagna,
-               houses: state.houses, dasha: state.dasha, panchang: state.panchang }
+               houses: state.houses, sripatiHouses: state.sripatiHouses,
+               dasha: state.dasha, panchang: state.panchang }
   cur.innerTab = currentInnerTab()
 }
 

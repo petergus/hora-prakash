@@ -42,7 +42,7 @@ function toJD(year, month, day, hour, minute, second, tzOffsetHours) {
 
 const CASES = [
   {
-    name: 'Priyank Gahtori — Jul 26 1990 8:30am IST (Thursday)',
+    name: 'Chart A — Jul 26 1990 8:30am IST (Thursday)',
     jd: toJD(1990, 7, 26, 8, 30, 0, 5.5),
     lat: 29 + 25 / 60, lon: 80 + 6 / 60,
     tz: '+05:30',
@@ -66,7 +66,7 @@ const CASES = [
     },
   },
   {
-    name: 'Neetu Joshi — Jan 11 1992 3:13pm IST (Saturday)',
+    name: 'Chart B — Jan 11 1992 3:13pm IST (Saturday)',
     jd: toJD(1992, 1, 11, 15, 13, 0, 5.5),
     lat: 28 + 59 / 60, lon: 77 + 42 / 60,
     tz: '+05:30',

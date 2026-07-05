@@ -10,7 +10,7 @@ import {
 import {
   isCurrentPeriod, calcDashaProgression,
   calcHouseActiveFromAge, calcAgeComponents,
-  DASHA_YEARS, ensureChildren,
+  DASHA_YEARS, ensureChildren, getDashaSandhi,
 } from '../core/dasha.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { state } from '../state.js'
@@ -158,6 +158,15 @@ export class DashaPanel {
     const breadcrumbInner = (focused && (ui.focusedPath?.length > 0))
       ? `<div class="dasha-breadcrumb">${this._breadcrumbHtml(dasha, ui)}</div>` : ''
 
+    // Dasha sandhi (junction) warnings for the running maha/antar periods
+    const sandhiHtml = getDashaSandhi(dasha).map(s => {
+      const when = s.date.toISOString().slice(0, 10)
+      const msg = s.phase === 'ending'
+        ? `${s.planet} ${s.level} ends in ${s.days} day${s.days === 1 ? '' : 's'} (${when})${s.nextPlanet ? ` — ${s.nextPlanet} begins` : ''}`
+        : `${s.planet} ${s.level} began ${s.days} day${s.days === 1 ? '' : 's'} ago (${when})${s.nextPlanet ? ` — after ${s.nextPlanet}` : ''}`
+      return `<div class="dasha-sandhi-banner" title="Dasha sandhi: the junction between periods is traditionally considered unstable — themes of both lords mix.">⚠ Dasha Sandhi: ${msg}</div>`
+    }).join('')
+
     return `
       <div class="card${draggable ? ' prog-draggable' : ''}" data-vims-card${draggable ? ' id="dasha-section" draggable="true"' : ''}>
         <div class="prog-card-header">
@@ -187,6 +196,7 @@ export class DashaPanel {
           <div data-breadcrumb-wrap class="vims-breadcrumb-wrap">${breadcrumbInner}</div>
         </div>
         <div data-vims-body style="display:${ui.dashaCollapsed ? 'none' : ''}">
+          ${sandhiHtml}
           <div class="table-scroll"><table class="dasha-table">
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
             <tbody>${rows}</tbody>

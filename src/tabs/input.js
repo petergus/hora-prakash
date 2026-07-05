@@ -12,135 +12,19 @@ import { getSwe, initSwissEph } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
-import { parseJhdFile } from '../utils/jhd.js'
 import { parseBirthPaste } from '../utils/paste-parse.js'
+import { saveHoroscope } from '../cloud-store.js'
 import {
-  upsertProfile as cloudUpsertProfile,
-  deleteProfileCloud,
-  deleteAllProfilesCloud,
-  bulkUpsertProfiles,
-  saveHoroscope,
-} from '../cloud-store.js'
+  genId, loadProfiles, saveProfile, deleteProfile, clearAllProfiles,
+  exportProfiles, importProfiles, importJhdFiles,
+} from './profile-store.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
-const STORAGE_KEY = 'hora-prakash-profiles'
 
 let selectedLocation = null
 let autocompleteTimeout = null
 let editingProfileId = null
 let datetimeMode = 'picker' // 'picker' | 'text'
-
-// ── LocalStorage helpers ──────────────────────────────────────────────────────
-
-function genId() {
-  return (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-
-function loadProfiles() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
-}
-
-function saveProfiles(profiles) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
-}
-
-function saveProfile(profile) {
-  const profiles = loadProfiles()
-  const existing = profiles.findIndex(p => p.id === profile.id)
-  if (existing >= 0) profiles[existing] = profile
-  else profiles.unshift(profile)
-  saveProfiles(profiles)
-  cloudUpsertProfile(profile).catch(err => console.error('Cloud save failed:', err))
-}
-
-function deleteProfile(id) {
-  saveProfiles(loadProfiles().filter(p => p.id !== id))
-  deleteProfileCloud(id).catch(err => console.error('Cloud delete failed:', err))
-}
-
-function exportProfiles() {
-  const profiles = loadProfiles()
-  if (!profiles.length) { alert('No saved profiles to export.'); return }
-  // Strip id — reimported profiles get fresh ids
-  const exportData = profiles.map(({ id: _id, ...rest }) => rest)
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `hora-prakash-profiles-${new Date().toISOString().slice(0,10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function importProfiles(file) {
-  const reader = new FileReader()
-  reader.onload = e => {
-    try {
-      const raw = JSON.parse(e.target.result)
-      if (!Array.isArray(raw)) throw new Error('Expected a JSON array.')
-      const existing = loadProfiles()
-      // Deduplicate by name+dob+tob — skip exact matches already stored
-      const existingKeys = new Set(existing.map(p => `${p.name}|${p.dob}|${p.tob}`))
-      const toAdd = raw
-        .filter(p => p.name && p.dob)
-        .filter(p => !existingKeys.has(`${p.name}|${p.dob}|${p.tob}`))
-        .map(({ id: _id, ...rest }) => ({ ...rest, id: genId() }))
-      if (!toAdd.length) { alert('No new profiles found (all already exist).'); return }
-      saveProfiles([...existing, ...toAdd])
-      bulkUpsertProfiles(toAdd).catch(err => console.error('Cloud bulk import failed:', err))
-      renderSavedProfiles()
-      alert(`Imported ${toAdd.length} profile${toAdd.length > 1 ? 's' : ''}.`)
-    } catch (err) {
-      alert(`Import failed: ${err.message}`)
-    }
-  }
-  reader.readAsText(file)
-}
-
-async function importJhdFiles(files) {
-  const existing    = loadProfiles()
-  const existingKeys = new Set(
-    existing.map(p => `${p.name.toLowerCase()}|${p.dob}|${p.tob}|${(p.location||'').toLowerCase()}`)
-  )
-  const successes = []
-  let failCount   = 0
-  let dupCount    = 0
-
-  for (const file of Array.from(files)) {
-    try {
-      const text    = await file.text()
-      const profile = parseJhdFile(text, file.name)
-      const key     = `${profile.name.toLowerCase()}|${profile.dob}|${profile.tob}|${(profile.location||'').toLowerCase()}`
-      if (existingKeys.has(key)) { dupCount++; continue }
-      existingKeys.add(key)
-      successes.push(profile)
-    } catch {
-      failCount++
-    }
-  }
-
-  if (successes.length > 0) {
-    saveProfiles([...successes, ...existing])
-    bulkUpsertProfiles(successes).catch(err => console.error('Cloud JHD import failed:', err))
-    renderSavedProfiles()
-  }
-
-  const n = successes.length
-  const m = failCount
-  if (n > 0 && m === 0 && dupCount === 0) {
-    alert(`Imported ${n} profile${n > 1 ? 's' : ''}.`)
-  } else if (n > 0 && m > 0) {
-    alert(`Imported ${n} profile${n > 1 ? 's' : ''}. ${m} file${m > 1 ? 's' : ''} were invalid and skipped.`)
-  } else if (n > 0 && dupCount > 0 && m === 0) {
-    alert(`Imported ${n} profile${n > 1 ? 's' : ''}. ${dupCount} already existed.`)
-  } else if (n === 0 && dupCount > 0 && m === 0) {
-    alert('All profiles already exist.')
-  } else {
-    alert('No valid JHD files found.')
-  }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -415,10 +299,10 @@ function renderSavedProfiles() {
       </div>`
     section.querySelector('#inp-import-file').addEventListener('change', e => {
       const file = e.target.files[0]
-      if (file) { importProfiles(file); e.target.value = '' }
+      if (file) { importProfiles(file, renderSavedProfiles); e.target.value = '' }
     })
     section.querySelector('#inp-import-jhd').addEventListener('change', e => {
-      if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
+      if (e.target.files.length) { importJhdFiles(e.target.files, renderSavedProfiles); e.target.value = '' }
     })
     return
   }
@@ -472,15 +356,14 @@ function renderSavedProfiles() {
   section.querySelector('#btn-export-profiles').addEventListener('click', exportProfiles)
   section.querySelector('#inp-import-file').addEventListener('change', e => {
     const file = e.target.files[0]
-    if (file) { importProfiles(file); e.target.value = '' }
+    if (file) { importProfiles(file, renderSavedProfiles); e.target.value = '' }
   })
   section.querySelector('#inp-import-jhd').addEventListener('change', e => {
-    if (e.target.files.length) { importJhdFiles(e.target.files); e.target.value = '' }
+    if (e.target.files.length) { importJhdFiles(e.target.files, renderSavedProfiles); e.target.value = '' }
   })
   section.querySelector('#btn-clear-all').addEventListener('click', () => {
     if (confirm('Delete all saved profiles?')) {
-      saveProfiles([])
-      deleteAllProfilesCloud().catch(err => console.error('Cloud clear-all failed:', err))
+      clearAllProfiles()
       renderSavedProfiles()
     }
   })
@@ -790,7 +673,7 @@ async function onFormSubmit(e) {
 
     const { renderStrength } = await import('./strength.js')
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
     switchTab('chart')
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
@@ -1015,7 +898,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('export')
+    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

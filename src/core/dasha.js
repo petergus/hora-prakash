@@ -273,6 +273,47 @@ export function isCurrentPeriod(start, end) {
   return start.getTime() <= now && end.getTime() > now
 }
 
+/**
+ * Dasha sandhi (junction) detection — flags the current Mahadasha/Antardasha
+ * when it is in its final or opening stretch, a period traditionally treated
+ * as unstable.
+ *
+ * @param {object[]} dasha  the dasha tree (maha level)
+ * @param {object} [opts]   { thresholdFraction = 0.05, now = new Date() }
+ * @returns {{ level, planet, nextPlanet, phase: 'ending'|'beginning', days, date }[]}
+ */
+export function getDashaSandhi(dasha, { thresholdFraction = 0.05, now = new Date() } = {}) {
+  const res = []
+  const t = now.getTime()
+  const days = ms => Math.max(0, Math.round(ms / 86400000))
+
+  const check = (node, level, siblings, nextAfterParent) => {
+    const s = node.start.getTime(), e = node.end.getTime()
+    if (t < s || t >= e) return
+    const frac = (t - s) / (e - s)
+    const idx = siblings.indexOf(node)
+    const nextPlanet = siblings[idx + 1]?.planet ?? nextAfterParent ?? null
+    const prevPlanet = siblings[idx - 1]?.planet ?? null
+    if (frac >= 1 - thresholdFraction) {
+      res.push({ level, planet: node.planet, nextPlanet, phase: 'ending', days: days(e - t), date: node.end })
+    } else if (frac <= thresholdFraction) {
+      res.push({ level, planet: node.planet, nextPlanet: prevPlanet, phase: 'beginning', days: days(t - s), date: node.start })
+    }
+  }
+
+  if (!Array.isArray(dasha)) return res
+  const maha = dasha.find(m => isCurrentPeriod(m.start, m.end))
+  if (!maha) return res
+  check(maha, 'Mahadasha', dasha, null)
+  const antars = maha.children ?? []
+  const antar = antars.find(a => isCurrentPeriod(a.start, a.end))
+  if (antar) {
+    const nextMaha = dasha[dasha.indexOf(maha) + 1]
+    check(antar, 'Antardasha', antars, nextMaha?.planet ?? null)
+  }
+  return res
+}
+
 function addYears(date, years) {
   return new Date(date.getTime() + years * 365.25 * 86400000)
 }

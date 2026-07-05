@@ -1,8 +1,13 @@
 // src/tabs/export.js
 import { state } from '../state.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
-import { getSettings } from '../core/settings.js'
+import { getSettings, buildCalcFlags } from '../core/settings.js'
 import { getAspectedSigns } from '../core/aspects.js'
+import { detectYogas } from '../core/yogas.js'
+import { ensureChildren } from '../core/dasha.js'
+import { getSwe } from '../core/swisseph.js'
+import { getActiveSession } from '../sessions.js'
+import { copyText } from '../utils/clipboard.js'
 
 const APP_VERSION = '1.2.0'
 const PRESETS_KEY = 'hora-prakash-export-presets'
@@ -17,14 +22,14 @@ const PLANET_FIELD_OPTIONS = [
   { key: 'combust',       label: 'Combust' },
 ]
 
-function defaultConfig() {
+export function defaultConfig() {
   const divisionals = {}
   for (const { value } of DIVISIONAL_OPTIONS) divisionals[value] = true
   return {
     sections: {
       meta: true, birth: true, lagna: true, houses: true,
       planets: true, aspects: true, divisionals: true,
-      dasha: true, panchang: true, strength: true,
+      dasha: true, panchang: true, strength: true, yogas: true,
     },
     planetFields: { nakshatra: true, nakshatraLord: true, pada: true, retrograde: true, combust: true },
     divisionals,
@@ -39,6 +44,7 @@ function litePreset() {
   cfg.sections.aspects = false
   cfg.sections.strength = false
   cfg.sections.panchang = false
+  cfg.sections.yogas = false
   for (const k of Object.keys(cfg.divisionals)) cfg.divisionals[k] = false
   cfg.divisionals.D1 = true
   cfg.divisionals.D9 = true
@@ -55,11 +61,26 @@ const BUILTIN_PRESETS = [
   { id: 'lite', name: 'Lite', builtin: true, config: litePreset() },
 ]
 
+// Presets saved by older app versions may miss keys added since (new sections,
+// new divisional charts, decimals). Missing decimals would make roundNum produce
+// NaN → every number in the JSON serialized as null. Backfill from defaults.
+export function normalizeConfig(raw) {
+  const def = defaultConfig()
+  const cfg = { ...def, ...(raw ?? {}) }
+  cfg.sections     = { ...def.sections,     ...(raw?.sections     ?? {}) }
+  cfg.planetFields = { ...def.planetFields, ...(raw?.planetFields ?? {}) }
+  cfg.divisionals  = { ...def.divisionals,  ...(raw?.divisionals  ?? {}) }
+  if (![1, 2, 3].includes(cfg.dashaDepth)) cfg.dashaDepth = def.dashaDepth
+  if (!['none', 'totals', 'full'].includes(cfg.strengthDetail)) cfg.strengthDetail = def.strengthDetail
+  if (!Number.isInteger(cfg.decimals) || cfg.decimals < 0 || cfg.decimals > 8) cfg.decimals = def.decimals
+  return cfg
+}
+
 function loadPresets() {
   try {
     const raw = localStorage.getItem(PRESETS_KEY)
     const user = raw ? JSON.parse(raw) : []
-    return [...BUILTIN_PRESETS, ...user]
+    return [...BUILTIN_PRESETS, ...user.map(p => ({ ...p, config: normalizeConfig(p.config) }))]
   } catch {
     return [...BUILTIN_PRESETS]
   }
@@ -121,26 +142,38 @@ function trimDasha(nodes, depth) {
   })
 }
 
+// strength = { bhinna: {planet: number[12]}, sarva: number[12], shadbala: {planet: {…balas, total, required, ratio}} }
 function filterStrength(strength, mode) {
   if (!strength || mode === 'none') return undefined
   if (mode === 'full') return strength
-  // totals only
-  const out = {}
-  for (const k of Object.keys(strength)) {
-    const v = strength[k]
-    if (Array.isArray(v)) {
-      out[k] = v.map(row => {
-        const { components, ...rest } = row
-        return rest
-      })
-    } else {
-      out[k] = v
-    }
+  // totals: keep BAV/SAV score arrays as-is; reduce shadbala to totals
+  const out = { ...strength }
+  if (strength.shadbala && typeof strength.shadbala === 'object') {
+    out.shadbala = Object.fromEntries(
+      Object.entries(strength.shadbala).map(([planet, row]) => [
+        planet,
+        { total: row.total, required: row.required, ratio: row.ratio },
+      ])
+    )
   }
   return out
 }
 
-function buildPayload(cfg) {
+// The dasha tree is built eagerly only 2 levels deep (maha → antar); pratyantar
+// nodes are lazily computed on UI expansion. Exporting at depth 3 must compute
+// the missing level first or antardashas serialize with empty children arrays.
+async function expandDashaForExport(nodes, depth) {
+  if (depth < 3 || !Array.isArray(nodes)) return
+  let swe = null, flags = null
+  try { swe = getSwe(); flags = buildCalcFlags(getSettings()) } catch { /* WASM not ready — linear fallback inside ensureChildren */ }
+  for (const maha of nodes) {
+    for (const antar of maha.children ?? []) {
+      try { await ensureChildren(antar, swe, flags) } catch (e) { console.error('Dasha expansion failed for export:', e) }
+    }
+  }
+}
+
+export async function buildPayload(cfg) {
   const { planets, lagna, houses, dasha, panchang, strength, birth } = state
   const payload = {}
 
@@ -153,6 +186,7 @@ function buildPayload(cfg) {
       settings: {
         ayanamsa: s.ayanamsa,
         yearMethod: s.yearMethod,
+        ...(s.yearMethod === 'custom' ? { customYearDays: s.customYearDays } : {}),
         planetPositions: s.planetPositions,
         observerType: s.observerType,
       },
@@ -161,7 +195,10 @@ function buildPayload(cfg) {
 
   if (cfg.sections.birth) payload.birth = birth
   if (cfg.sections.lagna) payload.lagna = lagna
-  if (cfg.sections.houses) payload.houses = houses
+  if (cfg.sections.houses) {
+    payload.houses = houses  // Placidus cusps (12 longitudes)
+    if (state.sripatiHouses) payload.sripatiHouses = state.sripatiHouses
+  }
 
   const filteredPlanets = planets ? planets.map(p => filterPlanet(p, cfg.planetFields)) : null
 
@@ -180,10 +217,16 @@ function buildPayload(cfg) {
   }
 
   if (cfg.sections.divisionals && planets && lagna) {
+    // Match the Chart tab's Chalit house method (equal/placidus/sripati)
+    const chalitOpts = {
+      chalitMethod: getActiveSession()?.uiState?.chart?.chalitMethod ?? 'equal',
+      houses: state.houses,
+      sripatiHouses: state.sripatiHouses,
+    }
     const divisionals = {}
     for (const { value } of DIVISIONAL_OPTIONS) {
       if (!cfg.divisionals[value]) continue
-      const d = calcDivisional(planets, lagna, value)
+      const d = calcDivisional(planets, lagna, value, chalitOpts)
       const dLagnaSign = d.lagna.sign
       divisionals[value] = {
         lagna: d.lagna,
@@ -197,7 +240,12 @@ function buildPayload(cfg) {
   }
 
   if (cfg.sections.dasha && dasha) {
+    await expandDashaForExport(dasha, cfg.dashaDepth)
     payload.dasha = trimDasha(dasha, cfg.dashaDepth)
+  }
+
+  if (cfg.sections.yogas && planets && lagna) {
+    payload.yogas = detectYogas(planets, lagna)
   }
 
   if (cfg.sections.panchang) payload.panchang = panchang
@@ -282,6 +330,7 @@ function renderPanel() {
     ['lagna','Lagna'], ['houses','Houses'], ['planets','Planets'],
     ['aspects','Aspects'], ['divisionals','Divisional charts'],
     ['dasha','Dasha'], ['panchang','Panchang'], ['strength','Strength (Shadbala / Ashtakavarga)'],
+    ['yogas','Yogas'],
   ].map(([k, l]) => checkbox(`xp-sec-${k}`, l, cfg.sections[k])).join('')
 
   return `
@@ -336,7 +385,7 @@ function readPanel() {
   if (dec) cfg.decimals = parseInt(dec.value, 10)
 }
 
-export function renderExport() {
+export async function renderExport() {
   const el = document.getElementById('tab-export')
   if (!el) return
 
@@ -346,9 +395,13 @@ export function renderExport() {
   }
 
   ensureWorking()
+  // Depth-3 dasha expansion can take a moment on first render — show progress
+  if (!el.querySelector('.export-wrap')) {
+    el.innerHTML = '<p class="export-empty">Generating export…</p>'
+  }
   const active = getActivePreset()
   const cfg = { ...workingConfig, __presetName: active.name + (dirty ? ' (modified)' : '') }
-  const payload = buildPayload(cfg)
+  const payload = await buildPayload(cfg)
   const jsonStr = JSON.stringify(payload, null, 2)
   const sizeKB  = (jsonStr.length / 1024).toFixed(1)
   const label   = state.birth?.name || 'Chart'
@@ -369,6 +422,7 @@ export function renderExport() {
         </div>
         <div class="export-actions">
           <button class="export-btn" id="xbtn-copy">Copy JSON</button>
+          <button class="export-btn" id="xbtn-copy-ai" title="Copy the JSON wrapped in an analysis prompt for an AI assistant">Copy as AI prompt</button>
           <button class="export-btn export-btn-primary" id="xbtn-download">Download .json</button>
         </div>
       </div>
@@ -383,7 +437,7 @@ export function renderExport() {
   wireEvents(jsonStr, filename)
 }
 
-function rerender() { renderExport() }
+function rerender() { renderExport().catch(console.error) }
 
 function wireEvents(jsonStr, filename) {
   document.getElementById('xp-preset').addEventListener('change', (e) => {
@@ -477,11 +531,11 @@ function wireEvents(jsonStr, filename) {
 
   document.getElementById('xbtn-copy').addEventListener('click', async () => {
     const btn = document.getElementById('xbtn-copy')
-    try {
-      await navigator.clipboard.writeText(jsonStr)
+    if (await copyText(jsonStr)) {
       btn.textContent = 'Copied!'
       btn.classList.add('export-btn-ok')
-    } catch {
+    } else {
+      // Last resort: select the <pre> so the user can hit Ctrl+C
       const pre = document.getElementById('export-pre')
       const range = document.createRange()
       range.selectNodeContents(pre)
@@ -492,6 +546,36 @@ function wireEvents(jsonStr, filename) {
     }
     setTimeout(() => {
       if (btn) { btn.textContent = 'Copy JSON'; btn.classList.remove('export-btn-ok') }
+    }, 2500)
+  })
+
+  document.getElementById('xbtn-copy-ai').addEventListener('click', async () => {
+    const btn = document.getElementById('xbtn-copy-ai')
+    const name = state.birth?.name || 'the native'
+    const prompt = [
+      'You are an experienced Vedic (Jyotish) astrologer. Below is a complete JSON export of',
+      `the birth chart of ${name}, computed with the sidereal zodiac (see meta.settings for the`,
+      'ayanamsa and options used). Signs are numbered 1 = Aries … 12 = Pisces; houses are counted',
+      'from the lagna; longitudes are sidereal ecliptic degrees; dasha dates are ISO timestamps.',
+      '',
+      'Please analyze this chart. Cover: lagna and chart ruler; planetary strengths and dignities',
+      '(use the shadbala and ashtakavarga sections if present); key houses (1, 2, 4, 5, 7, 9, 10);',
+      'important yogas and aspects; the current and upcoming dasha periods with practical themes;',
+      'and a concise summary of strengths, challenges, and timing. Explain your reasoning from the',
+      'data rather than making generic statements.',
+      '',
+      '```json',
+      jsonStr,
+      '```',
+    ].join('\n')
+    if (await copyText(prompt)) {
+      btn.textContent = 'Copied!'
+      btn.classList.add('export-btn-ok')
+    } else {
+      btn.textContent = 'Copy failed'
+    }
+    setTimeout(() => {
+      if (btn) { btn.textContent = 'Copy as AI prompt'; btn.classList.remove('export-btn-ok') }
     }, 2500)
   })
 

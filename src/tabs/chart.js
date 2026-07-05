@@ -8,6 +8,7 @@ import { DashaPanel } from '../components/dasha-panel.js'
 import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
 import { CLEAR_ASPECTS_SVG, SHOW_ALL_ASPECTS_SVG } from '../ui/icons.js'
 import { showExportModal } from '../ui/chart-export.js'
+import { copyText } from '../utils/clipboard.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -123,7 +124,9 @@ function buildPlanetJSON(key, planets, lagna) {
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
+  const b = state.birth
   return {
+    ...(b ? { birth: { name: b.name, dob: b.dob, tob: b.tob, location: b.location, timezone: b.timezone } } : {}),
     division: key,
     divisionLabel: divLabel(key),
     lagna: {
@@ -159,7 +162,7 @@ function buildPlanetJSON(key, planets, lagna) {
 function renderSVGOnly() {
   if (!_dPlanets) return
   const { chartStyle, activePlanets, fromHouseSign } = c()
-  const planets = fromHouseSign ? _dPlanets : _dPlanets
+  const planets = _dPlanets
   const lagna   = fromHouseSign ? { ..._dLagna, sign: fromHouseSign } : _dLagna
   const activeAspects = _dPlanets
     .filter(p => activePlanets.has(p.abbr))
@@ -563,18 +566,19 @@ export function renderChart() {
   panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
 
   // Copy planet positions as JSON
-  panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', (e) => {
+  panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget
     const activeKey = viewMode === '1' ? divisional : tableDiv
     const json = buildPlanetJSON(activeKey, planets, lagna)
-    navigator.clipboard.writeText(JSON.stringify(json, null, 2)).then(() => {
+    const ok = await copyText(JSON.stringify(json, null, 2))
+    if (ok) {
       btn.innerHTML = CHECK_ICON
       btn.classList.add('copy-success')
       setTimeout(() => { btn.innerHTML = COPY_ICON; btn.classList.remove('copy-success') }, 1500)
-    }).catch(() => {
+    } else {
       btn.title = 'Copy failed'
       setTimeout(() => { btn.title = 'Copy positions as JSON' }, 2000)
-    })
+    }
   })
 
   document.getElementById('btn-export-chart')?.addEventListener('click', () => {

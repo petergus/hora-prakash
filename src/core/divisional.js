@@ -173,6 +173,15 @@ function d45(lon) {
   return { sign: (seed + l) % 12 + 1, degree: deg(lon, 45) }
 }
 
+// D60 Shashtyamsha: BPHS — count parts from the occupied sign itself.
+// (Must NOT fall through to parivritti: 60 ≡ 0 mod 12, so the parivritti formula
+// degenerates to counting every sign from Aries.)
+function d60(lon) {
+  const sign = Math.floor(lon / 30) + 1
+  const l    = part(lon, 60)
+  return { sign: ((sign - 1) + l) % 12 + 1, degree: deg(lon, 60) }
+}
+
 function transformLon(lon, key) {
   if (key === 'D1')  return { sign: Math.floor(lon / 30) + 1, degree: lon % 30 }
   if (key === 'D2')  return hora(lon)
@@ -189,9 +198,10 @@ function transformLon(lon, key) {
   if (key === 'D30') return d30(lon)
   if (key === 'D40') return d40(lon)
   if (key === 'D45') return d45(lon)
+  if (key === 'D60') return d60(lon)
   const n = parseInt(key.slice(1), 10)
   if (isNaN(n) || n < 1) throw new Error(`Unknown divisional key: ${key}`)
-  return parivritti(lon, n)  // D60 and others fall through to Parivritti
+  return parivritti(lon, n)  // D5/D6/D8/D11 use Parivritti (see CLAUDE.md pending notes)
 }
 
 /**

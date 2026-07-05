@@ -1,8 +1,12 @@
 // src/tabs/export.js
 import { state } from '../state.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
-import { getSettings } from '../core/settings.js'
+import { getSettings, buildCalcFlags } from '../core/settings.js'
 import { getAspectedSigns } from '../core/aspects.js'
+import { ensureChildren } from '../core/dasha.js'
+import { getSwe } from '../core/swisseph.js'
+import { getActiveSession } from '../sessions.js'
+import { copyText } from '../utils/clipboard.js'
 
 const APP_VERSION = '1.2.0'
 const PRESETS_KEY = 'hora-prakash-export-presets'
@@ -17,7 +21,7 @@ const PLANET_FIELD_OPTIONS = [
   { key: 'combust',       label: 'Combust' },
 ]
 
-function defaultConfig() {
+export function defaultConfig() {
   const divisionals = {}
   for (const { value } of DIVISIONAL_OPTIONS) divisionals[value] = true
   return {
@@ -55,11 +59,26 @@ const BUILTIN_PRESETS = [
   { id: 'lite', name: 'Lite', builtin: true, config: litePreset() },
 ]
 
+// Presets saved by older app versions may miss keys added since (new sections,
+// new divisional charts, decimals). Missing decimals would make roundNum produce
+// NaN → every number in the JSON serialized as null. Backfill from defaults.
+export function normalizeConfig(raw) {
+  const def = defaultConfig()
+  const cfg = { ...def, ...(raw ?? {}) }
+  cfg.sections     = { ...def.sections,     ...(raw?.sections     ?? {}) }
+  cfg.planetFields = { ...def.planetFields, ...(raw?.planetFields ?? {}) }
+  cfg.divisionals  = { ...def.divisionals,  ...(raw?.divisionals  ?? {}) }
+  if (![1, 2, 3].includes(cfg.dashaDepth)) cfg.dashaDepth = def.dashaDepth
+  if (!['none', 'totals', 'full'].includes(cfg.strengthDetail)) cfg.strengthDetail = def.strengthDetail
+  if (!Number.isInteger(cfg.decimals) || cfg.decimals < 0 || cfg.decimals > 8) cfg.decimals = def.decimals
+  return cfg
+}
+
 function loadPresets() {
   try {
     const raw = localStorage.getItem(PRESETS_KEY)
     const user = raw ? JSON.parse(raw) : []
-    return [...BUILTIN_PRESETS, ...user]
+    return [...BUILTIN_PRESETS, ...user.map(p => ({ ...p, config: normalizeConfig(p.config) }))]
   } catch {
     return [...BUILTIN_PRESETS]
   }
@@ -121,26 +140,38 @@ function trimDasha(nodes, depth) {
   })
 }
 
+// strength = { bhinna: {planet: number[12]}, sarva: number[12], shadbala: {planet: {…balas, total, required, ratio}} }
 function filterStrength(strength, mode) {
   if (!strength || mode === 'none') return undefined
   if (mode === 'full') return strength
-  // totals only
-  const out = {}
-  for (const k of Object.keys(strength)) {
-    const v = strength[k]
-    if (Array.isArray(v)) {
-      out[k] = v.map(row => {
-        const { components, ...rest } = row
-        return rest
-      })
-    } else {
-      out[k] = v
-    }
+  // totals: keep BAV/SAV score arrays as-is; reduce shadbala to totals
+  const out = { ...strength }
+  if (strength.shadbala && typeof strength.shadbala === 'object') {
+    out.shadbala = Object.fromEntries(
+      Object.entries(strength.shadbala).map(([planet, row]) => [
+        planet,
+        { total: row.total, required: row.required, ratio: row.ratio },
+      ])
+    )
   }
   return out
 }
 
-function buildPayload(cfg) {
+// The dasha tree is built eagerly only 2 levels deep (maha → antar); pratyantar
+// nodes are lazily computed on UI expansion. Exporting at depth 3 must compute
+// the missing level first or antardashas serialize with empty children arrays.
+async function expandDashaForExport(nodes, depth) {
+  if (depth < 3 || !Array.isArray(nodes)) return
+  let swe = null, flags = null
+  try { swe = getSwe(); flags = buildCalcFlags(getSettings()) } catch { /* WASM not ready — linear fallback inside ensureChildren */ }
+  for (const maha of nodes) {
+    for (const antar of maha.children ?? []) {
+      try { await ensureChildren(antar, swe, flags) } catch (e) { console.error('Dasha expansion failed for export:', e) }
+    }
+  }
+}
+
+export async function buildPayload(cfg) {
   const { planets, lagna, houses, dasha, panchang, strength, birth } = state
   const payload = {}
 
@@ -153,6 +184,7 @@ function buildPayload(cfg) {
       settings: {
         ayanamsa: s.ayanamsa,
         yearMethod: s.yearMethod,
+        ...(s.yearMethod === 'custom' ? { customYearDays: s.customYearDays } : {}),
         planetPositions: s.planetPositions,
         observerType: s.observerType,
       },
@@ -180,10 +212,16 @@ function buildPayload(cfg) {
   }
 
   if (cfg.sections.divisionals && planets && lagna) {
+    // Match the Chart tab's Chalit house method (equal/placidus/sripati)
+    const chalitOpts = {
+      chalitMethod: getActiveSession()?.uiState?.chart?.chalitMethod ?? 'equal',
+      houses: state.houses,
+      sripatiHouses: state.sripatiHouses,
+    }
     const divisionals = {}
     for (const { value } of DIVISIONAL_OPTIONS) {
       if (!cfg.divisionals[value]) continue
-      const d = calcDivisional(planets, lagna, value)
+      const d = calcDivisional(planets, lagna, value, chalitOpts)
       const dLagnaSign = d.lagna.sign
       divisionals[value] = {
         lagna: d.lagna,
@@ -197,6 +235,7 @@ function buildPayload(cfg) {
   }
 
   if (cfg.sections.dasha && dasha) {
+    await expandDashaForExport(dasha, cfg.dashaDepth)
     payload.dasha = trimDasha(dasha, cfg.dashaDepth)
   }
 
@@ -336,7 +375,7 @@ function readPanel() {
   if (dec) cfg.decimals = parseInt(dec.value, 10)
 }
 
-export function renderExport() {
+export async function renderExport() {
   const el = document.getElementById('tab-export')
   if (!el) return
 
@@ -348,7 +387,7 @@ export function renderExport() {
   ensureWorking()
   const active = getActivePreset()
   const cfg = { ...workingConfig, __presetName: active.name + (dirty ? ' (modified)' : '') }
-  const payload = buildPayload(cfg)
+  const payload = await buildPayload(cfg)
   const jsonStr = JSON.stringify(payload, null, 2)
   const sizeKB  = (jsonStr.length / 1024).toFixed(1)
   const label   = state.birth?.name || 'Chart'
@@ -383,7 +422,7 @@ export function renderExport() {
   wireEvents(jsonStr, filename)
 }
 
-function rerender() { renderExport() }
+function rerender() { renderExport().catch(console.error) }
 
 function wireEvents(jsonStr, filename) {
   document.getElementById('xp-preset').addEventListener('change', (e) => {
@@ -477,11 +516,11 @@ function wireEvents(jsonStr, filename) {
 
   document.getElementById('xbtn-copy').addEventListener('click', async () => {
     const btn = document.getElementById('xbtn-copy')
-    try {
-      await navigator.clipboard.writeText(jsonStr)
+    if (await copyText(jsonStr)) {
       btn.textContent = 'Copied!'
       btn.classList.add('export-btn-ok')
-    } catch {
+    } else {
+      // Last resort: select the <pre> so the user can hit Ctrl+C
       const pre = document.getElementById('export-pre')
       const range = document.createRange()
       range.selectNodeContents(pre)

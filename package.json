@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node tests/export-payload.test.mjs",
     "preview": "vite preview",
     "parse-places": "node scripts/parse-places.js",
     "build:firebase": "DEPLOY_TARGET=firebase vite build",

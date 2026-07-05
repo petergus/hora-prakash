@@ -8,7 +8,8 @@ function genId() {
 }
 
 function emptySnap() {
-  return { birth: null, planets: null, lagna: null, houses: null, dasha: null, panchang: null }
+  return { birth: null, planets: null, lagna: null, houses: null, sripatiHouses: null,
+           dasha: null, panchang: null, strength: null }
 }
 
 export function defaultDashaUI() {
@@ -98,7 +99,7 @@ function saveActiveSnapshot() {
   if (!cur) return
   cur.snap = { birth: state.birth, planets: state.planets, lagna: state.lagna,
                houses: state.houses, sripatiHouses: state.sripatiHouses,
-               dasha: state.dasha, panchang: state.panchang }
+               dasha: state.dasha, panchang: state.panchang, strength: state.strength }
   cur.innerTab = currentInnerTab()
 }
 

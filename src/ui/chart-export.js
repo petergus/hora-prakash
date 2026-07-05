@@ -32,6 +32,13 @@ function fmtDeg(dec) {
   return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(2,'0')}"`
 }
 
+// renderChartSVG output has only a viewBox — no width/height attributes.
+// An SVG without explicit dimensions rasterizes blank via Image → canvas in
+// Firefox (zero intrinsic size), so inject pixel dimensions before loading.
+function withExplicitSize(svgStr, px) {
+  return svgStr.replace(/<svg /, `<svg width="${px}" height="${px}" `)
+}
+
 function svgToImage(svgStr) {
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgStr], { type: 'image/svg+xml' })
@@ -106,7 +113,9 @@ export async function buildCanvas(opts) {
   // Append extra SVG (e.g. transit chart from pane)
   const allSvgs = extraSvgFn ? [...chartSvgs, extraSvgFn()] : chartSvgs
 
-  const loadedImgs = await Promise.all(allSvgs.map(svg => svgToImage(svg)))
+  const loadedImgs = await Promise.all(
+    allSvgs.map(svg => svgToImage(withExplicitSize(svg, EXPORT_CHART_SIZE)))
+  )
 
   // D1 natal planet table
   const { planets: d1Planets, lagna: d1Lagna } = calcDivisional(planets, lagna, 'D1')

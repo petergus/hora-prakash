@@ -5,8 +5,9 @@ import { initSwissEph } from './core/swisseph.js'
 import { loadSettings, applyAyanamsa, getSettings } from './core/settings.js'
 import { loadBranding } from './config/branding.js'
 import { initSettingsModal } from './ui/settings-modal.js'
-import { createSession, switchSession } from './sessions.js'
-import { renderProfileTabs } from './ui/profile-tabs.js'
+import { createSession, switchSession, loadPersistedSessions } from './sessions.js'
+import { renderProfileTabs, activateInnerTab } from './ui/profile-tabs.js'
+import { state } from './state.js'
 import { updateFavicon } from './ui/favicon.js'
 import { requireAuth, logout } from './auth-ui.js'
 import { fetchProfiles } from './cloud-store.js'
@@ -77,13 +78,47 @@ async function main() {
   initTabs()
   initSettingsModal()
 
-  const id = createSession()
-  switchSession(id)
+  // Recreate profile tabs persisted from this browser tab (sessionStorage);
+  // chart data is recalculated below once the ephemeris is ready.
+  const persisted = loadPersistedSessions()
+  const entries = persisted?.entries ?? [{}]
+  const ids = entries.map(e => createSession(e.label ?? 'New Profile'))
+  switchSession(ids[0])
   renderProfileTabs()
   renderInputTab()
 
   // Preload WASM in background; form submit will await it if still loading
-  initSwissEph().then(() => applyAyanamsa()).catch(console.error)
+  const sweReady = initSwissEph().then(() => applyAyanamsa())
+  sweReady.catch(console.error)
+
+  if (persisted) {
+    restoreSessionData(persisted, ids, sweReady).catch(err =>
+      console.error('Session restore failed:', err))
+  }
+}
+
+// Recalculate charts for restored sessions (only birth inputs are persisted).
+async function restoreSessionData(persisted, ids, sweReady) {
+  const withBirth = persisted.entries
+    .map((e, i) => ({ ...e, id: ids[i] }))
+    .filter(e => e.birth?.dob && e.birth?.tob)
+  if (!withBirth.length) return
+
+  await sweReady
+  const { recalcAll } = await import('./tabs/input.js')
+
+  for (const entry of withBirth) {
+    switchSession(entry.id)
+    state.birth = entry.birth
+    await recalcAll()
+    renderProfileTabs()
+  }
+
+  // Return to the session that was active before the reload
+  const targetId = ids[persisted.activeIndex] ?? ids[0]
+  switchSession(targetId)
+  renderProfileTabs()
+  activateInnerTab(state.planets ? 'chart' : 'input')
 }
 
 function installAuthHeader(user) {

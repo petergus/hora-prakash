@@ -1685,6 +1685,19 @@ h3 {
 .avarga-cell.own-sign { background: #fef9c3; font-weight: 700; }
 .avarga-cell.score-high { background: #dcfce7; }
 .avarga-cell.score-low  { background: #fee2e2; }
+.transit-table td.score-high { background: #dcfce7; font-weight: 600; }
+.transit-table td.score-low  { background: #fee2e2; font-weight: 600; }
+
+/* Dasha sandhi (junction period) warning banner */
+.dasha-sandhi-banner {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  margin: 0.4rem 0;
+}
 .avarga-sarva { border-top: 2px solid var(--primary); margin-top: 0.5rem; }
 .avarga-sarva .avarga-cell { background: #eff6ff; font-weight: 600; }
 @media (max-width: 640px) {

@@ -62,6 +62,60 @@ const elapsed = ((123.456 % (360 / 27)) / (360 / 27)) * 7
 const span = (dasha[8].end - dasha[0].start) / 86400000 / 365.256363004
 assert(Math.abs(span - (120 - elapsed)) < 0.05, `cycle ≈ ${(120 - elapsed).toFixed(2)}y (got ${span.toFixed(2)})`)
 
+// ── Dasha sandhi ──
+const { getDashaSandhi } = await import('../src/core/dasha.js')
+console.log('\n[dasha sandhi]')
+{
+  const now = new Date()
+  const d = days => new Date(now.getTime() + days * 86400000)
+  const node = (planet, startD, endD, children = []) => ({ planet, start: d(startD), end: d(endD), children })
+  // Saturn maha 98% elapsed (ends in 20d of a 1020d period); its Mercury antar 96% elapsed
+  const tree = [
+    node('Saturn', -1000, 20, [node('Venus', -1000, -52), node('Mercury', -52, 2)]),
+    node('Mercury', 20, 3000),
+  ]
+  const s = getDashaSandhi(tree)
+  assert(s.some(x => x.level === 'Mahadasha' && x.planet === 'Saturn' && x.phase === 'ending' && x.nextPlanet === 'Mercury'),
+    'maha ending sandhi detected with next lord')
+  assert(s.some(x => x.level === 'Antardasha' && x.planet === 'Mercury' && x.phase === 'ending'),
+    'antar ending sandhi detected')
+  // Freshly begun maha
+  const tree2 = [node('Venus', -3, 7000)]
+  const s2 = getDashaSandhi(tree2)
+  assert(s2.length === 1 && s2[0].phase === 'beginning', 'fresh maha flagged as beginning sandhi')
+  // Mid-period → no sandhi
+  const tree3 = [node('Venus', -3000, 3000)]
+  assert(getDashaSandhi(tree3).length === 0, 'mid-period produces no sandhi')
+  assert(getDashaSandhi(null).length === 0, 'handles missing tree')
+}
+
+// ── Yogas ──
+const { detectYogas } = await import('../src/core/yogas.js')
+console.log('\n[yogas]')
+{
+  // Crafted chart: Cancer lagna; Jupiter exalted in Cancer (house 1) → Hamsa +
+  // Gaja-Kesari (with Moon in Cancer); Mars exalted in Capricorn (house 7) →
+  // Ruchaka + Chandra-Mangala (mutual 7th aspect); Sun+Mercury in Leo → Budhaditya.
+  const yLagna = { lon: 95, sign: 4, degree: 5 }
+  const mk = (name, abbr, sign, lon) => ({ name, abbr, sign, lon, degree: lon % 30,
+    house: ((sign - yLagna.sign + 12) % 12) + 1, combust: false })
+  const yPlanets = [
+    mk('Sun', 'Su', 5, 125), mk('Moon', 'Mo', 4, 100), mk('Mercury', 'Me', 5, 128),
+    mk('Venus', 'Ve', 6, 155), mk('Mars', 'Ma', 10, 285), mk('Jupiter', 'Ju', 4, 97),
+    mk('Saturn', 'Sa', 11, 310), mk('Rahu', 'Ra', 1, 10), mk('Ketu', 'Ke', 7, 190),
+  ]
+  const found = detectYogas(yPlanets, yLagna)
+  const keys = new Set(found.map(y => y.key))
+  assert(keys.has('mahapurusha-jupiter'), 'Hamsa: exalted Jupiter in kendra detected')
+  assert(keys.has('mahapurusha-mars'), 'Ruchaka: exalted Mars in kendra detected')
+  assert(keys.has('gaja-kesari'), 'Gaja-Kesari: Jupiter in kendra from Moon detected')
+  assert(keys.has('budhaditya'), 'Budhaditya: Sun–Mercury conjunction detected')
+  assert(keys.has('chandra-mangala'), 'Chandra-Mangala: Moon–Mars mutual aspect detected')
+  assert(!keys.has('kemadruma'), 'Kemadruma not falsely detected (Jupiter with Moon)')
+  assert(found.every(y => y.name && y.category && y.description), 'all yogas carry name/category/description')
+  assert(detectYogas(null, null).length === 0, 'detectYogas handles missing data')
+}
+
 // ── Export payload ──
 console.log('\n[export payload]')
 // Simulate an OLD saved preset missing decimals/new sections (the NaN→null bug)
@@ -112,6 +166,8 @@ assert(payload.dasha.every(m => m.children.every(a => Array.isArray(a.children) 
   'depth-3 export: pratyantar levels computed (9 children per antar)')
 assert(payload.dasha[0].children[0].children[0].children === undefined, 'depth-3 export: no level-4 leakage')
 assert(payload.divisionals.D9 && payload.divisionals.D1, 'divisionals D1+D9 present')
+assert(Array.isArray(payload.sripatiHouses) && payload.sripatiHouses.length === 12, 'sripatiHouses exported with houses section')
+assert(Array.isArray(payload.yogas), 'yogas section exported')
 assert(payload.divisionals.D9.planets.every(p => p.house >= 1 && p.house <= 12), 'divisional houses in 1..12')
 const rounded = payload.planets.every(p => String(p.lon).split('.')[1]?.length <= 4 || Number.isInteger(p.lon))
 assert(rounded, 'numbers rounded to 4 decimals')

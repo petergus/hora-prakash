@@ -3,6 +3,7 @@ import { state } from '../state.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { getSettings, buildCalcFlags } from '../core/settings.js'
 import { getAspectedSigns } from '../core/aspects.js'
+import { detectYogas } from '../core/yogas.js'
 import { ensureChildren } from '../core/dasha.js'
 import { getSwe } from '../core/swisseph.js'
 import { getActiveSession } from '../sessions.js'
@@ -28,7 +29,7 @@ export function defaultConfig() {
     sections: {
       meta: true, birth: true, lagna: true, houses: true,
       planets: true, aspects: true, divisionals: true,
-      dasha: true, panchang: true, strength: true,
+      dasha: true, panchang: true, strength: true, yogas: true,
     },
     planetFields: { nakshatra: true, nakshatraLord: true, pada: true, retrograde: true, combust: true },
     divisionals,
@@ -43,6 +44,7 @@ function litePreset() {
   cfg.sections.aspects = false
   cfg.sections.strength = false
   cfg.sections.panchang = false
+  cfg.sections.yogas = false
   for (const k of Object.keys(cfg.divisionals)) cfg.divisionals[k] = false
   cfg.divisionals.D1 = true
   cfg.divisionals.D9 = true
@@ -193,7 +195,10 @@ export async function buildPayload(cfg) {
 
   if (cfg.sections.birth) payload.birth = birth
   if (cfg.sections.lagna) payload.lagna = lagna
-  if (cfg.sections.houses) payload.houses = houses
+  if (cfg.sections.houses) {
+    payload.houses = houses  // Placidus cusps (12 longitudes)
+    if (state.sripatiHouses) payload.sripatiHouses = state.sripatiHouses
+  }
 
   const filteredPlanets = planets ? planets.map(p => filterPlanet(p, cfg.planetFields)) : null
 
@@ -237,6 +242,10 @@ export async function buildPayload(cfg) {
   if (cfg.sections.dasha && dasha) {
     await expandDashaForExport(dasha, cfg.dashaDepth)
     payload.dasha = trimDasha(dasha, cfg.dashaDepth)
+  }
+
+  if (cfg.sections.yogas && planets && lagna) {
+    payload.yogas = detectYogas(planets, lagna)
   }
 
   if (cfg.sections.panchang) payload.panchang = panchang
@@ -321,6 +330,7 @@ function renderPanel() {
     ['lagna','Lagna'], ['houses','Houses'], ['planets','Planets'],
     ['aspects','Aspects'], ['divisionals','Divisional charts'],
     ['dasha','Dasha'], ['panchang','Panchang'], ['strength','Strength (Shadbala / Ashtakavarga)'],
+    ['yogas','Yogas'],
   ].map(([k, l]) => checkbox(`xp-sec-${k}`, l, cfg.sections[k])).join('')
 
   return `
@@ -385,6 +395,10 @@ export async function renderExport() {
   }
 
   ensureWorking()
+  // Depth-3 dasha expansion can take a moment on first render — show progress
+  if (!el.querySelector('.export-wrap')) {
+    el.innerHTML = '<p class="export-empty">Generating export…</p>'
+  }
   const active = getActivePreset()
   const cfg = { ...workingConfig, __presetName: active.name + (dirty ? ' (modified)' : '') }
   const payload = await buildPayload(cfg)
@@ -408,6 +422,7 @@ export async function renderExport() {
         </div>
         <div class="export-actions">
           <button class="export-btn" id="xbtn-copy">Copy JSON</button>
+          <button class="export-btn" id="xbtn-copy-ai" title="Copy the JSON wrapped in an analysis prompt for an AI assistant">Copy as AI prompt</button>
           <button class="export-btn export-btn-primary" id="xbtn-download">Download .json</button>
         </div>
       </div>
@@ -531,6 +546,36 @@ function wireEvents(jsonStr, filename) {
     }
     setTimeout(() => {
       if (btn) { btn.textContent = 'Copy JSON'; btn.classList.remove('export-btn-ok') }
+    }, 2500)
+  })
+
+  document.getElementById('xbtn-copy-ai').addEventListener('click', async () => {
+    const btn = document.getElementById('xbtn-copy-ai')
+    const name = state.birth?.name || 'the native'
+    const prompt = [
+      'You are an experienced Vedic (Jyotish) astrologer. Below is a complete JSON export of',
+      `the birth chart of ${name}, computed with the sidereal zodiac (see meta.settings for the`,
+      'ayanamsa and options used). Signs are numbered 1 = Aries … 12 = Pisces; houses are counted',
+      'from the lagna; longitudes are sidereal ecliptic degrees; dasha dates are ISO timestamps.',
+      '',
+      'Please analyze this chart. Cover: lagna and chart ruler; planetary strengths and dignities',
+      '(use the shadbala and ashtakavarga sections if present); key houses (1, 2, 4, 5, 7, 9, 10);',
+      'important yogas and aspects; the current and upcoming dasha periods with practical themes;',
+      'and a concise summary of strengths, challenges, and timing. Explain your reasoning from the',
+      'data rather than making generic statements.',
+      '',
+      '```json',
+      jsonStr,
+      '```',
+    ].join('\n')
+    if (await copyText(prompt)) {
+      btn.textContent = 'Copied!'
+      btn.classList.add('export-btn-ok')
+    } else {
+      btn.textContent = 'Copy failed'
+    }
+    setTimeout(() => {
+      if (btn) { btn.textContent = 'Copy as AI prompt'; btn.classList.remove('export-btn-ok') }
     }, 2500)
   })
 

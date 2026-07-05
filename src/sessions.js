@@ -78,6 +78,35 @@ function currentInnerTab() {
 let sessions = []
 let activeId  = null
 
+// ── Persistence across reloads ────────────────────────────────────────────────
+// Full snapshots contain Dates, Sets and WASM-derived trees — too lossy to
+// serialize. Persist only the birth inputs + labels; main.js recalculates
+// each restored session once SwissEph is ready.
+const PERSIST_KEY = 'hora-prakash-sessions'
+
+export function persistSessions() {
+  try {
+    const entries = sessions.map(s => ({
+      label: s.label,
+      birth: s.id === activeId ? state.birth : s.snap.birth,
+    }))
+    sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ entries, activeIndex: sessions.findIndex(s => s.id === activeId) }))
+  } catch { /* storage full / unavailable — persistence is best-effort */ }
+}
+
+/** @returns {{ entries: {label, birth}[], activeIndex: number } | null} */
+export function loadPersistedSessions() {
+  try {
+    const raw = sessionStorage.getItem(PERSIST_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (!Array.isArray(data.entries) || data.entries.length === 0) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
 export function createSession(label = 'New Profile') {
   const id = genId()
   sessions.push({
@@ -87,6 +116,7 @@ export function createSession(label = 'New Profile') {
     innerTab: 'input',
     uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI() },
   })
+  persistSessions()
   return id
 }
 
@@ -110,6 +140,7 @@ export function switchSession(id) {
   const next = sessions.find(s => s.id === id)
   if (!next) return
   Object.assign(state, next.snap)
+  persistSessions()
 }
 
 export function closeSession(id) {
@@ -123,11 +154,13 @@ export function closeSession(id) {
     if (activeId) Object.assign(state, sessions[newIdx].snap)
     else Object.assign(state, emptySnap())
   }
+  persistSessions()
 }
 
 export function updateActiveLabel(label) {
   const s = sessions.find(s => s.id === activeId)
   if (s) s.label = label
+  persistSessions()
 }
 
 export function activeInnerTab() {

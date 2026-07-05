@@ -1,6 +1,7 @@
 // src/ui/chart-export.js
 import { renderChartSVG } from './chart-svg.js'
 import { calcDivisional } from '../core/divisional.js'
+import { isCurrentPeriod } from '../core/dasha.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -60,6 +61,30 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(a.href)
 }
 
+// Rows for the optional Vimshottari table: all mahadashas, plus the antars of
+// the currently running mahadasha (built eagerly at calc time).
+export function buildDashaExportRows(dasha) {
+  if (!Array.isArray(dasha)) return []
+  const fmt = d => d.toISOString().slice(0, 10)
+  const rows = []
+  for (const maha of dasha) {
+    const cur = isCurrentPeriod(maha.start, maha.end)
+    rows.push({ label: `${maha.planet} Mahadasha`, start: fmt(maha.start), end: fmt(maha.end), current: cur, indent: 0 })
+    if (cur) {
+      for (const antar of maha.children ?? []) {
+        rows.push({
+          label: `${antar.planet} Antardasha`,
+          start: fmt(antar.start), end: fmt(antar.end),
+          current: isCurrentPeriod(antar.start, antar.end), indent: 1,
+        })
+      }
+    }
+  }
+  return rows
+}
+
+const DASHA_COLS = [32, 420, 640]
+
 function makeFilename(birth, keys, ext) {
   const name = (birth?.name || 'chart').replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
   const dob  = birth?.dob || ''
@@ -96,7 +121,7 @@ function chartPos(i, n) {
  * }
  */
 export async function buildCanvas(opts) {
-  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
+  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn, dashaRows = [] } = opts
   const { birth, planets, lagna } = state
 
   const W        = EXPORT_W
@@ -128,9 +153,10 @@ export async function buildCanvas(opts) {
 
   const natalTableH   = (tableRows.length + 2) * ROW_H + PAD * 2
   const transitTableH = transitRows.length > 0 ? (transitRows.length + 2) * ROW_H + PAD * 2 : 0
+  const dashaTableH   = dashaRows.length > 0 ? (dashaRows.length + 2) * ROW_H + PAD * 2 : 0
   const chartAreaH    = chartAreaHeight(allSvgs.length)
 
-  const totalH = HEADER_H + chartAreaH + natalTableH + transitTableH
+  const totalH = HEADER_H + chartAreaH + natalTableH + transitTableH + dashaTableH
 
   const canvas = document.createElement('canvas')
   canvas.width  = W
@@ -272,6 +298,40 @@ export async function buildCanvas(opts) {
     }
   }
 
+  // ── Vimshottari dasha table ──
+  if (dashaRows.length > 0) {
+    ty += PAD
+
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(PAD - 8, ty - 8, W - (PAD - 8) * 2, dashaTableH, 8)
+    ctx.fill()
+
+    ctx.font = 'bold 14px Inter, system-ui, sans-serif'
+    ctx.fillStyle = '#1e293b'
+    ctx.fillText('Vimshottari Dasha', DASHA_COLS[0], ty + 6)
+    ty += ROW_H + 4
+
+    ctx.font = 'bold 11px Inter, system-ui, sans-serif'
+    ctx.fillStyle = '#94a3b8'
+    ;['Period', 'Start', 'End'].forEach((h, i) => ctx.fillText(h, DASHA_COLS[i], ty))
+    ty += 4
+    ctx.strokeStyle = '#e2e8f0'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(PAD, ty); ctx.lineTo(W - PAD, ty); ctx.stroke()
+    ty += ROW_H - 4
+
+    for (const r of dashaRows) {
+      ctx.font = `${r.current ? 'bold ' : ''}12px Inter, system-ui, sans-serif`
+      ctx.fillStyle = r.current ? '#c2410c' : '#1e293b'
+      ctx.fillText((r.indent ? '    ' : '') + r.label + (r.current ? '  ◀ current' : ''), DASHA_COLS[0], ty)
+      ctx.fillStyle = r.current ? '#c2410c' : '#475569'
+      ctx.fillText(r.start, DASHA_COLS[1], ty)
+      ctx.fillText(r.end,   DASHA_COLS[2], ty)
+      ty += ROW_H
+    }
+  }
+
   return canvas
 }
 
@@ -322,7 +382,7 @@ export async function exportChart(format, opts) {
 }
 
 async function exportSVG(opts) {
-  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn } = opts
+  const { chartKeys, chartLabels, chartStyle, state, transitPlanets, transitLabel, extraSvgFn, dashaRows = [] } = opts
   const { birth, planets, lagna } = state
 
   const W        = EXPORT_W
@@ -346,8 +406,9 @@ async function exportSVG(opts) {
 
   const natalTableH   = (tableRows.length + 2) * ROW_H + PAD * 2
   const transitTableH = transitRows.length > 0 ? (transitRows.length + 2) * ROW_H + PAD * 2 : 0
+  const dashaTableH   = dashaRows.length > 0 ? (dashaRows.length + 2) * ROW_H + PAD * 2 : 0
   const chartAreaH    = chartAreaHeight(n)
-  const totalH        = HEADER_H + chartAreaH + natalTableH + transitTableH
+  const totalH        = HEADER_H + chartAreaH + natalTableH + transitTableH + dashaTableH
 
   // Prefix SVG ids to prevent collision when embedding multiple charts
   const embeddedCharts = allSvgs.map((svg, i) => {
@@ -422,14 +483,38 @@ async function exportSVG(opts) {
 
   const { svg: natalSVG, endY: natalEnd } = tableRowsSVG(tableRows, natalStart)
   svgParts.push(natalSVG)
+  let sectionEnd = natalEnd
 
   if (transitRows.length > 0) {
     const tTableStartY = natalEnd + PAD
     const tTableStart  = tTableStartY + ROW_H + 4
     svgParts.push(`<rect x="${PAD - 8}" y="${tTableStartY - 8}" width="${W - (PAD - 8) * 2}" height="${transitTableH}" rx="8" fill="#ffffff" filter="url(#card-shadow)"/>`)
     svgParts.push(`<text x="${COLS[0]}" y="${tTableStartY + 6}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">${esc(transitLabel ?? 'Transit Planets')}</text>`)
-    const { svg: transitSVG } = tableRowsSVG(transitRows, tTableStart, '#0369a1')
+    const { svg: transitSVG, endY: transitEnd } = tableRowsSVG(transitRows, tTableStart, '#0369a1')
     svgParts.push(transitSVG)
+    sectionEnd = transitEnd
+  }
+
+  if (dashaRows.length > 0) {
+    const dTableStartY = sectionEnd + PAD
+    let dy = dTableStartY + ROW_H + 4
+    svgParts.push(`<rect x="${PAD - 8}" y="${dTableStartY - 8}" width="${W - (PAD - 8) * 2}" height="${dashaTableH}" rx="8" fill="#ffffff" filter="url(#card-shadow)"/>`)
+    svgParts.push(`<text x="${COLS[0]}" y="${dTableStartY + 6}" font-size="13" font-weight="bold" fill="#1e293b" font-family="Inter,system-ui,sans-serif">Vimshottari Dasha</text>`)
+    ;['Period', 'Start', 'End'].forEach((h, i) => {
+      svgParts.push(`<text x="${DASHA_COLS[i]}" y="${dy}" font-size="10" fill="#94a3b8" font-weight="600" font-family="Inter,system-ui,sans-serif">${h}</text>`)
+    })
+    dy += 4
+    svgParts.push(`<line x1="${PAD}" y1="${dy}" x2="${W - PAD}" y2="${dy}" stroke="#e2e8f0" stroke-width="1"/>`)
+    dy += ROW_H - 4
+    for (const r of dashaRows) {
+      const color = r.current ? '#c2410c' : '#1e293b'
+      const weight = r.current ? ' font-weight="bold"' : ''
+      const label = (r.indent ? '    ' : '') + r.label + (r.current ? '  ◀ current' : '')
+      svgParts.push(`<text x="${DASHA_COLS[0]}" y="${dy}" font-size="11" fill="${color}"${weight} font-family="Inter,system-ui,sans-serif">${esc(label)}</text>`)
+      svgParts.push(`<text x="${DASHA_COLS[1]}" y="${dy}" font-size="11" fill="${r.current ? color : '#475569'}"${weight} font-family="Inter,system-ui,sans-serif">${r.start}</text>`)
+      svgParts.push(`<text x="${DASHA_COLS[2]}" y="${dy}" font-size="11" fill="${r.current ? color : '#475569'}"${weight} font-family="Inter,system-ui,sans-serif">${r.end}</text>`)
+      dy += ROW_H
+    }
   }
 
   svgParts.push('</svg>')
@@ -485,6 +570,14 @@ export function showExportModal(modalOpts) {
     position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45);
     display:flex;align-items:center;justify-content:center`
 
+  const dashaCheckHtml = state.dasha ? `
+    <div style="margin-bottom:1rem">
+      <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;cursor:pointer">
+        <input type="checkbox" id="export-include-dasha" style="accent-color:#6366f1">
+        Include Vimshottari dasha table
+      </label>
+    </div>` : ''
+
   overlay.innerHTML = `
     <div id="export-modal" style="
       background:#fff;border-radius:12px;padding:1.5rem;min-width:360px;max-width:520px;
@@ -493,6 +586,7 @@ export function showExportModal(modalOpts) {
         ${isTransit ? 'Download Transit Chart' : 'Download Chart'}
       </h3>
       ${chartSelectHtml}
+      ${dashaCheckHtml}
       <div style="margin-bottom:1.25rem">
         <div style="font-size:0.82rem;font-weight:600;color:#1e293b;margin-bottom:0.5rem">Format</div>
         <div style="display:flex;gap:0.75rem">
@@ -546,6 +640,8 @@ export function showExportModal(modalOpts) {
     btn.disabled = true
 
     try {
+      const includeDasha = overlay.querySelector('#export-include-dasha')?.checked ?? false
+      const dashaRows = includeDasha ? buildDashaExportRows(state.dasha) : []
       const exportOpts = isTransit
         ? {
             chartKeys,
@@ -555,12 +651,14 @@ export function showExportModal(modalOpts) {
             transitPlanets: modalOpts.transitPlanets ?? [],
             transitLabel:   modalOpts.transitLabel,
             extraSvgFn:     modalOpts.extraSvgFn,
+            dashaRows,
           }
         : {
             chartKeys,
             chartLabels: chartKeys,  // use key names as labels for chart tab
             chartStyle,
             state,
+            dashaRows,
           }
 
       await exportChart(format, exportOpts)

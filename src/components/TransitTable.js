@@ -1,5 +1,6 @@
 import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { parseTzInfo, fmtTransitDate } from '../utils/format.js'
+import { state } from '../state.js'
 
 const SIGN_NAMES = ['','Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -69,6 +70,20 @@ export class TransitTable {
 
     const retroMark = (p) => p?.retrograde ? ' (R)' : ''
 
+    // Ashtakavarga overlay: SAV points of the sign a transit planet occupies
+    // (natal Sarvashtakavarga; only meaningful against the rashi chart)
+    const sarva = isD1 ? (state.strength?.sarva ?? null) : null
+    const savCell = (tp) => {
+      if (!sarva || !tp) return sarva ? '<td>—</td>' : ''
+      const pts = sarva[tp.sign - 1]
+      const cls = pts >= 30 ? 'score-high' : pts <= 22 ? 'score-low' : ''
+      return `<td class="${cls}" title="Sarvashtakavarga points of ${signName(tp.sign)} in the natal chart">${pts}</td>`
+    }
+    const savHeader = sarva
+      ? '<th title="Natal Sarvashtakavarga points of the sign the transiting planet occupies. 30+ supportive, 22 or less challenging.">SAV</th>'
+      : ''
+    const colCount = sarva ? 8 : 7
+
     const nLagna = natalLagna
     const tLagna = transitLagna ?? this.ui.transitLagna
     const lagnaRow = `
@@ -80,6 +95,7 @@ export class TransitTable {
         <td>${tLagna ? signName(tLagna.sign) : '—'}</td>
         <td>${tLagna ? fmtDeg(tLagna.degree) : '—'}</td>
         <td>${tLagna ? nakPada(tLagna) : '—'}</td>
+        ${sarva ? '<td>—</td>' : ''}
       </tr>`
 
     const rows = natalPlanets.map(np => {
@@ -97,11 +113,12 @@ export class TransitTable {
           <td>${tp ? signName(tp.sign) : '—'}</td>
           <td>${tp ? fmtDeg(tp.degree) + retroMark(tp) : '—'}</td>
           <td>${tp ? nakPada(tp) : '—'}</td>
+          ${savCell(tp)}
         </tr>`
 
       const expansionRow = tp && isExpanded ? `
         <tr class="transit-expansion-row">
-          <td colspan="7">
+          <td colspan="${colCount}">
             <div class="transit-expansion" data-expansion="${np.abbr}">
               ${this._forecasts[np.abbr]
                 ? this._buildExpansionContent(this._forecasts[np.abbr])
@@ -126,6 +143,7 @@ export class TransitTable {
               <th>Transit Sign</th>
               <th>Transit°</th>
               <th>Transit Nakshatra</th>
+              ${savHeader}
             </tr>
           </thead>
           <tbody>${lagnaRow}${rows}</tbody>

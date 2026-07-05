@@ -42,7 +42,6 @@ const TRANSIT_PLANET_COLORS = {
 
 const SIGN_ABBR  = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
-export const CHALIT_LABELS = ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12']
 
 function _tipAttr(p, isTransit) {
   const deg = p.degree ?? 0

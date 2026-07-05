@@ -1,5 +1,6 @@
 // src/tabs/strength.js
 import { state } from '../state.js'
+import { detectYogas } from '../core/yogas.js'
 
 const SIGN_ABBR = ['Ar','Ta','Ge','Ca','Le','Vi','Li','Sc','Sg','Cp','Aq','Pi']
 const PLANETS_ORDER = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
@@ -20,6 +21,7 @@ export function renderStrength() {
         <button class="chart-style-btn${activeSubTab === 'ashtakavarga' ? ' active' : ''}" data-subtab="ashtakavarga">Ashtakavarga</button>
         <button class="chart-style-btn${activeSubTab === 'shadbala' ? ' active' : ''}" data-subtab="shadbala">Shadbala</button>
         <button class="chart-style-btn${activeSubTab === 'bargraph' ? ' active' : ''}" data-subtab="bargraph">Bar Graph</button>
+        <button class="chart-style-btn${activeSubTab === 'yogas' ? ' active' : ''}" data-subtab="yogas">Yogas</button>
       </div>
       <div id="strength-panel"></div>
     </div>
@@ -38,7 +40,43 @@ function renderSubTab() {
   if (!panel) return
   if (activeSubTab === 'ashtakavarga') renderAshtakavarga(panel)
   else if (activeSubTab === 'shadbala') renderShadbala(panel)
+  else if (activeSubTab === 'yogas') renderYogas(panel)
   else renderBarGraph(panel)
+}
+
+function renderYogas(panel) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const yogas = detectYogas(state.planets, state.lagna)
+  if (!yogas.length) {
+    panel.innerHTML = '<p class="panchang-empty">No classical yogas from the checked set were detected in this chart.</p>'
+    return
+  }
+  const CHIP = {
+    benefic:     ['Benefic',     'background:#dcfce7;color:#166534'],
+    challenging: ['Challenging', 'background:#fee2e2;color:#991b1b'],
+    neutral:     ['Neutral',     'background:#e2e8f0;color:#334155'],
+  }
+  const order = { benefic: 0, neutral: 1, challenging: 2 }
+  const rows = [...yogas].sort((a, b) => order[a.category] - order[b.category]).map(y => {
+    const [label, style] = CHIP[y.category] ?? CHIP.neutral
+    return `
+      <div class="card" style="padding:0.75rem 1rem;margin-bottom:0.6rem">
+        <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+          <strong>${esc(y.name)}</strong>
+          <span style="font-size:0.7rem;padding:0.1rem 0.5rem;border-radius:999px;${style}">${label}</span>
+        </div>
+        <div style="font-size:0.85rem;color:var(--muted,#64748b);margin-top:0.3rem">${esc(y.description)}</div>
+      </div>`
+  }).join('')
+  panel.innerHTML = `
+    <div class="yogas-wrap">
+      ${rows}
+      <p style="font-size:0.75rem;color:var(--muted,#94a3b8);margin-top:0.75rem">
+        Detected with whole-sign rules (conjunction = same sign, full sign aspects).
+        Checked: Pancha Mahapurusha, Gaja-Kesari, Budhaditya, Chandra-Mangala, Raj (kendra–trikona),
+        Dhana, Parivartana, Vipreet Raj, Neecha Bhanga, Sunapha/Anapha/Durudhara/Kemadruma, Amala, Kala Sarpa.
+      </p>
+    </div>`
 }
 
 function renderAshtakavarga(panel) {

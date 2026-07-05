@@ -32,15 +32,38 @@ export class TransitToolbar {
     this._dateMode       = 'picker' // 'picker' | 'text'
     this._dateTextVal    = ''
     this._timeTextVal    = ''
+    this._stepUnit       = 'day'   // 'day' | 'week' | 'month' | 'year'
+    this._playTimer      = null
   }
 
   get ui() { return this._getState() }
 
   destroy() {
+    this._stopPlay()
     if (this._onClick)   this.el.removeEventListener('click',  this._onClick)
     if (this._onChange2) this.el.removeEventListener('change', this._onChange2)
     if (this._onInput2)  this.el.removeEventListener('input',  this._onInput2)
     this._onClick = this._onChange2 = this._onInput2 = null
+  }
+
+  _stopPlay() {
+    if (this._playTimer) { clearInterval(this._playTimer); this._playTimer = null }
+  }
+
+  // Step the transit date by ±1 of the selected unit (UTC-noon arithmetic
+  // avoids DST edge cases shifting the calendar date)
+  _step(dir) {
+    const dateStr = this.ui.transitDate ?? new Date().toISOString().slice(0, 10)
+    const d = new Date(dateStr + 'T12:00:00Z')
+    if (isNaN(d)) return
+    if (this._stepUnit === 'day')        d.setUTCDate(d.getUTCDate() + dir)
+    else if (this._stepUnit === 'week')  d.setUTCDate(d.getUTCDate() + 7 * dir)
+    else if (this._stepUnit === 'month') d.setUTCMonth(d.getUTCMonth() + dir)
+    else                                 d.setUTCFullYear(d.getUTCFullYear() + dir)
+    const next = d.toISOString().slice(0, 10)
+    const [y, mo, dd] = next.split('-')
+    this._dateTextVal = `${dd}/${mo}/${y}`
+    this._onChange('transitDate', next)
   }
 
   render() {
@@ -110,6 +133,14 @@ export class TransitToolbar {
           <input type="text" class="transit-date-text transit-secondary-ctrl" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" value="${this._dateTextVal}" />
           <input type="text" class="transit-time-text transit-secondary-ctrl" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${this._timeTextVal}" />
           `}
+          <div class="transit-zoom-group transit-secondary-ctrl" title="Step the transit date">
+            <button class="transit-zoom-btn" data-action="stepBack" title="Back one ${this._stepUnit}">‹</button>
+            <select class="transit-step-unit" title="Step size" style="border:none;background:transparent;font-size:0.72rem;padding:0 0.1rem">
+              ${['day','week','month','year'].map(u => `<option value="${u}"${u === this._stepUnit ? ' selected' : ''}>${u}</option>`).join('')}
+            </select>
+            <button class="transit-zoom-btn" data-action="stepFwd" title="Forward one ${this._stepUnit}">›</button>
+            <button class="transit-zoom-btn${this._playTimer ? ' active' : ''}" data-action="togglePlay" title="${this._playTimer ? 'Pause animation' : 'Animate forward'}">${this._playTimer ? '⏸' : '▶'}</button>
+          </div>
           <button class="transit-today-btn transit-secondary-ctrl" data-action="resetToday" title="Reset to today &amp; now">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </button>
@@ -189,7 +220,20 @@ export class TransitToolbar {
         this._onChange('chartZoom', z)
         return
       }
+      if (action === 'stepBack') { this._stopPlay(); this._step(-1); return }
+      if (action === 'stepFwd')  { this._stopPlay(); this._step(1);  return }
+      if (action === 'togglePlay') {
+        if (this._playTimer) {
+          this._stopPlay()
+          this.render()
+        } else {
+          this._playTimer = setInterval(() => this._step(1), 1100)
+          this._step(1)  // re-renders via onChange with the play state visible
+        }
+        return
+      }
       if (action === 'resetToday') {
+        this._stopPlay()
         const now = new Date()
         const d = now.toISOString().slice(0,10)
         const t = now.toTimeString().slice(0,5)
@@ -232,7 +276,9 @@ export class TransitToolbar {
     }
 
     this._onChange2 = (e) => {
-      if (e.target.classList.contains('transit-date')) {
+      if (e.target.classList.contains('transit-step-unit')) {
+        this._stepUnit = e.target.value
+      } else if (e.target.classList.contains('transit-date')) {
         this._onChange('transitDate', e.target.value)
       } else if (e.target.classList.contains('transit-time')) {
         this._onChange('transitTime', e.target.value)

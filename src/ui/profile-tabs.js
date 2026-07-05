@@ -16,7 +16,7 @@ const CLOSE_ICON  = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"
 export async function activateInnerTab(tab) {
   const hasData = !!state.planets
   // Sync disabled state of content tabs with session data availability
-  ;['chart','dasha','panchang','strength','transit','export'].forEach(t => {
+  ;['chart','dasha','panchang','strength','transit','compare','export'].forEach(t => {
     const btn = document.querySelector(`.tab-btn[data-tab="${t}"]`)
     if (!btn) return
     btn.disabled = !hasData
@@ -29,6 +29,7 @@ export async function activateInnerTab(tab) {
   else if (tab === 'strength') (await import('../tabs/strength.js')).renderStrength()
   else if (tab === 'transit')  (await import('../tabs/transit.js')).renderTransit()
   else if (tab === 'export')   (await import('../tabs/export.js')).renderExport()
+  else if (tab === 'compare')  (await import('../tabs/compare.js')).renderCompare()
   else                         renderInputTab()
 }
 

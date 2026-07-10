@@ -1627,6 +1627,97 @@ h3 {
 .pp-item { color: var(--muted); }
 .pp-loc  { font-style: italic; }
 
+/* ── People directory ── */
+.people-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.people-title { font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.people-count {
+  font-size: 0.72rem; font-weight: 600; color: var(--muted);
+  background: #f1f5f9; border-radius: 999px; padding: 0.1rem 0.55rem;
+}
+.people-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.people-actions .btn-secondary { font-size: 0.78rem; padding: 0.3rem 0.7rem; margin: 0; }
+.people-file { cursor: pointer; }
+.people-hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 0.8rem; }
+.people-hint strong { color: var(--text); font-weight: 600; }
+
+.people-cols-wrap { position: relative; }
+.people-cols-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: var(--shadow);
+  padding: 0.55rem 0.7rem; display: flex; flex-direction: column; gap: 0.4rem; min-width: 150px;
+}
+.people-cols-pop label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+.people-cols-pop input { accent-color: var(--primary); }
+
+.people-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.people-table th {
+  text-align: left; padding: 0.5rem 0.7rem;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap;
+}
+.people-table td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.people-table tbody tr:hover { background: #f8fafc; }
+.people-table tbody tr:last-child td { border-bottom: none; }
+.people-table .pt-name { font-weight: 600; color: var(--text); }
+
+.pt-reorder { white-space: nowrap; width: 1px; }
+.pt-move {
+  border: 1px solid var(--border); background: transparent; border-radius: 5px;
+  cursor: pointer; width: 1.5rem; height: 1.35rem; line-height: 1; padding: 0;
+  color: var(--muted); font-size: 0.65rem;
+}
+.pt-move + .pt-move { margin-left: 0.15rem; }
+.pt-move:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.pt-move:disabled { opacity: 0.3; cursor: default; }
+
+.pt-show { text-align: center; width: 1px; }
+.pt-show-cb { width: 1.05rem; height: 1.05rem; accent-color: var(--primary); cursor: pointer; }
+
+.pt-actions { white-space: nowrap; }
+.pt-btn {
+  border: 1px solid var(--border); background: transparent; border-radius: 6px;
+  cursor: pointer; width: 1.9rem; height: 1.9rem; font-size: 0.85rem; color: var(--muted);
+}
+.pt-btn + .pt-btn { margin-left: 0.25rem; }
+.pt-open:hover { color: var(--primary); border-color: var(--primary); background: #eef2ff; }
+.pt-edit:hover { color: var(--text); border-color: var(--text); }
+.pt-del:hover  { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
+.astro-pending { color: #cbd5e1; }
+
+.people-empty { text-align: center; }
+.people-empty-text { color: var(--muted); margin: 0.5rem 0 1rem; }
+.people-empty-actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+.people-empty-actions .btn-secondary { font-size: 0.82rem; margin: 0; }
+
+/* Mobile: collapse the table into stacked cards */
+@media (max-width: 600px) {
+  .people-table thead { display: none; }
+  .people-table, .people-table tbody, .people-table tr, .people-table td { display: block; width: 100%; }
+  .people-table tr {
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 0.7rem; padding: 0.15rem 0.1rem; background: var(--surface);
+  }
+  .people-table td {
+    border: none; display: flex; justify-content: space-between; align-items: center;
+    gap: 1rem; padding: 0.4rem 0.75rem;
+  }
+  .people-table td::before {
+    content: attr(data-label);
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--muted); font-weight: 600; flex-shrink: 0;
+  }
+  .people-table td.pt-name { font-size: 1.02rem; }
+  .people-table td.pt-actions { justify-content: flex-end; }
+}
+
 .btn-tz {
   padding: 0 0.6rem;
   background: #f1f5f9;

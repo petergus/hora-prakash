@@ -16,7 +16,7 @@ import { parseBirthPaste } from '../utils/paste-parse.js'
 import { saveHoroscope } from '../cloud-store.js'
 import {
   genId, loadProfiles, saveProfile, deleteProfile, clearAllProfiles,
-  exportProfiles, importProfiles, importJhdFiles,
+  exportProfiles, importProfiles, importJhdFiles, visibleProfiles,
 } from './profile-store.js'
 
 const DELHI = { displayName: 'New Delhi, India', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' }
@@ -246,6 +246,9 @@ export function renderInputTab() {
   selectedLocation = b
     ? { displayName: b.location, lat: b.lat, lon: b.lon, timezone: b.timezone }
     : { ...DELHI }
+  // Tie edits to the saved profile the active chart came from (if any), so
+  // "Save Profile" updates that profile instead of creating a duplicate.
+  editingProfileId = b?.profileId ?? null
   renderSavedProfiles()
 
   datetimeMode = 'picker'
@@ -321,7 +324,7 @@ function renderSavedProfiles() {
       <div class="profile-row">
         <select id="profile-select" class="profile-select">
           <option value="">— Select a profile —</option>
-          ${profiles.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('')}
+          ${visibleProfiles(profiles).map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('')}
         </select>
         <button type="button" id="btn-load-profile" class="btn-icon btn-icon-primary" title="Load &amp; calculate chart">&#9654;</button>
         <button type="button" id="btn-edit-profile" class="btn-icon btn-icon-muted" title="Load into form for editing">&#9998;</button>
@@ -408,8 +411,8 @@ function fillForm(p) {
 
 function onSaveProfile() {
   const name     = document.getElementById('inp-name').value.trim()
-  const dob      = document.getElementById('inp-dob').value
-  const tob      = document.getElementById('inp-tob').value
+  const dob      = readDob()
+  const tob      = readTob()
   const lat      = Math.round(readLat() * 10000) / 10000
   const lon      = Math.round(readLon() * 10000) / 10000
   const timezone = readTimezone()
@@ -420,9 +423,24 @@ function onSaveProfile() {
     return
   }
 
-  const id = editingProfileId || genId()
-  saveProfile({ id, name, dob, tob, lat, lon, timezone, location, savedAt: new Date().toISOString() })
+  // Resolve which saved profile this save targets, in priority order:
+  //   1. a profile explicitly loaded for editing (dropdown / edit button)
+  //   2. the profile the active chart was loaded from (survives reloads via state.birth)
+  //   3. an existing profile that matches name+date+time (avoids duplicates)
+  //   4. a brand-new profile
+  let id = editingProfileId || state.birth?.profileId || null
+  if (!id) {
+    const match = loadProfiles().find(p => p.name === name && p.dob === dob && p.tob === tob)
+    id = match ? match.id : genId()
+  }
+  const existing = loadProfiles().find(p => p.id === id)
+  saveProfile({
+    ...(existing || {}),
+    id, name, dob, tob, lat, lon, timezone, location,
+    savedAt: new Date().toISOString(),
+  })
   editingProfileId = id
+  if (state.birth) state.birth.profileId = id
   renderSavedProfiles()
 
   const btn = document.getElementById('btn-save-profile')
@@ -620,61 +638,15 @@ async function onFormSubmit(e) {
   if (isNaN(lat) || lat < -90 || lat > 90) { errEl.textContent = 'Latitude must be between -90 and 90.'; return }
   if (isNaN(lon) || lon < -180 || lon > 180) { errEl.textContent = 'Longitude must be between -180 and 180.'; return }
 
+  const location = document.getElementById('inp-location').value.trim()
   const btn = document.getElementById('btn-calculate')
   try {
     btn.disabled = true
     btn.textContent = 'Loading ephemeris…'
-
-    await initSwissEph()
-    btn.textContent = 'Calculating…'
-    applyAyanamsa()
-    const jd = toJulianDay(dob, tob, tz)
-    const settings = getSettings()
-    const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, lat, lon, settings)
-    const moon = planets.find(p => p.name === 'Moon')
-    if (!moon) throw new Error('Moon position could not be calculated.')
-    const swe      = getSwe()
-    const dasha    = await calcDasha(moon, dob, { settings, swe, jd })
-    const panchang = calcPanchang(jd, lat, lon, { dateStr: dob, timezone: tz })
-
-    const location = document.getElementById('inp-location').value.trim()
-    state.birth        = { name, dob, tob, lat, lon, timezone: tz, location }
-    state.planets      = planets
-    state.lagna        = lagna
-    state.houses       = houses
-    state.sripatiHouses = sripatiHouses
-    state.dasha    = dasha
-    state.panchang = panchang
-
-    const bhinna   = calcBhinnashtakavarga(planets, lagna)
-    const sarva    = calcSarvashtakavarga(bhinna)
-    const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
-    state.strength = { bhinna, sarva, shadbala }
-
-    // Fire off async cloud save if logged in. Generate a stable ID if none exists.
-    const horoscopeId = editingProfileId
-      || `${name}-${dob}-${tob}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    saveHoroscope(horoscopeId, {
-      birth: state.birth,
-      planets: state.planets,
-      lagna: state.lagna,
-      houses: state.houses,
-    }).catch(err => console.error('Cloud horoscope save failed:', err))
-
-    // Update session label and profile tab bar
-    const { updateActiveLabel } = await import('../sessions.js')
-    const { renderProfileTabs } = await import('../ui/profile-tabs.js')
-    updateActiveLabel(name)
-    renderProfileTabs()
-
-    const { renderChart }    = await import('./chart.js')
-    const { renderDasha }    = await import('./dasha.js')
-    const { renderPanchang } = await import('./panchang.js')
-
-    const { renderStrength } = await import('./strength.js')
-    renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
-    switchTab('chart')
+    await computeAndRenderChart(
+      { name, dob, tob, lat, lon, timezone: tz, location },
+      { profileId: editingProfileId || state.birth?.profileId || null, onStatus: t => { btn.textContent = t } },
+    )
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
     console.error(err)
@@ -682,6 +654,87 @@ async function onFormSubmit(e) {
     btn.disabled = false
     btn.textContent = 'Calculate Chart'
   }
+}
+
+/**
+ * Compute a full chart for a birth record and render every data tab. Shared by
+ * the form submit path and by loading a saved profile from the People directory.
+ * DOM-independent except for the optional `onStatus` progress callback.
+ * @param {{name,dob,tob,lat,lon,timezone,location}} birth
+ * @param {{ profileId?: string|null, onStatus?: (text:string)=>void }} [opts]
+ */
+export async function computeAndRenderChart(birth, { profileId = null, onStatus } = {}) {
+  const { name, dob, tob, lat, lon, timezone: tz, location } = birth
+  await initSwissEph()
+  onStatus?.('Calculating…')
+  applyAyanamsa()
+  const jd = toJulianDay(dob, tob, tz)
+  const settings = getSettings()
+  const { planets, lagna, houses, sripatiHouses } = calcBirthChart(jd, lat, lon, settings)
+  const moon = planets.find(p => p.name === 'Moon')
+  if (!moon) throw new Error('Moon position could not be calculated.')
+  const swe      = getSwe()
+  const dasha    = await calcDasha(moon, dob, { settings, swe, jd })
+  const panchang = calcPanchang(jd, lat, lon, { dateStr: dob, timezone: tz })
+
+  state.birth         = { name, dob, tob, lat, lon, timezone: tz, location, profileId: profileId ?? null }
+  state.planets       = planets
+  state.lagna         = lagna
+  state.houses        = houses
+  state.sripatiHouses = sripatiHouses
+  state.dasha    = dasha
+  state.panchang = panchang
+
+  const bhinna   = calcBhinnashtakavarga(planets, lagna)
+  const sarva    = calcSarvashtakavarga(bhinna)
+  const shadbala = calcShadbala(planets, lagna, houses, jd, panchang)
+  state.strength = { bhinna, sarva, shadbala }
+
+  // Fire off async cloud save if logged in. Generate a stable ID if none exists.
+  const horoscopeId = profileId
+    || `${name}-${dob}-${tob}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  saveHoroscope(horoscopeId, {
+    birth: state.birth,
+    planets: state.planets,
+    lagna: state.lagna,
+    houses: state.houses,
+  }).catch(err => console.error('Cloud horoscope save failed:', err))
+
+  // Update session label and profile tab bar
+  const { updateActiveLabel } = await import('../sessions.js')
+  const { renderProfileTabs } = await import('../ui/profile-tabs.js')
+  updateActiveLabel(name)
+  renderProfileTabs()
+
+  const { renderChart }    = await import('./chart.js')
+  const { renderDasha }    = await import('./dasha.js')
+  const { renderPanchang } = await import('./panchang.js')
+  const { renderStrength } = await import('./strength.js')
+  renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
+  enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
+  switchTab('chart')
+}
+
+/** Load a saved profile by id and render its full chart (used by People directory). */
+export async function loadProfileById(id) {
+  const p = loadProfiles().find(q => q.id === id)
+  if (!p) return
+  editingProfileId = p.id
+  await computeAndRenderChart(
+    { name: p.name, dob: p.dob, tob: p.tob, lat: p.lat, lon: p.lon, timezone: p.timezone, location: p.location || '' },
+    { profileId: p.id },
+  )
+}
+
+/** Open the Birth Details tab with a saved profile loaded into the form for editing. */
+export function editProfileById(id) {
+  const p = loadProfiles().find(q => q.id === id)
+  if (!p) return
+  switchTab('input')
+  renderInputTab()
+  fillForm(p)
+  editingProfileId = p.id
+  document.getElementById('inp-name')?.focus()
 }
 
 // ── Coord mode toggle ─────────────────────────────────────────────────────────

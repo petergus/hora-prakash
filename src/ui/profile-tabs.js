@@ -21,7 +21,8 @@ export async function activateInnerTab(tab) {
     if (!btn) return
     btn.disabled = !hasData
   })
-  if (!hasData) tab = 'input'
+  // 'people' and 'input' work without a calculated chart; data tabs fall back to input.
+  if (!hasData && tab !== 'input' && tab !== 'people') tab = 'input'
   switchTab(tab)
   if (tab === 'chart')         renderChart()
   else if (tab === 'dasha')    renderDasha().catch(console.error)
@@ -30,6 +31,7 @@ export async function activateInnerTab(tab) {
   else if (tab === 'transit')  (await import('../tabs/transit.js')).renderTransit()
   else if (tab === 'export')   (await import('../tabs/export.js')).renderExport()
   else if (tab === 'compare')  (await import('../tabs/compare.js')).renderCompare()
+  else if (tab === 'people')   (await import('../tabs/people.js')).renderPeople()
   else                         renderInputTab()
 }
 

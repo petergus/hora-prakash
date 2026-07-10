@@ -40,6 +40,50 @@ export function deleteProfile(id) {
   deleteProfileCloud(id).catch(err => console.error('Cloud delete failed:', err))
 }
 
+// ── Ordering + selector-list visibility ─────────────────────────────────────
+// Profiles carry two optional fields used by the People directory:
+//   • order  — explicit display index (assigned when the user reorders)
+//   • hidden — when true, the profile is omitted from selector dropdowns
+// Both are synced to Firestore so they survive the cloud→localStorage refresh
+// on reload (main.js overwrites localStorage with the cloud copy at startup).
+
+/** Profiles sorted by explicit `order`, falling back to stored array position. */
+export function orderedProfiles(profiles = loadProfiles()) {
+  return profiles
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const oa = Number.isFinite(a.p.order) ? a.p.order : a.i
+      const ob = Number.isFinite(b.p.order) ? b.p.order : b.i
+      return oa - ob || a.i - b.i
+    })
+    .map(x => x.p)
+}
+
+/** Ordered profiles flagged to appear in selector lists (i.e. not hidden). */
+export function visibleProfiles(profiles = loadProfiles()) {
+  return orderedProfiles(profiles).filter(p => !p.hidden)
+}
+
+/** Toggle whether a profile appears in selector dropdowns. Persists local + cloud. */
+export function setProfileHidden(id, hidden) {
+  const profiles = loadProfiles()
+  const p = profiles.find(q => q.id === id)
+  if (!p) return
+  p.hidden = !!hidden
+  saveProfiles(profiles)
+  cloudUpsertProfile(p).catch(err => console.error('Cloud save failed:', err))
+}
+
+/** Persist a new explicit ordering. `orderedIds` is every id in display order. */
+export function reorderProfiles(orderedIds) {
+  const profiles = loadProfiles()
+  const byId = new Map(profiles.map(p => [p.id, p]))
+  orderedIds.forEach((id, i) => { const p = byId.get(id); if (p) p.order = i })
+  saveProfiles(profiles)
+  const changed = orderedIds.map(id => byId.get(id)).filter(Boolean)
+  bulkUpsertProfiles(changed).catch(err => console.error('Cloud reorder save failed:', err))
+}
+
 export function clearAllProfiles() {
   saveProfiles([])
   deleteAllProfilesCloud().catch(err => console.error('Cloud clear-all failed:', err))

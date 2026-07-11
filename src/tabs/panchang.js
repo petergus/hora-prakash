@@ -247,7 +247,7 @@ function renderLunarBirthdayCard() {
   }
   if (!result) return ''
   const { lunar, upcoming } = result
-  const birthYear = Number(state.birth.dob.slice(0, 4))
+  const ADHIKA_BADGE = `<span class="adhika-badge" title="Adhika (Purushottam) masa — the leap month">Adhika</span>`
 
   // Show the Amanta month only when it differs (i.e. during Krishna paksha),
   // so the Purnimanta convention is transparent.
@@ -255,9 +255,22 @@ function renderLunarBirthdayCard() {
     ? ` · <span title="Amanta (new-moon-ending) equivalent">Amanta: ${esc(lunar.monthNameAmanta)} ${esc(lunar.paksha)}</span>`
     : ''
 
+  const bornAdhikaNote = lunar.isAdhika
+    ? `<p class="lunar-bday-adhika-note">This birth fell in an <strong>Adhika (Purushottam) masa</strong> — the leap month inserted about every 2½–3 years. In most years it is observed in the regular (Nija) month; the Adhika occurrence is listed only in the years it returns.</p>`
+    : ''
+
+  const anyAdhika = upcoming.some(u => u.isAdhika)
   const rows = upcoming.length
-    ? upcoming.map(u => `<tr><td>${esc(u.label)}</td><td style="text-align:center">${u.year - birthYear}</td></tr>`).join('')
+    ? upcoming.map(u => `
+        <tr>
+          <td>${esc(u.label)}${u.isAdhika ? ' ' + ADHIKA_BADGE : ''}</td>
+          <td style="text-align:center">${u.turns}</td>
+        </tr>`).join('')
     : `<tr><td colspan="2" style="color:var(--muted)">Could not determine upcoming dates.</td></tr>`
+
+  const adhikaLegend = anyAdhika
+    ? `<p class="lunar-bday-legend">${ADHIKA_BADGE} marks the leap-month occurrence — some observe the birthday then instead of (or as well as) the regular month.</p>`
+    : ''
 
   return `
     <div class="card" style="margin-bottom:1.2rem">
@@ -265,9 +278,10 @@ function renderLunarBirthdayCard() {
         <span style="font-size:0.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">Purnimanta</span>
       </h2>
       <div class="lunar-bday-headline">${esc(lunar.label)}</div>
-      <p style="color:var(--muted);font-size:0.85rem;margin:0.15rem 0 1rem">
+      <p style="color:var(--muted);font-size:0.85rem;margin:0.15rem 0 ${bornAdhikaNote ? '0.6rem' : '1rem'}">
         ${esc(lunar.paksha)} Paksha · ${esc(lunar.tithiName)} tithi${amantaNote}
       </p>
+      ${bornAdhikaNote}
       <div class="lunar-bday-sub">Upcoming Gregorian dates</div>
       <div class="table-scroll">
         <table class="panchang-table lunar-bday-table">
@@ -275,6 +289,7 @@ function renderLunarBirthdayCard() {
           <tbody>${rows}</tbody>
         </table>
       </div>
+      ${adhikaLegend}
     </div>
   `
 }

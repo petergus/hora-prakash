@@ -1,7 +1,8 @@
-// Unit test for the pure Purnimanta lunar-date derivation (no WASM/ephemeris).
+// Unit tests for the Purnimanta lunar-date model: tithi, sankranti-based amanta
+// month naming, Adhika (Purushottam) masa detection, and the birthday finder.
+// Pure pieces run without WASM; the finder runs against a synthetic ephemeris.
 // Run: node tests/lunar-birthday.test.mjs
 
-// ── Browser global stubs (before importing app modules) ──
 globalThis.window = { innerWidth: 1200 }
 globalThis.document = { querySelector: () => null, getElementById: () => null }
 
@@ -11,83 +12,109 @@ function assert(cond, msg) {
   else { failures++; console.error('  ✗ FAIL:', msg) }
 }
 
-const { deriveLunarDate, computeLunarBirthday } = await import('../src/core/lunar-birthday.js')
+const {
+  deriveTithi, amantaNameAndAdhika, purnimantaIndex, MONTH_NAMES,
+  amantaMonth, computeLunarBirthday,
+} = await import('../src/core/lunar-birthday.js')
 const { toJulianDay } = await import('../src/utils/time.js')
 
-console.log('\n[lunar birthday — Purnimanta derivation]')
-
-// Shukla paksha keeps the same month in both systems.
-// Sun 0° (Aries → Chaitra), Moon 54° → diff 54° → tithi 5 (Shukla Panchami).
+console.log('\n[tithi + paksha]')
 {
-  const d = deriveLunarDate(0, 54)
-  assert(d.paksha === 'Shukla', 'Shukla paksha detected')
-  assert(d.tithiName === 'Panchami', 'tithi 5 → Panchami')
-  assert(d.monthName === 'Chaitra' && d.monthNameAmanta === 'Chaitra', 'Shukla: Purnimanta month == Amanta month')
-  assert(d.label === 'Chaitra Shukla Panchami', 'label: Chaitra Shukla Panchami')
+  const p = deriveTithi(0, 54)   // diff 54° → 5th tithi
+  assert(p.paksha === 'Shukla' && p.tithiName === 'Panchami', 'diff 54° → Shukla Panchami')
+  const k = deriveTithi(135, 45) // diff 270° → Krishna Ashtami
+  assert(k.paksha === 'Krishna' && k.tithiName === 'Ashtami', 'diff 270° → Krishna Ashtami')
+  assert(deriveTithi(0, 170).tithiName === 'Purnima', 'diff 170° → Purnima')
+  assert(deriveTithi(0, 350).tithiName === 'Amavasya', 'diff 350° → Amavasya')
 }
 
-// Krishna paksha shifts to the *following* month in Purnimanta.
-// Sun 135° (Leo → Amanta Shravana), diff 270° → Krishna Ashtami.
-// Janmashtami convention: Shravana (Amanta) == Bhadrapada (Purnimanta).
+console.log('\n[amanta month naming — sidereal sankranti]')
 {
-  const d = deriveLunarDate(135, 45)
-  assert(d.paksha === 'Krishna', 'Krishna paksha detected')
-  assert(d.tithiName === 'Ashtami', 'diff 270° → Ashtami')
-  assert(d.monthNameAmanta === 'Shravana', 'Amanta month is Shravana')
-  assert(d.monthName === 'Bhadrapada', 'Krishna: Purnimanta month == Amanta + 1 (Bhadrapada)')
-  assert(d.label === 'Bhadrapada Krishna Ashtami', 'label: Bhadrapada Krishna Ashtami')
+  // rashi at starting new moon → month = (rashi + 1) mod 12
+  assert(amantaNameAndAdhika(11, 0).amantaIndex === 0, 'Sun in Meena at NM → Chaitra')
+  assert(MONTH_NAMES[amantaNameAndAdhika(11, 0).amantaIndex] === 'Chaitra', 'Chaitra name')
+  assert(amantaNameAndAdhika(0, 1).amantaIndex === 1, 'Sun in Mesha at NM → Vaishakha')
+  assert(MONTH_NAMES[amantaNameAndAdhika(3, 4).amantaIndex] === 'Shravana', 'Sun Karka→Simha → Shravana')
 }
 
-// Purnima (tithi 15) is Shukla; Amavasya (tithi 30) is Krishna (→ +1 month).
+console.log('\n[Adhika (Purushottam) masa detection]')
 {
-  const purnima = deriveLunarDate(0, 170)
-  assert(purnima.tithiName === 'Purnima' && purnima.paksha === 'Shukla', 'diff 170° → Shukla Purnima')
-  const amavasya = deriveLunarDate(0, 350)
-  assert(amavasya.tithiName === 'Amavasya' && amavasya.paksha === 'Krishna', 'diff 350° → Krishna Amavasya')
-  assert(amavasya.monthName === 'Vaisakha', 'Amavasya after Chaitra → Purnimanta Vaisakha')
+  // No sankranti during the month (same rashi at both new moons) → Adhika.
+  const adhika = amantaNameAndAdhika(3, 3)  // Karka both ends → Adhika Shravana
+  assert(adhika.isAdhika === true, 'no sankranti → Adhika')
+  assert(MONTH_NAMES[adhika.amantaIndex] === 'Shravana', 'Adhika repeats following month name (Shravana)')
+  const nija = amantaNameAndAdhika(3, 4)     // Karka → Simha → Nija Shravana
+  assert(nija.isAdhika === false, 'sankranti present → Nija')
+  assert(MONTH_NAMES[nija.amantaIndex] === 'Shravana', 'Nija Shravana follows the Adhika one')
 }
 
-// Krishna paksha wraps Phalguna (11) → Chaitra (0). (Holi: Phalguna Purnima, then
-// Chaitra Krishna paksha in Purnimanta.)
+console.log('\n[Purnimanta shift]')
 {
-  const d = deriveLunarDate(330, 240)
-  assert(d.monthNameAmanta === 'Phalguna', 'Amanta Phalguna')
-  assert(d.monthName === 'Chaitra', 'Krishna wrap: Phalguna + 1 → Chaitra')
+  assert(purnimantaIndex(4, 'Shukla') === 4, 'Shukla: Purnimanta == amanta')
+  assert(MONTH_NAMES[purnimantaIndex(4, 'Krishna')] === 'Bhadrapada', 'Krishna: Shravana(amanta) → Bhadrapada (Janmashtami)')
+  assert(purnimantaIndex(11, 'Krishna') === 0, 'Krishna wrap: Phalguna → Chaitra')
 }
 
-// ── Birthday finder (synthetic linear ephemeris; validates mechanics, not
-//    astronomical accuracy — no adhika masa / equation-of-centre here) ──
-console.log('\n[lunar birthday — upcoming-date finder]')
+// ── Finder against a synthetic linear ephemeris ──
+// Moon 13.176°/day; sidereal == tropical. Sun rate is a knob: the real ~0.986°/d
+// gives a ~29.53 d synodic month; a slower sun packs less solar motion into each
+// month so Adhika (no-sankranti) months occur often — exercising that path.
+const EPOCH = 2447892.5
+const mkSwe = sunRate => ({
+  calc_ut(jd, body) {
+    const sun  = ((100 + sunRate * (jd - EPOCH)) % 360 + 360) % 360
+    const moon = ((200 + 13.176  * (jd - EPOCH)) % 360 + 360) % 360
+    return body === 0 ? [sun, 0, 0, sunRate] : [moon, 0, 0, 13.176]
+  },
+  // no SweModule → sunrise falls back to ~06:00 local
+})
+
+console.log('\n[birthday finder — synthetic ephemeris]')
 {
-  const EPOCH = 2447892.5
-  const fakeSwe = {
-    calc_ut(jd, body) {
-      const sun  = ((100 + 0.98565 * (jd - EPOCH)) % 360 + 360) % 360
-      const moon = ((200 + 13.176  * (jd - EPOCH)) % 360 + 360) % 360
-      return body === 0 ? [sun, 0, 0, 0.98565] : [moon, 0, 0, 13.176]
-    },
-    // no SweModule → the sunrise call fails safely and falls back to ~06:00 local
-  }
+  const fakeSwe = mkSwe(0.98565)
+  const tithiIdxAt = jd => Math.floor(((((fakeSwe.calc_ut(jd,1)[0] - fakeSwe.calc_ut(jd,0)[0]) % 360) + 360) % 360) / 12)
   const birth = { dob: '1990-08-14', tob: '12:00', timezone: '+05:30', lat: 28.6, lon: 77.2 }
   const birthJd = toJulianDay(birth.dob, birth.tob, birth.timezone)
-  const birthTithiIdx = deriveLunarDate(fakeSwe.calc_ut(birthJd, 0)[0], fakeSwe.calc_ut(birthJd, 1)[0]).tithiIdx
+  const birthTithiIdx = tithiIdxAt(birthJd)
 
-  const { upcoming } = computeLunarBirthday(birth, { swe: fakeSwe, today: new Date(Date.UTC(2026, 0, 1)), years: 10 })
-  assert(upcoming.length === 10, 'finds 10 upcoming birthdays')
+  const { lunar, upcoming } = computeLunarBirthday(birth, { swe: fakeSwe, today: new Date(Date.UTC(2026,0,1)), years: 10 })
 
-  let consecutive = true, tithiMatches = true, inSeason = true, prevY = 2025
+  assert(upcoming.length >= 10 && upcoming.length <= 14, `emits ~10 birthdays (${upcoming.length})`)
+
+  let monotonic = true, tithiOk = true, monthOk = true
+  let prev = 0
   for (const u of upcoming) {
-    if (u.year !== prevY + 1) consecutive = false
-    prevY = u.year
-    if (u.month < 7 || u.month > 9) inSeason = false  // anchored near the Aug 14 solar return
+    if (u.date.getTime() <= prev) monotonic = false
+    prev = u.date.getTime()
     const dayStart = toJulianDay(u.iso, '00:00', birth.timezone)
-    const t6  = deriveLunarDate(fakeSwe.calc_ut(dayStart + 0.25, 0)[0], fakeSwe.calc_ut(dayStart + 0.25, 1)[0]).tithiIdx
-    const t12 = deriveLunarDate(fakeSwe.calc_ut(dayStart + 0.5,  0)[0], fakeSwe.calc_ut(dayStart + 0.5,  1)[0]).tithiIdx
-    if (t6 !== birthTithiIdx && t12 !== birthTithiIdx) tithiMatches = false
+    const t = tithiIdxAt(dayStart + 0.25)
+    if (t !== birthTithiIdx && tithiIdxAt(dayStart + 0.5) !== birthTithiIdx) tithiOk = false
+    // Every emitted date must sit in a month carrying the birth month's name.
+    if (amantaMonth(fakeSwe, dayStart + 0.5).amantaIndex !== lunar.monthIndexAmanta) monthOk = false
   }
-  assert(consecutive, 'upcoming years are consecutive')
-  assert(inSeason, 'dates stay anchored to the solar anniversary season')
-  assert(tithiMatches, 'each chosen day carries the birth tithi')
+  assert(monotonic, 'dates are strictly increasing')
+  assert(tithiOk, 'each date carries the birth tithi')
+  assert(monthOk, 'each date falls in a month of the birth month name')
+}
+
+console.log('\n[birthday finder — Adhika recurrence]')
+{
+  const swe = mkSwe(0.72)  // frequent Adhika months
+  const birth = { dob: '1990-08-14', tob: '12:00', timezone: '+05:30', lat: 28.6, lon: 77.2 }
+  const { upcoming } = computeLunarBirthday(birth, { swe, today: new Date(Date.UTC(2026,0,1)), years: 10 })
+  const adhika = upcoming.filter(u => u.isAdhika)
+  assert(adhika.length >= 1, `emits Adhika occurrences when they fall (${adhika.length})`)
+
+  // Each entry's Adhika flag matches a fresh amantaMonth() lookup at that date.
+  const flagsConsistent = upcoming.every(u => {
+    const jd = toJulianDay(u.iso, '00:00', birth.timezone) + 0.5
+    return amantaMonth(swe, jd).isAdhika === u.isAdhika
+  })
+  assert(flagsConsistent, 'Adhika flags match recomputed amantaMonth')
+
+  // Every Adhika occurrence is offered alongside a Nija occurrence the same year.
+  const nijaByYear = new Set(upcoming.filter(u => !u.isAdhika).map(u => u.year))
+  assert(adhika.every(u => nijaByYear.has(u.year)), 'each Adhika year also offers the Nija occurrence')
 }
 
 if (failures) {

@@ -1107,6 +1107,33 @@ h3 {
 .panchang-table tr:last-child th,
 .panchang-table tr:last-child td { border-bottom: none; }
 
+/* ── Lunar birthday card ── */
+.lunar-bday-headline {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.2;
+}
+.lunar-bday-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+/* This table uses <th> as column headers (top row), not row labels — reset the
+   right-aligned label styling the birth panchang table applies to <th>. */
+.lunar-bday-table { min-width: 260px; }
+.lunar-bday-table th {
+  background: transparent;
+  text-align: left;
+  width: auto;
+  border-bottom: 2px solid var(--border);
+}
+.lunar-bday-table td { font-size: 0.9rem; }
+.lunar-bday-table tbody tr:hover { background: #f8fafc; }
+
 /* ── Large-screen layout (≥ 1200px) ── */
 @media (min-width: 1200px) {
   body { padding: 1.5rem 2rem; }

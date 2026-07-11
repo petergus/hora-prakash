@@ -1,5 +1,6 @@
 import { state } from '../state.js'
 import { calcPanchang } from '../core/panchang.js'
+import { computeLunarBirthday } from '../core/lunar-birthday.js'
 import { dateToJd } from '../utils/time.js'
 import { getTimezone } from '../utils/geocoding.js'
 
@@ -236,6 +237,48 @@ function renderTodaySection() {
 
 export { renderPanchangCard }
 
+function renderLunarBirthdayCard() {
+  let result
+  try {
+    result = computeLunarBirthday(state.birth)
+  } catch (err) {
+    console.error('Lunar birthday computation failed:', err)
+    return ''
+  }
+  if (!result) return ''
+  const { lunar, upcoming } = result
+  const birthYear = Number(state.birth.dob.slice(0, 4))
+
+  // Show the Amanta month only when it differs (i.e. during Krishna paksha),
+  // so the Purnimanta convention is transparent.
+  const amantaNote = lunar.monthIndex !== lunar.monthIndexAmanta
+    ? ` · <span title="Amanta (new-moon-ending) equivalent">Amanta: ${esc(lunar.monthNameAmanta)} ${esc(lunar.paksha)}</span>`
+    : ''
+
+  const rows = upcoming.length
+    ? upcoming.map(u => `<tr><td>${esc(u.label)}</td><td style="text-align:center">${u.year - birthYear}</td></tr>`).join('')
+    : `<tr><td colspan="2" style="color:var(--muted)">Could not determine upcoming dates.</td></tr>`
+
+  return `
+    <div class="card" style="margin-bottom:1.2rem">
+      <h2 style="margin:0 0 0.15rem">Lunar Birthday
+        <span style="font-size:0.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">Purnimanta</span>
+      </h2>
+      <div class="lunar-bday-headline">${esc(lunar.label)}</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin:0.15rem 0 1rem">
+        ${esc(lunar.paksha)} Paksha · ${esc(lunar.tithiName)} tithi${amantaNote}
+      </p>
+      <div class="lunar-bday-sub">Upcoming Gregorian dates</div>
+      <div class="table-scroll">
+        <table class="panchang-table lunar-bday-table">
+          <thead><tr><th>Gregorian date</th><th style="text-align:center">Turns</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
 export function renderPanchang() {
   const panel = document.getElementById('tab-panchang')
   let html = ''
@@ -253,6 +296,7 @@ export function renderPanchang() {
     }
     const title = `Birth Panchang — ${state.birth.name || state.birth.dob}`
     html += renderPanchangCard(state.panchang, birthMeta, { title })
+    html += renderLunarBirthdayCard()
   }
 
   panel.innerHTML = html

@@ -81,7 +81,7 @@ console.log('\n[birthday finder — synthetic ephemeris]')
 
   assert(upcoming.length >= 10 && upcoming.length <= 14, `emits ~10 birthdays (${upcoming.length})`)
 
-  let monotonic = true, tithiOk = true, monthOk = true
+  let monotonic = true, tithiOk = true, monthOk = true, nijaOnly = true
   let prev = 0
   for (const u of upcoming) {
     if (u.date.getTime() <= prev) monotonic = false
@@ -89,32 +89,41 @@ console.log('\n[birthday finder — synthetic ephemeris]')
     const dayStart = toJulianDay(u.iso, '00:00', birth.timezone)
     const t = tithiIdxAt(dayStart + 0.25)
     if (t !== birthTithiIdx && tithiIdxAt(dayStart + 0.5) !== birthTithiIdx) tithiOk = false
-    // Every emitted date must sit in a month carrying the birth month's name.
-    if (amantaMonth(fakeSwe, dayStart + 0.5).amantaIndex !== lunar.monthIndexAmanta) monthOk = false
+    const am = amantaMonth(fakeSwe, dayStart + 0.5)
+    if (am.amantaIndex !== lunar.monthIndexAmanta) monthOk = false  // right month name
+    if (am.isAdhika) nijaOnly = false                                // never Adhika
   }
   assert(monotonic, 'dates are strictly increasing')
   assert(tithiOk, 'each date carries the birth tithi')
   assert(monthOk, 'each date falls in a month of the birth month name')
+  assert(nijaOnly, 'each date is a regular (Nija) month, never Adhika')
 }
 
-console.log('\n[birthday finder — Adhika recurrence]')
+// Dharma Sindhu: a birth in an Adhika masa is still observed in the regular
+// (Nija) month every year — the Adhika month is never used for the birthday.
+console.log('\n[birthday finder — born in Adhika → observe in Nija]')
 {
   const swe = mkSwe(0.72)  // frequent Adhika months
-  const birth = { dob: '1990-08-14', tob: '12:00', timezone: '+05:30', lat: 28.6, lon: 77.2 }
-  const { upcoming } = computeLunarBirthday(birth, { swe, today: new Date(Date.UTC(2026,0,1)), years: 10 })
-  const adhika = upcoming.filter(u => u.isAdhika)
-  assert(adhika.length >= 1, `emits Adhika occurrences when they fall (${adhika.length})`)
+  // Find a synthetic birth inside an Adhika masa, on a mid-month tithi so the
+  // independent re-check below isn't confused by the Amavasya/new-moon boundary.
+  let birth = null
+  for (let d = 1; d <= 400 && !birth; d++) {
+    const iso = new Date(Date.UTC(1987, 0, d)).toISOString().slice(0, 10)
+    const cand = { dob: iso, tob: '12:00', timezone: '+05:30', lat: 28.6, lon: 77.2 }
+    const jd = toJulianDay(cand.dob, cand.tob, cand.timezone)
+    const tIdx = Math.floor(((((swe.calc_ut(jd,1)[0] - swe.calc_ut(jd,0)[0]) % 360) + 360) % 360) / 12)
+    if (tIdx >= 5 && tIdx <= 24 && amantaMonth(swe, jd).isAdhika) birth = cand
+  }
+  assert(!!birth, 'found a synthetic birth inside an Adhika masa')
 
-  // Each entry's Adhika flag matches a fresh amantaMonth() lookup at that date.
-  const flagsConsistent = upcoming.every(u => {
-    const jd = toJulianDay(u.iso, '00:00', birth.timezone) + 0.5
-    return amantaMonth(swe, jd).isAdhika === u.isAdhika
+  const { lunar, upcoming } = computeLunarBirthday(birth, { swe, today: new Date(Date.UTC(2026,0,1)), years: 10 })
+  assert(lunar.isAdhika === true, 'birth is flagged as Adhika')
+  assert(upcoming.length >= 3, `still yields upcoming (Nija) dates (${upcoming.length})`)
+  const allNija = upcoming.every(u => {
+    const am = amantaMonth(swe, toJulianDay(u.iso, '00:00', birth.timezone) + 0.5)
+    return am.isAdhika === false && am.amantaIndex === lunar.monthIndexAmanta
   })
-  assert(flagsConsistent, 'Adhika flags match recomputed amantaMonth')
-
-  // Every Adhika occurrence is offered alongside a Nija occurrence the same year.
-  const nijaByYear = new Set(upcoming.filter(u => !u.isAdhika).map(u => u.year))
-  assert(adhika.every(u => nijaByYear.has(u.year)), 'each Adhika year also offers the Nija occurrence')
+  assert(allNija, 'every observed date is the regular (Nija) month, never the Adhika month')
 }
 
 if (failures) {

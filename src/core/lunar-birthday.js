@@ -196,7 +196,7 @@ function lunarDateAt(swe, jd) {
   }
 }
 
-function makeEntry(civil, isAdhika, birthYear) {
+function makeEntry(civil, birthYear) {
   const wd = new Date(Date.UTC(civil.y, civil.m - 1, civil.d)).getUTCDay()
   return {
     year: civil.y, month: civil.m, day: civil.d,
@@ -204,16 +204,17 @@ function makeEntry(civil, isAdhika, birthYear) {
     date: new Date(Date.UTC(civil.y, civil.m - 1, civil.d)),
     iso: `${civil.y}-${pad(civil.m)}-${pad(civil.d)}`,
     label: `${WEEKDAYS[wd].slice(0, 3)}, ${civil.d} ${MONTH_ABBR[civil.m - 1]} ${civil.y}`,
-    isAdhika,
     turns: civil.y - birthYear,
   }
 }
 
 /**
  * Compute a person's Purnimanta lunar birthday and its upcoming Gregorian dates.
- * Walks synodic months forward, emitting the janma tithi's date in every month
- * that carries the birth month's name — so in an Adhika year both the Adhika and
- * Nija occurrences appear (each flagged), letting the user choose.
+ * Walks synodic months forward, emitting the janma tithi's date in each REGULAR
+ * (Nija) month carrying the birth month's name. Per the Dharma Sindhu, the annual
+ * birthday (Vardhapana / Janma Dinotsava) is observed in the regular month, never
+ * the Adhika (leap) month — even for someone born in an Adhika masa — so Adhika
+ * months are skipped.
  * @param {{dob,tob,timezone,lat,lon}} birth
  * @param {{ years?: number, today?: Date, swe?: object }} [opts]  swe is a test seam
  */
@@ -238,12 +239,13 @@ export function computeLunarBirthday(birth, opts = {}) {
     const r0 = sidSunRashi(swe, nm)
     const r1 = sidSunRashi(swe, nm1)
     const { amantaIndex, isAdhika } = amantaNameAndAdhika(r0, r1)
-    if (amantaIndex === lunar.monthIndexAmanta) {
+    // Observe only in the regular (Nija) month; skip the Adhika (leap) month.
+    if (amantaIndex === lunar.monthIndexAmanta && !isAdhika) {
       const tStart = tithiStartJd(swe, nm, lunar.tithiIdx)
       if (tStart >= nm - 0.3 && tStart <= nm1 + 0.3) {
         const civil = sunriseCivilDay(swe, tStart, timezone, lat, lon)
         const t = Date.UTC(civil.y, civil.m - 1, civil.d)
-        if (t >= todayMid) upcoming.push(makeEntry(civil, isAdhika, birthYear))
+        if (t >= todayMid) upcoming.push(makeEntry(civil, birthYear))
       }
     }
     const nmYear = getLocalDateParts(jdToDate(nm1), timezone).year

@@ -247,7 +247,6 @@ function renderLunarBirthdayCard() {
   }
   if (!result) return ''
   const { lunar, upcoming } = result
-  const ADHIKA_BADGE = `<span class="adhika-badge" title="Adhika (Purushottam) masa — the leap month">Adhika</span>`
 
   // Show the Amanta month only when it differs (i.e. during Krishna paksha),
   // so the Purnimanta convention is transparent.
@@ -255,22 +254,16 @@ function renderLunarBirthdayCard() {
     ? ` · <span title="Amanta (new-moon-ending) equivalent">Amanta: ${esc(lunar.monthNameAmanta)} ${esc(lunar.paksha)}</span>`
     : ''
 
+  // Per the Dharma Sindhu, a birthday is observed in the regular (Nija) month —
+  // never the Adhika (leap) month — so a birth in an Adhika masa is celebrated in
+  // the corresponding regular month. The upcoming dates below already follow this.
   const bornAdhikaNote = lunar.isAdhika
-    ? `<p class="lunar-bday-adhika-note">This birth fell in an <strong>Adhika (Purushottam) masa</strong> — the leap month inserted about every 2½–3 years. In most years it is observed in the regular (Nija) month; the Adhika occurrence is listed only in the years it returns.</p>`
+    ? `<p class="lunar-bday-adhika-note">This birth fell in an <strong>Adhika (Purushottam) masa</strong> — the leap month inserted about every 2½–3 years. Per the Dharma Sindhu, the annual birthday (Vardhapana) is observed not in the leap month but in the corresponding regular (Nija) month. The dates below follow that rule.</p>`
     : ''
 
-  const anyAdhika = upcoming.some(u => u.isAdhika)
   const rows = upcoming.length
-    ? upcoming.map(u => `
-        <tr>
-          <td>${esc(u.label)}${u.isAdhika ? ' ' + ADHIKA_BADGE : ''}</td>
-          <td style="text-align:center">${u.turns}</td>
-        </tr>`).join('')
+    ? upcoming.map(u => `<tr><td>${esc(u.label)}</td><td style="text-align:center">${u.turns}</td></tr>`).join('')
     : `<tr><td colspan="2" style="color:var(--muted)">Could not determine upcoming dates.</td></tr>`
-
-  const adhikaLegend = anyAdhika
-    ? `<p class="lunar-bday-legend">${ADHIKA_BADGE} marks the leap-month occurrence — some observe the birthday then instead of (or as well as) the regular month.</p>`
-    : ''
 
   return `
     <div class="card" style="margin-bottom:1.2rem">
@@ -282,14 +275,13 @@ function renderLunarBirthdayCard() {
         ${esc(lunar.paksha)} Paksha · ${esc(lunar.tithiName)} tithi${amantaNote}
       </p>
       ${bornAdhikaNote}
-      <div class="lunar-bday-sub">Upcoming Gregorian dates</div>
+      <div class="lunar-bday-sub">Upcoming Gregorian dates <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">· observed in the regular (Nija) month</span></div>
       <div class="table-scroll">
         <table class="panchang-table lunar-bday-table">
           <thead><tr><th>Gregorian date</th><th style="text-align:center">Turns</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
-      ${adhikaLegend}
     </div>
   `
 }

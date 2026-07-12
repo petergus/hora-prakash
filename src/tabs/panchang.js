@@ -1,5 +1,6 @@
 import { state } from '../state.js'
 import { calcPanchang } from '../core/panchang.js'
+import { computeLunarBirthday } from '../core/lunar-birthday.js'
 import { dateToJd } from '../utils/time.js'
 import { getTimezone } from '../utils/geocoding.js'
 
@@ -236,6 +237,62 @@ function renderTodaySection() {
 
 export { renderPanchangCard }
 
+function renderLunarBirthdayCard() {
+  let result
+  try {
+    result = computeLunarBirthday(state.birth)
+  } catch (err) {
+    console.error('Lunar birthday computation failed:', err)
+    return ''
+  }
+  if (!result) return ''
+  const { lunar, upcoming } = result
+
+  // Show the Amanta month only when it differs (i.e. during Krishna paksha),
+  // so the Purnimanta convention is transparent.
+  const amantaNote = lunar.monthIndex !== lunar.monthIndexAmanta
+    ? ` · <span title="Amanta (new-moon-ending) equivalent">Amanta: ${esc(lunar.monthNameAmanta)} ${esc(lunar.paksha)}</span>`
+    : ''
+
+  // Per the Dharma Sindhu, a birthday is observed in the regular (Nija) month —
+  // never the Adhika (leap) month — so a birth in an Adhika masa is celebrated in
+  // the corresponding regular month. The upcoming dates below already follow this.
+  const bornAdhikaNote = lunar.isAdhika
+    ? `<p class="lunar-bday-adhika-note">This birth fell in an <strong>Adhika (Purushottam) masa</strong> — the leap month inserted about every 2½–3 years. Per the Dharma Sindhu, the annual birthday (Vardhapana) is observed not in the leap month but in the corresponding regular (Nija) month. The dates below follow that rule.</p>`
+    : ''
+
+  const LEAP_BADGE = `<span class="leap-badge" title="This year has an Adhika (leap) ${esc(lunar.monthNameAmanta)} — the birthday is still observed here, in the regular (Nija) month">leap year</span>`
+  const anyLeap = upcoming.some(u => u.leapMonth)
+  const rows = upcoming.length
+    ? upcoming.map(u => `<tr><td>${esc(u.label)}${u.leapMonth ? ' ' + LEAP_BADGE : ''}</td><td style="text-align:center">${u.turns}</td></tr>`).join('')
+    : `<tr><td colspan="2" style="color:var(--muted)">Could not determine upcoming dates.</td></tr>`
+
+  const leapLegend = anyLeap
+    ? `<p class="lunar-bday-legend">${LEAP_BADGE} marks a year with an Adhika (leap) ${esc(lunar.monthNameAmanta)} — the month is doubled, but the birthday stays in the regular (Nija) month shown.</p>`
+    : ''
+
+  return `
+    <div class="card" style="margin-bottom:1.2rem">
+      <h2 style="margin:0 0 0.15rem">Lunar Birthday
+        <span style="font-size:0.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">Purnimanta</span>
+      </h2>
+      <div class="lunar-bday-headline">${esc(lunar.label)}</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin:0.15rem 0 ${bornAdhikaNote ? '0.6rem' : '1rem'}">
+        ${esc(lunar.paksha)} Paksha · ${esc(lunar.tithiName)} tithi${amantaNote}
+      </p>
+      ${bornAdhikaNote}
+      <div class="lunar-bday-sub">Upcoming Gregorian dates <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">· observed in the regular (Nija) month</span></div>
+      <div class="table-scroll">
+        <table class="panchang-table lunar-bday-table">
+          <thead><tr><th>Gregorian date</th><th style="text-align:center">Turns</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${leapLegend}
+    </div>
+  `
+}
+
 export function renderPanchang() {
   const panel = document.getElementById('tab-panchang')
   let html = ''
@@ -253,6 +310,7 @@ export function renderPanchang() {
     }
     const title = `Birth Panchang — ${state.birth.name || state.birth.dob}`
     html += renderPanchangCard(state.panchang, birthMeta, { title })
+    html += renderLunarBirthdayCard()
   }
 
   panel.innerHTML = html

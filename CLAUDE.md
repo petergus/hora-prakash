@@ -11,9 +11,12 @@ npm test          # Node smoke test (tests/export-payload.test.mjs) — no brows
 npm run preview   # Preview the production build locally
 ```
 
-No linter is configured. `npm test` runs two Node suites (no browser/WASM):
+No linter is configured. `npm test` runs three Node suites (no browser/WASM):
 - `tests/export-payload.test.mjs` — divisional transforms, dasha tree, sandhi, yogas, Export-tab payload
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
+- `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
+
+`npm run test:ephemeris` runs `tests/lunar-birthday.ephemeris.test.mjs`, which loads the real Swiss Ephemeris WASM (Node-native) and checks the lunar-date/Adhika logic against documented festival dates. It's kept out of `npm test` because it loads the 12 MB ephemeris; run it after touching `src/core/lunar-birthday.js`.
 
 Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yogas.js`, or `src/tabs/export.js`. The deploy workflow runs `npm test` before build.
 

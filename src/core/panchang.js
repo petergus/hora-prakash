@@ -2,6 +2,7 @@
 // Vedic panchang (calendar) calculations: tithi, vara, nakshatra, yoga, karana, kalam
 import { getSwe } from './swisseph.js'
 import { getNakshatraInfo } from './calculations.js'
+import { amantaMonth } from './lunar-birthday.js'
 import { getLocalDateParts, jdToDate, toJulianDay } from '../utils/time.js'
 
 const TITHI_NAMES = [
@@ -113,9 +114,10 @@ export function calcPanchang(jd, lat, lon, options = {}, _swe) {
     : getLocalDateParts(jdToDate(jd), timezone)
   const vara = VARA_NAMES[localDate.weekday]
 
-  // Lunar year-month (samvat)
-  const lunarMonthIdx = Math.floor(sunLon / 30) % 12
-  const lunarMonth = LUNAR_MONTH_NAMES[lunarMonthIdx]
+  // Lunar year-month (samvat). Month follows the traditional sidereal-sankranti
+  // amanta rule (new-moon-bounded), flagged Adhika when the month has no sankranti.
+  const amanta = amantaMonth(swe, jd)
+  const lunarMonth = LUNAR_MONTH_NAMES[amanta.amantaIndex] + (amanta.isAdhika ? ' (Adhika)' : '')
   // Hindu lunar year starts in Chaitra (≈April). For dates before Hindu New Year
   // (roughly months Jan–Mar), the samvat year still belongs to the prior Gregorian year.
   const samvatBaseYear = localDate.month >= 4 ? localDate.year : localDate.year - 1

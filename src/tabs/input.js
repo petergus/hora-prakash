@@ -1,7 +1,7 @@
 // src/tabs/input.js
 import { searchLocation, searchOnline, getTimezone } from '../utils/geocoding.js'
 import { addToCache } from '../utils/location-cache.js'
-import { toJulianDay, localToUTC } from '../utils/time.js'
+import { toJulianDay, localToUTC, getTZOffsetMinutes } from '../utils/time.js'
 import { calcBirthChart } from '../core/calculations.js'
 import { calcDasha } from '../core/dasha.js'
 import { calcPanchang } from '../core/panchang.js'
@@ -11,7 +11,7 @@ import { applyAyanamsa, getSettings } from '../core/settings.js'
 import { getSwe, initSwissEph } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { switchTab, enableTab } from '../ui/tabs.js'
-import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, fmtLat, fmtLon } from '../utils/format.js'
+import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, parseTzInfo, fmtLat, fmtLon } from '../utils/format.js'
 import { parseBirthPaste } from '../utils/paste-parse.js'
 import { saveHoroscope } from '../cloud-store.js'
 import {
@@ -35,6 +35,28 @@ function nowTimeStr() {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
+/**
+ * Resolve the UTC-offset parts that actually apply to a given birth date/time in
+ * a timezone. For a plain numeric offset ("+05:30") this is the offset itself.
+ * For an IANA zone ("America/New_York") the offset is computed *at the birth
+ * instant* — so it honours DST, including historical DST that has since been
+ * abolished. This mirrors exactly what `toJulianDay` will use for the chart, so
+ * the number shown in the form is the number used in the calculation.
+ */
+function offsetPartsAtBirth(timezone, dob, tob) {
+  if (!timezone) return { sign: '+', h: 0, m: 0 }
+  if (/^([+-])(\d{1,2}):(\d{2})$/.test(timezone)) return offsetParts(timezone)
+  try {
+    const utc = localToUTC(`${dob || todayStr()}T${tob || '12:00'}:00`, timezone)
+    const min = getTZOffsetMinutes(utc, timezone)
+    const sign = min >= 0 ? '+' : '-'
+    const abs  = Math.abs(Math.round(min))
+    return { sign, h: Math.floor(abs / 60), m: abs % 60 }
+  } catch {
+    return offsetParts(timezone)
+  }
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 
 export function renderInputTab() {
@@ -46,13 +68,13 @@ export function renderInputTab() {
   const lonDMS = decToDMS(b?.lon  ?? DELHI.lon)
   const latDir = (b?.lat  ?? DELHI.lat)  >= 0 ? 'N' : 'S'
   const lonDir = (b?.lon  ?? DELHI.lon)  >= 0 ? 'E' : 'W'
-  const tzP    = offsetParts(b?.timezone ?? DELHI.timezone)
   const fill = {
     name:     b?.name     ?? '',
     dob:      b?.dob      ?? todayStr(),
     tob:      b?.tob      ?? nowTimeStr(),
     location: b?.location ?? DELHI.displayName,
   }
+  const tzP    = offsetPartsAtBirth(b?.timezone ?? DELHI.timezone, fill.dob, fill.tob)
 
   panel.innerHTML = `
     <div id="saved-profiles-section"></div>
@@ -460,7 +482,7 @@ async function onFetchTz() {
   btn.textContent = '…'
   try {
     const tz = await getTimezone(lat, lon)
-    const p  = offsetParts(tz)
+    const p  = offsetPartsAtBirth(tz, readDob(), readTob())
     document.getElementById('inp-tz-sign').value    = p.sign
     document.getElementById('inp-tz-h').value        = p.h
     document.getElementById('inp-tz-m').value        = p.m
@@ -816,13 +838,22 @@ function readTz() {
 function readTimezone() {
   const offset = readTz()
   const selectedTz = selectedLocation?.timezone
+  // No IANA zone resolved (manual entry, or an already-numeric zone) → the form
+  // offset is the source of truth. This is also correct for JHora .jhd imports,
+  // whose stored offset already bakes in whatever DST applied at birth.
   if (!selectedTz || /^([+-])(\d{1,2}):(\d{2})$/.test(selectedTz)) return offset
-  if (offsetStr(offsetParts(selectedTz)) !== offset) return offset
+  // A stale zone (coords no longer match the selected place) can't be trusted.
   const lat = readLat()
   const lon = readLon()
   const sameCoords = Math.abs((selectedLocation.lat ?? NaN) - lat) < 0.01 &&
     Math.abs((selectedLocation.lon ?? NaN) - lon) < 0.01
-  return sameCoords ? selectedTz : offset
+  if (!sameCoords) return offset
+  // Keep the IANA name whenever the form offset is just a read-out of the zone's
+  // offset *at the birth date* — so the calculation derives the offset (and DST)
+  // for the exact birth instant. If the user hand-edited the offset to something
+  // the zone doesn't observe at that date, honour that manual override instead.
+  const zoneOffset = offsetStr(offsetPartsAtBirth(selectedTz, readDob(), readTob()))
+  return zoneOffset === offset ? selectedTz : offset
 }
 
 function readDob() {
@@ -857,7 +888,15 @@ function updateUtcPreview() {
     const jd  = toJulianDay(dob, tob, tz)
     const pad = n => String(n).padStart(2, '0')
     const utcStr = `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())} ${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())} UTC`
-    textEl.textContent = `${dob} ${tob} (${tz})  →  ${utcStr}`
+    // For an IANA zone, spell out the offset + abbreviation that applied at the
+    // birth instant so it's visible that DST (incl. historical DST) was honoured.
+    let tzLabel = tz
+    if (!/^([+-])(\d{1,2}):(\d{2})$/.test(tz)) {
+      const off  = offsetStr(offsetPartsAtBirth(tz, dob, tob))
+      const abbr = parseTzInfo(tz, utc).abbr
+      tzLabel = `${tz}, ${off}${abbr && abbr !== 'UTC' ? ' ' + abbr : ''}`
+    }
+    textEl.textContent = `${dob} ${tob} (${tzLabel})  →  ${utcStr}`
     jdEl.textContent = `JD ${jd.toFixed(6)}`
   } catch {
     textEl.textContent = '—'
@@ -865,16 +904,51 @@ function updateUtcPreview() {
   }
 }
 
+/**
+ * When the resolved place is an IANA zone and the coordinates still match, keep
+ * the displayed UTC offset in sync with the entered birth date — so moving the
+ * date across a DST boundary updates the offset the way the chart will use it.
+ * Numeric/manual offsets and mismatched coords are left untouched.
+ */
+function refreshTzForDate() {
+  const tz = selectedLocation?.timezone
+  if (!tz || /^([+-])(\d{1,2}):(\d{2})$/.test(tz)) return
+  const lat = readLat()
+  const lon = readLon()
+  const sameCoords = Math.abs((selectedLocation.lat ?? NaN) - lat) < 0.01 &&
+    Math.abs((selectedLocation.lon ?? NaN) - lon) < 0.01
+  if (!sameCoords) return
+  const p = offsetPartsAtBirth(tz, readDob(), readTob())
+  for (const suffix of ['', '-dec']) {
+    const sign = document.getElementById(`inp-tz-sign${suffix}`)
+    const h    = document.getElementById(`inp-tz-h${suffix}`)
+    const m    = document.getElementById(`inp-tz-m${suffix}`)
+    if (sign) sign.value = p.sign
+    if (h)    h.value    = p.h
+    if (m)    m.value    = p.m
+  }
+}
+
 function attachUtcPreviewListeners() {
-  const ids = [
-    'inp-dob', 'inp-tob', 'inp-dob-text', 'inp-tob-text',
+  // Date/time edits re-derive the zone's offset (DST) for the new date, then
+  // refresh the preview. Everything else only refreshes the preview.
+  const dateTimeIds = ['inp-dob', 'inp-tob', 'inp-dob-text', 'inp-tob-text']
+  const previewOnlyIds = [
     'inp-tz-sign', 'inp-tz-h', 'inp-tz-m',
     'inp-tz-sign-dec', 'inp-tz-h-dec', 'inp-tz-m-dec',
     'inp-lat-d', 'inp-lat-m', 'inp-lat-s', 'inp-lat-dir',
     'inp-lon-d', 'inp-lon-m', 'inp-lon-s', 'inp-lon-dir',
     'inp-lat-dec', 'inp-lon-dec',
   ]
-  ids.forEach(id => {
+  const onDateTime = () => { refreshTzForDate(); updateUtcPreview() }
+  dateTimeIds.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) {
+      el.addEventListener('input', onDateTime)
+      el.addEventListener('change', onDateTime)
+    }
+  })
+  previewOnlyIds.forEach(id => {
     const el = document.getElementById(id)
     if (el) {
       el.addEventListener('input', updateUtcPreview)
@@ -897,7 +971,7 @@ function fillCoordsDMS(lat, lon) {
 }
 
 function fillCoords(lat, lon, timezone) {
-  const tzP = offsetParts(timezone)
+  const tzP = offsetPartsAtBirth(timezone, readDob(), readTob())
   fillCoordsDMS(lat, lon)
   // Also keep decimal fields in sync
   document.getElementById('inp-lat-dec').value = Math.round(lat * 10000) / 10000

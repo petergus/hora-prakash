@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs",
+    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs",
     "test:ephemeris": "node tests/lunar-birthday.ephemeris.test.mjs",
     "preview": "vite preview",
     "parse-places": "node scripts/parse-places.js",

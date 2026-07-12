@@ -160,7 +160,9 @@ function cellValue(p, key) {
     case 'dob':      return p.dob || '—'
     case 'tob':      return p.tob || '—'
     case 'location': return p.location || (p.lat != null && p.lon != null ? `${p.lat}°, ${p.lon}°` : '—')
-    case 'tz':       return p.timezone ? ianaToOffset(p.timezone) : '—'
+    case 'tz':       return p.timezone
+      ? ianaToOffset(p.timezone, p.dob ? new Date(`${p.dob}T${p.tob || '12:00'}:00Z`) : undefined)
+      : '—'
     default:         return '—'
   }
 }

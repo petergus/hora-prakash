@@ -156,6 +156,11 @@ Dual (natal + transit side by side) or overlay view; per-session UI state in `ui
 
 **External APIs (no keys):** Nominatim geocoding; timeapi.io timezone lookup.
 
+**Timezone / DST (`src/utils/time.js`, `src/utils/format.js`, `src/tabs/input.js`):** A birth record's `timezone` is either an **IANA name** (`America/New_York`) or a **fixed numeric offset** (`-05:00`). The two are treated differently on purpose:
+- IANA → the offset is derived **at the birth instant** via `getTZOffsetMinutes`/`localToUTC`, which honours DST including *historical* DST that has since been abolished (Moscow +04 in 1985, São Paulo pre-2019, wartime double summer time, etc.). Always prefer storing IANA names so DST is applied.
+- Numeric offset → used verbatim. This is correct for manual entry, paste, and `.jhd` imports (JHora already bakes the birth-day DST into the offset it stores). Never re-derive DST on top of a numeric offset.
+- ⚠️ `offsetParts(iana)` / `ianaToOffset(iana)` / `parseTzInfo(iana)` take an optional **`refDate`** — pass the birth instant, or the displayed offset defaults to *today's* (wrong across a DST boundary). `offsetPartsAtBirth(tz, dob, tob)` in `input.js` returns exactly what `toJulianDay` will use, and the form's UTC-offset field auto-updates as you edit the date (`refreshTzForDate`). Regression coverage: `tests/timezone-dst.test.mjs`.
+
 **Deployment:** GitHub Actions deploys to GitHub Pages on push to `main`. Current version: see `package.json` (1.5.x). Export payload `APP_VERSION` in `src/tabs/export.js` is tracked separately.
 
 ## Pending / Known Issues

@@ -16,15 +16,19 @@ export function dmsToDec(d, m, s) {
 }
 
 // IANA timezone name or "+05:30" string → { sign: '+' | '-', h: number, m: number }
-export function offsetParts(iana) {
+// For IANA zones the offset is resolved *at refDate* (default: now), so that
+// DST — including historical DST that has since been abolished — is reflected.
+// Pass the birth instant as refDate to get the offset that actually applied at
+// birth rather than whatever the zone happens to observe today.
+export function offsetParts(iana, refDate = new Date()) {
   if (!iana) return { sign: '+', h: 0, m: 0 }
   const direct = iana.match(/^([+-])(\d{1,2}):(\d{2})$/)
   if (direct) return { sign: direct[1], h: parseInt(direct[2]), m: parseInt(direct[3]) }
   try {
-    const date     = new Date()
+    const date     = refDate instanceof Date ? refDate : new Date(refDate)
     const utcStr   = date.toLocaleString('en-US', { timeZone: 'UTC' })
     const tzStr    = date.toLocaleString('en-US', { timeZone: iana })
-    const totalMin = (new Date(tzStr) - new Date(utcStr)) / 60000
+    const totalMin = Math.round((new Date(tzStr) - new Date(utcStr)) / 60000)
     const sign     = totalMin >= 0 ? '+' : '-'
     const abs      = Math.abs(totalMin)
     return { sign, h: Math.floor(abs / 60), m: abs % 60 }
@@ -36,18 +40,19 @@ export function offsetStr({ sign, h, m }) {
   return `${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
 }
 
-// Convenience: IANA or offset string → "+05:30"
-export function ianaToOffset(iana) {
-  return offsetStr(offsetParts(iana))
+// Convenience: IANA or offset string → "+05:30" (offset resolved at refDate)
+export function ianaToOffset(iana, refDate = new Date()) {
+  return offsetStr(offsetParts(iana, refDate))
 }
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-// IANA timezone → { offsetMin, abbr }
-export function parseTzInfo(iana) {
+// IANA timezone → { offsetMin, abbr } resolved at refDate (default: now), so the
+// abbreviation/offset reflect DST as observed at that instant.
+export function parseTzInfo(iana, refDate = new Date()) {
   if (!iana) return { offsetMin: 0, abbr: 'UTC' }
   try {
-    const ref   = new Date()
+    const ref   = refDate instanceof Date ? refDate : new Date(refDate)
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: iana, timeZoneName: 'short',
       hour: 'numeric', minute: 'numeric', hour12: false,

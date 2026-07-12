@@ -240,8 +240,7 @@ export function renderInputTab() {
           <span id="utc-preview-jd" style="opacity:0.85">JD —</span>
         </div>
         <div class="form-actions">
-          <button type="submit" id="btn-calculate">Calculate Chart</button>
-          <button type="button" id="btn-save-profile" class="btn-secondary">Save Profile</button>
+          <button type="submit" id="btn-calculate">Save &amp; Calculate</button>
         </div>
         <p id="calc-error" class="error"></p>
       </form>
@@ -269,7 +268,7 @@ export function renderInputTab() {
     ? { displayName: b.location, lat: b.lat, lon: b.lon, timezone: b.timezone }
     : { ...DELHI }
   // Tie edits to the saved profile the active chart came from (if any), so
-  // "Save Profile" updates that profile instead of creating a duplicate.
+  // "Save & Calculate" updates that profile instead of creating a duplicate.
   editingProfileId = b?.profileId ?? null
   renderSavedProfiles()
 
@@ -281,7 +280,6 @@ export function renderInputTab() {
   document.getElementById('inp-location').addEventListener('input', onLocationInput)
   document.getElementById('birth-form').addEventListener('submit', onFormSubmit)
   document.getElementById('location-suggestions').addEventListener('click', onSuggestionClick)
-  document.getElementById('btn-save-profile').addEventListener('click', onSaveProfile)
   document.getElementById('btn-fetch-tz').addEventListener('click', onFetchTz)
   document.getElementById('btn-fetch-tz-dec').addEventListener('click', onFetchTz)
   document.getElementById('btn-coord-mode').addEventListener('click', toggleCoordMode)
@@ -431,25 +429,16 @@ function fillForm(p) {
   selectedLocation = { displayName: p.location, lat: p.lat, lon: p.lon, timezone: p.timezone }
 }
 
-function onSaveProfile() {
-  const name     = document.getElementById('inp-name').value.trim()
-  const dob      = readDob()
-  const tob      = readTob()
-  const lat      = Math.round(readLat() * 10000) / 10000
-  const lon      = Math.round(readLon() * 10000) / 10000
-  const timezone = readTimezone()
-  const location = document.getElementById('inp-location').value.trim()
-
-  if (!name || !dob || !tob || !timezone) {
-    document.getElementById('calc-error').textContent = 'Fill Name, Date, Time and Location before saving.'
-    return
-  }
-
-  // Resolve which saved profile this save targets, in priority order:
-  //   1. a profile explicitly loaded for editing (dropdown / edit button)
-  //   2. the profile the active chart was loaded from (survives reloads via state.birth)
-  //   3. an existing profile that matches name+date+time (avoids duplicates)
-  //   4. a brand-new profile
+/**
+ * Persist a birth record to the profile store and return the id it saved under.
+ * Resolves which saved profile this targets, in priority order:
+ *   1. a profile explicitly loaded for editing (dropdown / edit button)
+ *   2. the profile the active chart was loaded from (survives reloads via state.birth)
+ *   3. an existing profile that matches name+date+time (avoids duplicates)
+ *   4. a brand-new profile
+ * Shared by the "Save & Calculate" submit path.
+ */
+function saveProfileRecord({ name, dob, tob, lat, lon, timezone, location }) {
   let id = editingProfileId || state.birth?.profileId || null
   if (!id) {
     const match = loadProfiles().find(p => p.name === name && p.dob === dob && p.tob === tob)
@@ -463,11 +452,7 @@ function onSaveProfile() {
   })
   editingProfileId = id
   if (state.birth) state.birth.profileId = id
-  renderSavedProfiles()
-
-  const btn = document.getElementById('btn-save-profile')
-  btn.textContent = 'Saved ✓'
-  setTimeout(() => { btn.textContent = 'Save Profile' }, 1500)
+  return id
 }
 
 async function onFetchTz() {
@@ -665,16 +650,21 @@ async function onFormSubmit(e) {
   try {
     btn.disabled = true
     btn.textContent = 'Loading ephemeris…'
+    // Save & Calculate: persist the (edited) details to the profile store first,
+    // then recalculate the chart against them — so the saved profile and the
+    // rendered chart never drift apart.
+    const id = saveProfileRecord({ name, dob, tob, lat, lon, timezone: tz, location })
+    renderSavedProfiles()
     await computeAndRenderChart(
       { name, dob, tob, lat, lon, timezone: tz, location },
-      { profileId: editingProfileId || state.birth?.profileId || null, onStatus: t => { btn.textContent = t } },
+      { profileId: id, onStatus: t => { btn.textContent = t } },
     )
   } catch (err) {
     errEl.textContent = `Calculation error: ${err.message}`
     console.error(err)
   } finally {
     btn.disabled = false
-    btn.textContent = 'Calculate Chart'
+    btn.textContent = 'Save & Calculate'
   }
 }
 
@@ -1034,7 +1024,7 @@ export async function recalcAll() {
     const btn = document.getElementById('btn-calculate')
     if (btn) {
       btn.disabled = false
-      btn.textContent = 'Calculate Chart'
+      btn.textContent = 'Save & Calculate'
     }
   }
 }

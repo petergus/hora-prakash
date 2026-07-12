@@ -261,9 +261,15 @@ function renderLunarBirthdayCard() {
     ? `<p class="lunar-bday-adhika-note">This birth fell in an <strong>Adhika (Purushottam) masa</strong> — the leap month inserted about every 2½–3 years. Per the Dharma Sindhu, the annual birthday (Vardhapana) is observed not in the leap month but in the corresponding regular (Nija) month. The dates below follow that rule.</p>`
     : ''
 
+  const LEAP_BADGE = `<span class="leap-badge" title="This year has an Adhika (leap) ${esc(lunar.monthNameAmanta)} — the birthday is still observed here, in the regular (Nija) month">leap year</span>`
+  const anyLeap = upcoming.some(u => u.leapMonth)
   const rows = upcoming.length
-    ? upcoming.map(u => `<tr><td>${esc(u.label)}</td><td style="text-align:center">${u.turns}</td></tr>`).join('')
+    ? upcoming.map(u => `<tr><td>${esc(u.label)}${u.leapMonth ? ' ' + LEAP_BADGE : ''}</td><td style="text-align:center">${u.turns}</td></tr>`).join('')
     : `<tr><td colspan="2" style="color:var(--muted)">Could not determine upcoming dates.</td></tr>`
+
+  const leapLegend = anyLeap
+    ? `<p class="lunar-bday-legend">${LEAP_BADGE} marks a year with an Adhika (leap) ${esc(lunar.monthNameAmanta)} — the month is doubled, but the birthday stays in the regular (Nija) month shown.</p>`
+    : ''
 
   return `
     <div class="card" style="margin-bottom:1.2rem">
@@ -282,6 +288,7 @@ function renderLunarBirthdayCard() {
           <tbody>${rows}</tbody>
         </table>
       </div>
+      ${leapLegend}
     </div>
   `
 }

@@ -196,7 +196,7 @@ function lunarDateAt(swe, jd) {
   }
 }
 
-function makeEntry(civil, birthYear) {
+function makeEntry(civil, birthYear, leapMonth = false) {
   const wd = new Date(Date.UTC(civil.y, civil.m - 1, civil.d)).getUTCDay()
   return {
     year: civil.y, month: civil.m, day: civil.d,
@@ -205,6 +205,9 @@ function makeEntry(civil, birthYear) {
     iso: `${civil.y}-${pad(civil.m)}-${pad(civil.d)}`,
     label: `${WEEKDAYS[wd].slice(0, 3)}, ${civil.d} ${MONTH_ABBR[civil.m - 1]} ${civil.y}`,
     turns: civil.y - birthYear,
+    // True when the birth month is doubled that year (an Adhika month of the same
+    // name precedes this Nija one) — the birthday is still observed here (Nija).
+    leapMonth,
   }
 }
 
@@ -234,18 +237,22 @@ export function computeLunarBirthday(birth, opts = {}) {
   const upcoming = []
   let nm = lastNewMoon(swe, Math.max(birthJd, dateToJd(today) - 45))
   let guard = 0
+  let pendingLeap = false  // an Adhika month of the birth's name just passed
   while (guard++ < 420) {
     const nm1 = newMoonNear(swe, nm + 29.53)
-    const r0 = sidSunRashi(swe, nm)
-    const r1 = sidSunRashi(swe, nm1)
-    const { amantaIndex, isAdhika } = amantaNameAndAdhika(r0, r1)
-    // Observe only in the regular (Nija) month; skip the Adhika (leap) month.
-    if (amantaIndex === lunar.monthIndexAmanta && !isAdhika) {
-      const tStart = tithiStartJd(swe, nm, lunar.tithiIdx)
-      if (tStart >= nm - 0.3 && tStart <= nm1 + 0.3) {
-        const civil = sunriseCivilDay(swe, tStart, timezone, lat, lon)
-        const t = Date.UTC(civil.y, civil.m - 1, civil.d)
-        if (t >= todayMid) upcoming.push(makeEntry(civil, birthYear))
+    const { amantaIndex, isAdhika } = amantaNameAndAdhika(sidSunRashi(swe, nm), sidSunRashi(swe, nm1))
+    if (amantaIndex === lunar.monthIndexAmanta) {
+      if (isAdhika) {
+        // Leap month of this name — never observed here; flag the Nija that follows.
+        pendingLeap = true
+      } else {
+        const tStart = tithiStartJd(swe, nm, lunar.tithiIdx)
+        if (tStart >= nm - 0.3 && tStart <= nm1 + 0.3) {
+          const civil = sunriseCivilDay(swe, tStart, timezone, lat, lon)
+          const t = Date.UTC(civil.y, civil.m - 1, civil.d)
+          if (t >= todayMid) upcoming.push(makeEntry(civil, birthYear, pendingLeap))
+        }
+        pendingLeap = false
       }
     }
     const nmYear = getLocalDateParts(jdToDate(nm1), timezone).year

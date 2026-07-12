@@ -124,6 +124,11 @@ console.log('\n[birthday finder — born in Adhika → observe in Nija]')
     return am.isAdhika === false && am.amantaIndex === lunar.monthIndexAmanta
   })
   assert(allNija, 'every observed date is the regular (Nija) month, never the Adhika month')
+
+  // Years where the birth month is doubled are flagged (but still observed in Nija).
+  assert(upcoming.some(u => u.leapMonth), 'flags leap-month (Adhika) years on their Nija date')
+  assert(upcoming.every(u => !u.leapMonth || !amantaMonth(swe, toJulianDay(u.iso,'00:00',birth.timezone)+0.5).isAdhika),
+    'leap-flagged dates are still Nija months')
 }
 
 if (failures) {

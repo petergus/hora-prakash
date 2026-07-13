@@ -1,0 +1,91 @@
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   Single source of truth for color, spacing, type, radius, elevation and
+   z-index. Accent themes below override only the colour tokens that vary. */
+
+:root {
+  /* semantic colors */
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --primary: #c0392b;
+  --primary-hover: #a93226;
+  --primary-text: #ffffff;
+  --primary-soft: color-mix(in srgb, var(--primary) 9%, white);
+  --primary-ring: color-mix(in srgb, var(--primary) 30%, white);
+  --text: #1e293b;
+  --muted: #64748b;
+  --text-invert: #ffffff;
+  --danger: #ef4444;
+  --danger-soft: #fef2f2;
+  --success: #059669;
+  --warning: #d97706;
+  --highlight: #fef3c7;
+
+  /* spacing (4px scale) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* type scale (matches sizes already in use) */
+  --fs-xs: 0.72rem;
+  --fs-sm: 0.8rem;
+  --fs-base: 0.88rem;
+  --fs-md: 0.95rem;
+  --fs-lg: 1.1rem;
+  --fs-xl: 1.35rem;
+
+  /* radius */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+  --radius: var(--r-lg); /* legacy alias — used throughout style.css */
+
+  /* z-index scale (values match the pre-token stacking exactly) */
+  --z-raised: 1;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-popover: 200;
+  --z-drawer: 500;
+  --z-modal: 1000;
+  --z-tooltip: 9999;
+  --z-toast: 9999;
+  --z-auth: 10000;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+/* Named theme aliases — each overrides only the colour tokens that vary per theme.
+   [data-theme] is set on <html> by src/config/branding.js and src/ui/settings-modal.js. */
+[data-theme="indigo"] {
+  --primary: #4f46e5; --primary-hover: #4338ca; --highlight: #fef9c3;
+  --logo-filter: none;
+}
+[data-theme="saffron"] {
+  --primary: #d97706; --primary-hover: #b45309; --highlight: #fef3c7;
+  --logo-filter: hue-rotate(156deg) saturate(1.3) brightness(1.05);
+}
+[data-theme="forest"] {
+  --primary: #059669; --primary-hover: #047857; --highlight: #d1fae5;
+  --logo-filter: hue-rotate(-78deg) saturate(1.2);
+}
+[data-theme="rose"] {
+  --primary: #e11d48; --primary-hover: #be123c; --highlight: #ffe4e6;
+  --logo-filter: hue-rotate(105deg) saturate(1.2);
+}
+[data-theme="midnight"] {
+  --primary: #7c3aed; --primary-hover: #6d28d9; --highlight: #ede9fe;
+  --logo-filter: hue-rotate(25deg) saturate(0.9);
+}
+[data-theme="crimson"] {
+  --primary: #c0392b; --primary-hover: #a93226; --highlight: #fef3c7;
+  --logo-filter: hue-rotate(125deg) saturate(1.1);
+}

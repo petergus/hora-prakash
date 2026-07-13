@@ -14,7 +14,7 @@ export async function loadBranding() {
   const appName = json.appName || 'Hora Prakash'
   document.title = appName
 
-  const h1 = document.querySelector('header h1')
+  const h1 = document.querySelector('#sidebar-brand h1') ?? document.querySelector('header h1')
   if (h1) {
     const img = h1.querySelector('img')
     const textNode = [...h1.childNodes].find(n => n.nodeType === Node.TEXT_NODE)
@@ -23,6 +23,9 @@ export async function loadBranding() {
 
     if (img && json.logoUrl) img.src = json.logoUrl
   }
+
+  const topbarBrand = document.getElementById('topbar-brand')
+  if (topbarBrand) topbarBrand.textContent = appName
 
   // Favicon
   if (json.faviconUrl) {

@@ -8,6 +8,7 @@ import { ensureChildren } from '../core/dasha.js'
 import { getSwe } from '../core/swisseph.js'
 import { getActiveSession } from '../sessions.js'
 import { copyText } from '../utils/clipboard.js'
+import { promptModal, confirmModal } from '../ui/modal.js'
 
 const APP_VERSION = '1.2.0'
 const PRESETS_KEY = 'hora-prakash-export-presets'
@@ -450,11 +451,11 @@ function wireEvents(jsonStr, filename) {
     rerender()
   })
 
-  document.getElementById('xp-save').addEventListener('click', () => {
+  document.getElementById('xp-save').addEventListener('click', async () => {
     const active = getActivePreset()
     if (active.builtin) {
       // Save changes to a builtin → prompt for new name (save as)
-      const name = prompt('Save modified built-in as new preset name:', active.name + ' (custom)')
+      const name = await promptModal('Save modified built-in as a new preset:', active.name + ' (custom)', { title: 'Save preset', confirmLabel: 'Save' })
       if (!name) return
       const id = 'p_' + Date.now()
       presets.push({ id, name, builtin: false, config: structuredClone(workingConfig) })
@@ -470,8 +471,8 @@ function wireEvents(jsonStr, filename) {
     rerender()
   })
 
-  document.getElementById('xp-saveas').addEventListener('click', () => {
-    const name = prompt('New preset name:')
+  document.getElementById('xp-saveas').addEventListener('click', async () => {
+    const name = await promptModal('Name for the new preset:', '', { title: 'Save as', confirmLabel: 'Save' })
     if (!name) return
     const id = 'p_' + Date.now()
     presets.push({ id, name, builtin: false, config: structuredClone(workingConfig) })
@@ -482,20 +483,20 @@ function wireEvents(jsonStr, filename) {
     rerender()
   })
 
-  document.getElementById('xp-rename').addEventListener('click', () => {
+  document.getElementById('xp-rename').addEventListener('click', async () => {
     const active = getActivePreset()
     if (active.builtin) return
-    const name = prompt('Rename preset:', active.name)
+    const name = await promptModal('Rename preset:', active.name, { title: 'Rename preset', confirmLabel: 'Rename' })
     if (!name) return
     active.name = name
     saveUserPresets(presets)
     rerender()
   })
 
-  document.getElementById('xp-delete').addEventListener('click', () => {
+  document.getElementById('xp-delete').addEventListener('click', async () => {
     const active = getActivePreset()
     if (active.builtin) return
-    if (!confirm(`Delete preset "${active.name}"?`)) return
+    if (!await confirmModal(`Delete preset "${active.name}"?`, { title: 'Delete preset', confirmLabel: 'Delete', danger: true })) return
     presets = presets.filter(p => p.id !== active.id)
     saveUserPresets(presets)
     activeId = 'full'

@@ -1,43 +1,21 @@
-// src/ui/tabs.js
+// src/ui/tabs.js — page-nav DOM helpers + gesture wiring.
+// All page dispatch goes through the router (src/ui/router.js) and the page
+// registry (src/ui/nav-registry.js); this module only owns the nav DOM.
+
+import { PAGE_MAP, PERSON_PAGES } from './nav-registry.js'
+import { getCurrentPage } from './nav-state.js'
+import { state } from '../state.js'
+
 export function initTabs() {
-  document.getElementById('tab-nav').addEventListener('click', async (e) => {
+  document.getElementById('tab-nav').addEventListener('click', async e => {
     const btn = e.target.closest('.tab-btn')
     if (!btn || btn.disabled) return
-    const name = btn.dataset.tab
-    switchTab(name)
-    if (name === 'chart') {
-      const { renderChart }    = await import('../tabs/chart.js')
-      renderChart()
-    } else if (name === 'dasha') {
-      const { renderDasha }    = await import('../tabs/dasha.js')
-      renderDasha().catch(console.error)
-    } else if (name === 'panchang') {
-      const { renderPanchang } = await import('../tabs/panchang.js')
-      renderPanchang()
-    } else if (name === 'strength') {
-      const { renderStrength } = await import('../tabs/strength.js')
-      renderStrength()
-    } else if (name === 'transit') {
-      const { renderTransit } = await import('../tabs/transit.js')
-      renderTransit()
-    } else if (name === 'input') {
-      const { renderInputTab } = await import('../tabs/input.js')
-      renderInputTab()
-    } else if (name === 'people') {
-      const { renderPeople } = await import('../tabs/people.js')
-      renderPeople()
-    } else if (name === 'export') {
-      const { renderExport } = await import('../tabs/export.js')
-      renderExport()
-    } else if (name === 'compare') {
-      const { renderCompare } = await import('../tabs/compare.js')
-      renderCompare()
-    }
+    const { navigate, routeFor } = await import('./router.js')
+    navigate(routeFor(btn.dataset.tab))
   })
 
-  // Global swipe navigation between top-level tabs (mobile)
+  // Global swipe navigation between person pages (mobile).
   // "Hard swipe": must be fast, far, and clearly horizontal — not a scroll gesture.
-  const TAB_ORDER = ['input', 'people', 'chart', 'dasha', 'transit', 'panchang', 'strength', 'compare', 'export']
   let swipeStartX = 0, swipeStartY = 0, swipeStartTime = 0, swipeCancelled = false
 
   // Returns true if el (or any ancestor up to <main>) can scroll horizontally.
@@ -83,56 +61,30 @@ export function initTabs() {
       //   • completed within 400 ms (deliberate swipe, not a slow drag)
       if (adx < 80 || ady > adx * 0.4 || ms > 400) return
 
-      const activeBtn = document.querySelector('#tab-nav .tab-btn.active')
-      if (!activeBtn) return
-      const currentIdx = TAB_ORDER.indexOf(activeBtn.dataset.tab)
-      const nextIdx = dx < 0 ? currentIdx + 1 : currentIdx - 1
-      if (nextIdx < 0 || nextIdx >= TAB_ORDER.length) return
+      const idx = PERSON_PAGES.indexOf(getCurrentPage())
+      if (idx === -1) return   // global pages (people/compare) don't swipe
+      const next = PERSON_PAGES[dx < 0 ? idx + 1 : idx - 1]
+      if (!next) return
+      if (PAGE_MAP[next].requiresData && !state.planets) return
 
-      const nextTab = TAB_ORDER[nextIdx]
-      const nextBtn = document.querySelector(`.tab-btn[data-tab="${nextTab}"]`)
-      if (!nextBtn || nextBtn.disabled) return
-
-      switchTab(nextTab)
-      if (nextTab === 'chart') {
-        const { renderChart } = await import('../tabs/chart.js')
-        renderChart()
-      } else if (nextTab === 'dasha') {
-        const { renderDasha } = await import('../tabs/dasha.js')
-        renderDasha().catch(console.error)
-      } else if (nextTab === 'panchang') {
-        const { renderPanchang } = await import('../tabs/panchang.js')
-        renderPanchang()
-      } else if (nextTab === 'strength') {
-        const { renderStrength } = await import('../tabs/strength.js')
-        renderStrength()
-      } else if (nextTab === 'transit') {
-        const { renderTransit } = await import('../tabs/transit.js')
-        renderTransit()
-      } else if (nextTab === 'input') {
-        const { renderInputTab } = await import('../tabs/input.js')
-        renderInputTab()
-      } else if (nextTab === 'people') {
-        const { renderPeople } = await import('../tabs/people.js')
-        renderPeople()
-      } else if (nextTab === 'export') {
-        const { renderExport } = await import('../tabs/export.js')
-        renderExport()
-      } else if (nextTab === 'compare') {
-        const { renderCompare } = await import('../tabs/compare.js')
-        renderCompare()
-      }
+      const { navigate, routeFor } = await import('./router.js')
+      navigate(routeFor(next))
     }, { passive: true })
   }
 }
 
+/** Toggle the active page-nav button + panel. Called by the router only. */
 export function switchTab(name) {
   if (!name) return
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name))
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`))
 }
 
-export function enableTab(name) {
-  const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`)
-  if (btn) btn.disabled = false
+/** Sync every page-nav button's disabled state with the active session's data. */
+export function syncPageNav() {
+  const hasData = !!state.planets
+  document.querySelectorAll('#tab-nav .tab-btn').forEach(b => {
+    const def = PAGE_MAP[b.dataset.tab]
+    if (def) b.disabled = def.requiresData && !hasData
+  })
 }

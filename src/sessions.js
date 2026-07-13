@@ -2,6 +2,7 @@
 // Per-session state: chart data snapshot + UI state for each tab.
 
 import { state } from './state.js'
+import { getCurrentPage } from './ui/nav-state.js'
 
 function genId() {
   return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
@@ -72,7 +73,7 @@ export function defaultTransitUI() {
 }
 
 function currentInnerTab() {
-  return document.querySelector('#tab-nav .tab-btn.active')?.dataset.tab ?? 'input'
+  return getCurrentPage() ?? 'input'
 }
 
 let sessions = []
@@ -87,6 +88,7 @@ const PERSIST_KEY = 'hora-prakash-sessions'
 export function persistSessions() {
   try {
     const entries = sessions.map(s => ({
+      id: s.id,   // stable across reloads so #/p/<id>/… deep links survive
       label: s.label,
       birth: s.id === activeId ? state.birth : s.snap.birth,
     }))
@@ -107,8 +109,7 @@ export function loadPersistedSessions() {
   }
 }
 
-export function createSession(label = 'New Profile') {
-  const id = genId()
+export function createSession(label = 'New Profile', id = genId()) {
   sessions.push({
     id,
     label,

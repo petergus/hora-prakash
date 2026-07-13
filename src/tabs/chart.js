@@ -5,10 +5,11 @@ import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
-import { fmtLat, fmtLon, ianaToOffset } from '../utils/format.js'
+import { ianaToOffset } from '../utils/format.js'
 import { CLEAR_ASPECTS_SVG, SHOW_ALL_ASPECTS_SVG } from '../ui/icons.js'
 import { showExportModal } from '../ui/chart-export.js'
 import { copyText } from '../utils/clipboard.js'
+import { isPrivacyOn } from '../ui/person-header.js'
 
 const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -27,7 +28,6 @@ function fmtDeg(dec) {
   return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(2,'0')}"`
 }
 
-let privacyOn = false   // global UI pref, not per-session
 let _dPlanets = null, _dLagna = null, _signLabels = null, _centerLabel = null
 let _splitDragRatio = null
 let _chartDashaPanel = null
@@ -52,8 +52,6 @@ function c() {
 const VIEW_DEFAULTS = { '1': ['D1'], '2': ['D1','D9'], '4': ['D1','D9','D3','D10'] }
 
 const MASK = '••••••••'
-const EYE_OPEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>`
-const EYE_SHUT = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14"/></svg>`
 const GEAR_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>`
 const DOWNLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg>`
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5v-7A1.5 1.5 0 0 1 3.5 1h7A1.5 1.5 0 0 1 12 2.5V5"/></svg>`
@@ -221,27 +219,7 @@ export function renderChart() {
     ? (divisional === 'D1' ? 'Birth Chart' : divLabel(divisional))
     : 'Birth Charts'
 
-  const maskedName  = privacyOn ? MASK : heading
-
-  const _name  = birth.name ?? ''
-  const _place = (() => { const s = birth.location || ''; return s.length > 28 ? s.slice(0, 27).trimEnd() + '…' : s })()
-  const _lat   = birth.lat, _lon = birth.lon
-  const _coords = (_lat != null && _lon != null)
-    ? `${Math.abs(_lat).toFixed(2)}°${_lat >= 0 ? 'N' : 'S'} ${Math.abs(_lon).toFixed(2)}°${_lon >= 0 ? 'E' : 'W'}`
-    : (fmtLat(_lat) + ' ' + fmtLon(_lon)).trim()
-  const _init  = _name ? _name.trim()[0].toUpperCase() : '?'
-
-  const birthCardHtml = privacyOn
-    ? `<div class="birth-info-strip"><div class="tbc-avatar">?</div><div class="tbc-name">${MASK}</div></div>`
-    : `<div class="birth-info-strip">
-        <div class="tbc-avatar">${_init}</div>
-        <div class="tbc-name">${esc(_name)}</div>
-        <div class="tbc-divider"></div>
-        ${_place   ? `<div class="tbc-pill"><span class="tbc-icon">📍</span><span>${esc(_place)}</span></div>` : ''}
-        ${_coords.trim()  ? `<div class="tbc-pill"><span class="tbc-icon">🌐</span><span>${_coords}</span></div>` : ''}
-        ${birth.dob ? `<div class="tbc-pill"><span class="tbc-icon">📅</span><span>${birth.dob}</span></div>` : ''}
-        ${birth.tob ? `<div class="tbc-pill"><span class="tbc-icon">🕐</span><span>${birth.tob}</span></div>` : ''}
-      </div>`
+  const maskedName  = isPrivacyOn() ? MASK : heading
 
   // Unified div select — works for both single (divisional) and multi (active slot)
   const activeSlotKey = viewMode === '1' ? divisional : (keys[ui.activeMultiTab] ?? keys[0])
@@ -337,9 +315,7 @@ export function renderChart() {
     <div class="card">
       <div class="chart-card-header">
         <h2 class="chart-card-title">${maskedName}</h2>
-        <button id="btn-privacy" title="${privacyOn ? 'Show details' : 'Hide details'}" class="chart-privacy-btn">${privacyOn ? EYE_SHUT : EYE_OPEN}</button>
       </div>
-      ${birthCardHtml}
       <div class="chart-controls" style="margin-top:0.75rem">
         ${divSelectHtmlUnified}
         ${chalitMethodHtml}
@@ -563,7 +539,6 @@ export function renderChart() {
   }
 
   // ── Events ──
-  panel.querySelector('#btn-privacy').addEventListener('click', () => { privacyOn = !privacyOn; renderChart() })
 
   // Copy planet positions as JSON
   panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', async (e) => {

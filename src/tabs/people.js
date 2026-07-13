@@ -7,8 +7,9 @@ import {
   orderedProfiles, reorderProfiles, setProfileHidden, deleteProfile,
   exportProfiles, importProfiles, importJhdFiles,
 } from './profile-store.js'
-import { loadProfileById, editProfileById, renderInputTab } from './input.js'
-import { switchTab } from '../ui/tabs.js'
+import { loadProfileById, editProfileById } from './input.js'
+import { newPerson } from '../ui/app-shell.js'
+import { confirmModal } from '../ui/modal.js'
 import { initSwissEph } from '../core/swisseph.js'
 import { getSettings, applyAyanamsa } from '../core/settings.js'
 import { toJulianDay } from '../utils/time.js'
@@ -32,6 +33,10 @@ const ALL_COLUMNS = [
 ]
 const DEFAULT_COLS = ['dob', 'location', 'lagna']
 const COLS_KEY = 'hora-prakash-people-columns'
+const SORT_KEY = 'hora-prakash-people-sort'
+
+// Sort keys that are meaningful for each column ('name' + every data column).
+const SORTABLE = new Set(['name', 'dob', 'tob', 'location', 'lagna', 'moon', 'sun', 'nakshatra', 'tz'])
 
 function loadCols() {
   try {
@@ -41,14 +46,34 @@ function loadCols() {
 }
 function saveCols(cols) { localStorage.setItem(COLS_KEY, JSON.stringify(cols)) }
 
+// sort = { key, dir }. key === null → manual (custom drag order).
+function loadSort() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SORT_KEY))
+    if (v && SORTABLE.has(v.key)) return { key: v.key, dir: v.dir === 'desc' ? 'desc' : 'asc' }
+  } catch { /* ignore */ }
+  return { key: null, dir: 'asc' }
+}
+function saveSort(sort) { localStorage.setItem(SORT_KEY, JSON.stringify(sort)) }
+let sortState = loadSort()
+
 // ── Astro computation (cached by birth signature + ayanamsa) ─────────────────
 const astroCache = new Map()
+
+function astroKey(p, settings) {
+  return `${p.dob}|${p.tob}|${p.timezone}|${p.lat}|${p.lon}|${settings.ayanamsa}|${settings.observerType}`
+}
+
+/** Cached astro value for a profile, or null if not computed yet (sync). */
+function peekAstro(p) {
+  try { return astroCache.get(astroKey(p, getSettings())) ?? null } catch { return null }
+}
 
 async function computeAstro(p) {
   await initSwissEph()
   applyAyanamsa()
   const settings = getSettings()
-  const key = `${p.dob}|${p.tob}|${p.timezone}|${p.lat}|${p.lon}|${settings.ayanamsa}|${settings.observerType}`
+  const key = astroKey(p, settings)
   if (astroCache.has(key)) return astroCache.get(key)
   const jd = toJulianDay(p.dob, p.tob, p.timezone)
   const { planets, lagna } = calcBirthChart(jd, p.lat, p.lon, settings)
@@ -59,19 +84,64 @@ async function computeAstro(p) {
     moon:      moon ? SIGN_NAMES[moon.sign - 1] : '—',
     sun:       sun ? SIGN_NAMES[sun.sign - 1] : '—',
     nakshatra: moon ? moon.nakshatra : '—',
+    // numeric sort keys
+    _lagna: lagna ? lagna.sign : null,
+    _moon:  moon ? moon.sign : null,
+    _sun:   sun ? sun.sign : null,
+    _nakshatra: moon ? (moon.nakshatraIndex ?? null) : null,
   }
   astroCache.set(key, res)
   return res
 }
 
+/** Ensure astro is computed (and cached) for every profile — used before an astro sort. */
+async function computeAllAstro(profiles) {
+  for (const p of profiles) {
+    try { await computeAstro(p) } catch { /* leave uncached; sorts last */ }
+  }
+}
+
+// ── Sorting ──────────────────────────────────────────────────────────────────
+function sortValue(p, key) {
+  switch (key) {
+    case 'name':     return (p.name || '').trim().toLowerCase()
+    case 'dob':      return p.dob || ''      // ISO yyyy-mm-dd sorts chronologically
+    case 'tob':      return p.tob || ''      // HH:MM sorts lexically
+    case 'location': return (p.location || '').trim().toLowerCase()
+    case 'tz':       return p.timezone || ''
+    case 'lagna': case 'moon': case 'sun': case 'nakshatra': {
+      const a = peekAstro(p)
+      return a ? a[`_${key}`] : null
+    }
+    default: return null
+  }
+}
+
+function sortedForDisplay(profiles) {
+  if (!sortState.key) return profiles
+  const dir = sortState.dir === 'desc' ? -1 : 1
+  return [...profiles].sort((a, b) => {
+    const va = sortValue(a, sortState.key)
+    const vb = sortValue(b, sortState.key)
+    const ea = va == null || va === ''
+    const eb = vb == null || vb === ''
+    if (ea && eb) return 0
+    if (ea) return 1        // blanks/uncomputed always sort last
+    if (eb) return -1
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    return String(va).localeCompare(String(vb)) * dir
+  })
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
-export function renderPeople() {
+export async function renderPeople() {
   const panel = document.getElementById('tab-people')
   if (!panel) return
   const profiles = orderedProfiles()
   const cols = loadCols()
   const activeCols = ALL_COLUMNS.filter(c => cols.includes(c.key))
-  const needAstro = activeCols.some(c => c.astro)
+  const sortCol = ALL_COLUMNS.find(c => c.key === sortState.key)
+  const needAstro = activeCols.some(c => c.astro) || !!sortCol?.astro
 
   if (profiles.length === 0) {
     panel.innerHTML = `
@@ -87,6 +157,16 @@ export function renderPeople() {
     wireToolbar(panel)
     return
   }
+
+  // Sorting by an astro column needs those values up front (cached after first time).
+  if (sortCol?.astro) { try { await computeAllAstro(profiles) } catch { /* best effort */ } }
+
+  const manual = !sortState.key
+  const display = sortedForDisplay(profiles)
+  const arrow = key => sortState.key === key ? (sortState.dir === 'desc' ? ' ▼' : ' ▲') : ''
+  const th = (key, label, cls = '') => SORTABLE.has(key)
+    ? `<th class="${cls} sortable${sortState.key === key ? ' sorted' : ''}" data-sort="${key}" title="Sort by ${label}"><span>${label}</span><span class="sort-arrow">${arrow(key)}</span></th>`
+    : `<th class="${cls}">${label}</th>`
 
   panel.innerHTML = `
     <div class="card">
@@ -107,45 +187,52 @@ export function renderPeople() {
           <label class="btn-secondary people-file">↑ JHD<input type="file" id="people-jhd" accept=".jhd,.JHD" multiple hidden></label>
         </div>
       </div>
-      <p class="people-hint">Toggle the <strong>List</strong> box to show or hide a person in the profile selector. Use ▲▼ to reorder.</p>
+      <p class="people-hint">
+        ${manual
+          ? 'Drag the <strong>⠿</strong> handle to reorder people. Click a column heading to sort instead.'
+          : `Sorted by <strong>${esc(sortCol?.label ?? sortState.key)}</strong> — <button type="button" class="people-linkbtn" id="people-clear-sort">clear sort</button> to drag-reorder.`}
+        Toggle <strong>List</strong> to show or hide a person in the profile selector.
+      </p>
       <div class="table-scroll">
         <table class="people-table">
           <thead>
             <tr>
-              <th class="pt-reorder"></th>
+              <th class="pt-reorder" aria-label="Reorder"></th>
               <th class="pt-show" title="Show in the profile selector list">List</th>
-              <th class="pt-name">Name</th>
-              ${activeCols.map(c => `<th>${c.label}</th>`).join('')}
+              ${th('name', 'Name', 'pt-name')}
+              ${activeCols.map(c => th(c.key, c.label)).join('')}
               <th class="pt-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${profiles.map((p, i) => rowHtml(p, i, profiles.length, activeCols)).join('')}
+            ${display.map(p => rowHtml(p, activeCols, manual)).join('')}
           </tbody>
         </table>
       </div>
     </div>`
 
   wireToolbar(panel)
-  wireRows(panel, profiles)
-  if (needAstro) fillAstro(panel, profiles).catch(err => console.error('People astro compute failed:', err))
+  wireRows(panel, display, manual)
+  if (needAstro) fillAstro(panel, display).catch(err => console.error('People astro compute failed:', err))
 }
 
-function rowHtml(p, i, n, activeCols) {
+function rowHtml(p, activeCols, manual) {
   const dataCells = activeCols.map(c => {
-    if (c.astro) return `<td data-label="${c.label}" data-astro="${c.key}"><span class="astro-pending">…</span></td>`
-    return `<td data-label="${c.label}">${esc(cellValue(p, c.key))}</td>`
+    const nowrap = c.key !== 'location' ? ' pt-nowrap' : ''
+    if (c.astro) return `<td class="${nowrap}" data-label="${c.label}" data-astro="${c.key}"><span class="astro-pending">…</span></td>`
+    return `<td class="${nowrap}" data-label="${c.label}">${esc(cellValue(p, c.key))}</td>`
   }).join('')
   return `
-    <tr data-pid="${esc(p.id)}">
+    <tr data-pid="${esc(p.id)}"${manual ? ' draggable="true"' : ''}>
       <td class="pt-reorder" data-label="Order">
-        <button type="button" class="pt-move" data-move="up" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
-        <button type="button" class="pt-move" data-move="down" ${i === n - 1 ? 'disabled' : ''} title="Move down">▼</button>
+        ${manual
+          ? `<span class="pt-grip" title="Drag to reorder" aria-hidden="true">⠿</span>`
+          : `<span class="pt-grip pt-grip-off" title="Clear the sort to reorder" aria-hidden="true">⠿</span>`}
       </td>
       <td class="pt-show" data-label="In list">
         <input type="checkbox" class="pt-show-cb" ${p.hidden ? '' : 'checked'} title="Show in the profile selector list"/>
       </td>
-      <td class="pt-name" data-label="Name">${esc(p.name || '—')}</td>
+      <td class="pt-name pt-nowrap" data-label="Name">${esc(p.name || '—')}</td>
       ${dataCells}
       <td class="pt-actions" data-label="Actions">
         <button type="button" class="pt-btn pt-open" title="Open chart">▶</button>
@@ -182,11 +269,7 @@ async function fillAstro(panel, profiles) {
 
 // ── Events ───────────────────────────────────────────────────────────────────
 function wireToolbar(panel) {
-  panel.querySelector('#people-add')?.addEventListener('click', () => {
-    switchTab('input')
-    renderInputTab()
-    document.getElementById('btn-new-entry')?.click()
-  })
+  panel.querySelector('#people-add')?.addEventListener('click', () => newPerson())
   panel.querySelector('#people-export')?.addEventListener('click', exportProfiles)
   panel.querySelector('#people-import')?.addEventListener('change', e => {
     const file = e.target.files[0]
@@ -194,6 +277,23 @@ function wireToolbar(panel) {
   })
   panel.querySelector('#people-jhd')?.addEventListener('change', e => {
     if (e.target.files.length) { importJhdFiles(e.target.files, renderPeople); e.target.value = '' }
+  })
+
+  // Column-heading sort: asc → desc → clear (back to manual order).
+  panel.querySelector('thead')?.addEventListener('click', e => {
+    const thEl = e.target.closest('th.sortable')
+    if (!thEl) return
+    const key = thEl.dataset.sort
+    if (sortState.key !== key)          sortState = { key, dir: 'asc' }
+    else if (sortState.dir === 'asc')   sortState = { key, dir: 'desc' }
+    else                                sortState = { key: null, dir: 'asc' }
+    saveSort(sortState)
+    renderPeople()
+  })
+  panel.querySelector('#people-clear-sort')?.addEventListener('click', () => {
+    sortState = { key: null, dir: 'asc' }
+    saveSort(sortState)
+    renderPeople()
   })
 
   const colsBtn = panel.querySelector('#people-cols-btn')
@@ -222,7 +322,7 @@ function wireToolbar(panel) {
   }
 }
 
-function wireRows(panel, profiles) {
+function wireRows(panel, profiles, manual) {
   const tbody = panel.querySelector('tbody')
   if (!tbody) return
   tbody.addEventListener('click', e => {
@@ -230,15 +330,13 @@ function wireRows(panel, profiles) {
     if (!row) return
     const id = row.dataset.pid
 
-    const moveBtn = e.target.closest('.pt-move')
-    if (moveBtn) { moveProfile(profiles, id, moveBtn.dataset.move); return }
-
     if (e.target.closest('.pt-open')) { loadProfileById(id).catch(err => console.error(err)); return }
     if (e.target.closest('.pt-edit')) { editProfileById(id); return }
     if (e.target.closest('.pt-del')) {
       const p = profiles.find(q => q.id === id)
       const label = p ? `"${p.name}" (${p.dob})` : 'this person'
-      if (confirm(`Delete ${label}? This cannot be undone.`)) { deleteProfile(id); renderPeople() }
+      confirmModal(`Delete ${label}? This cannot be undone.`, { title: 'Delete person', confirmLabel: 'Delete', danger: true })
+        .then(ok => { if (ok) { deleteProfile(id); renderPeople() } })
     }
   })
   tbody.addEventListener('change', e => {
@@ -247,14 +345,51 @@ function wireRows(panel, profiles) {
     const row = e.target.closest('tr[data-pid]')
     if (row) setProfileHidden(row.dataset.pid, !cb.checked)
   })
+
+  if (manual) wireDragReorder(tbody)
 }
 
-function moveProfile(profiles, id, dir) {
-  const ids = profiles.map(p => p.id)
-  const idx = ids.indexOf(id)
-  const swap = dir === 'up' ? idx - 1 : idx + 1
-  if (idx < 0 || swap < 0 || swap >= ids.length) return
-  ;[ids[idx], ids[swap]] = [ids[swap], ids[idx]]
+// Drag-and-drop reordering (manual mode only). Persists via reorderProfiles.
+let _dragId = null
+function wireDragReorder(tbody) {
+  const clearMarks = () => tbody.querySelectorAll('.pt-drop-before, .pt-drop-after')
+    .forEach(el => el.classList.remove('pt-drop-before', 'pt-drop-after'))
+
+  tbody.querySelectorAll('tr[data-pid]').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      _dragId = tr.dataset.pid
+      tr.classList.add('pt-dragging')
+      e.dataTransfer.effectAllowed = 'move'
+      try { e.dataTransfer.setData('text/plain', _dragId) } catch { /* Safari */ }
+    })
+    tr.addEventListener('dragend', () => { _dragId = null; tr.classList.remove('pt-dragging'); clearMarks() })
+    tr.addEventListener('dragover', e => {
+      if (!_dragId || tr.dataset.pid === _dragId) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      const before = (e.clientY - tr.getBoundingClientRect().top) < tr.offsetHeight / 2
+      clearMarks()
+      tr.classList.add(before ? 'pt-drop-before' : 'pt-drop-after')
+    })
+    tr.addEventListener('drop', e => {
+      e.preventDefault()
+      const targetId = tr.dataset.pid
+      if (!_dragId || _dragId === targetId) return
+      const before = tr.classList.contains('pt-drop-before')
+      applyDrop(_dragId, targetId, before)
+    })
+  })
+}
+
+function applyDrop(dragId, targetId, before) {
+  const ids = orderedProfiles().map(p => p.id)
+  const from = ids.indexOf(dragId)
+  if (from < 0) return
+  ids.splice(from, 1)
+  let to = ids.indexOf(targetId)
+  if (to < 0) return
+  if (!before) to += 1
+  ids.splice(to, 0, dragId)
   reorderProfiles(ids)
   renderPeople()
 }

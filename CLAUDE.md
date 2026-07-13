@@ -27,14 +27,14 @@ Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yoga
 
 ## Architecture
 
-**Hora Prakash** is a Vedic astrology web app built with Vite + Vanilla JS (no framework, no backend server; Firebase for auth + Firestore profile sync). Deployed to GitHub Pages (base `/hora-prakash/`) and optionally Firebase Hosting (`npm run deploy:firebase`).
+**Hora Prakash** is a Vedic astrology web app built with Vite + Vanilla JS (no framework, no backend server; Firebase for auth + Firestore profile sync). Deployed to GitHub Pages and optionally Firebase Hosting (`npm run deploy:firebase`). Note: `vite.config.js` sets `base: '/'` (custom domain / root deploy), not `/hora-prakash/`. Routing is hash-based (`#/p/<sid>/<page>`) so it is base-path-agnostic regardless.
 
 ### Startup sequence (`src/main.js`)
 
 1. `loadSettings()` + theme; `loadBranding()`
 2. `await requireAuth()` — Firebase login gate (blocks everything)
 3. `fetchProfiles()` — mirrors Firestore profiles into localStorage (`hora-prakash-profiles`) so existing sync read paths work
-4. `initTabs()`, `initSettingsModal()`, create + switch first session, `renderProfileTabs()`, `renderInputTab()`
+4. `initTabs()`, `initShell(user)` (sidebar/drawer + settings gear + account row), create + switch sessions, `renderSidebar()`, then `initRouter()` (the hash route drives the first render)
 5. `initSwissEph()` preloads WASM in background; form submit awaits it
 
 **SwissEph must be initialized before calculation calls.** `getSwe()` throws before init.
@@ -57,13 +57,19 @@ Each session = chart-state snapshot + per-tab UI state (`defaultDashaUI/ChartUI/
 
 ⚠️ **When adding a field to `state.js`, you MUST add it to both `emptySnap()` and `saveActiveSnapshot()` in sessions.js.** Missing fields leak data between profile tabs (this happened with `strength` — one profile's Shadbala showed under another profile).
 
-### Tab rendering is dispatched in THREE places — keep them in sync
+### App shell, navigation & routing (SaaS layout)
 
-1. `src/ui/tabs.js` click handler
-2. `src/ui/tabs.js` mobile swipe handler (same if/else chain)
-3. `src/ui/profile-tabs.js` `activateInnerTab()` (runs on profile-tab switch — must handle ALL tabs: chart, dasha, panchang, strength, transit, compare, export, and enable/disable all seven data tabs)
+The UI is a **left sidebar + person workspace** shell (`index.html` → `#app-shell` > `aside#app-sidebar` + `#workspace`). On <900px the sidebar becomes an off-canvas **drawer** (`#mobile-topbar` hamburger + `#drawer-scrim`). CSS: `src/styles/tokens.css` (design tokens: spacing/type/radius/z-index/shadow/semantic colors + the 6 `[data-theme]` accents), `src/styles/components.css` (`.btn`/`.seg-btn`/`.modal-*`/`.auth-*`), `src/styles/shell.css` (grid + drawer); all `@import`ed at the top of `src/style.css` (inlined at build by lightningcss). Light-only — no dark mode.
 
-Adding a new top-level tab requires updating all three plus `TAB_ORDER` in tabs.js, the button/panel in `index.html`, and the `enableTab(...)` calls in `src/tabs/input.js` (two places: `onFormSubmit` and `recalcAll`). The Compare tab was added this way — use it as the template.
+**Pages are a single registry, not a triplicated dispatch.** `src/ui/nav-registry.js` `PAGE_MAP` is the one source of truth: each page id (keeps legacy names `input`/`chart`/… so `#tab-<id>` panels and `data-tab` attrs are unchanged) declares `{ scope: 'person'|'global', requiresData, render }`. `PERSON_PAGES` is the swipe/nav order; `ROUTE_ALIAS`/`SEGMENT_FOR` map `edit ↔ input`.
+
+**Hash router** (`src/ui/router.js`) owns navigation:
+- Routes: `#/p/<sid>/<page>` (person workspace), `#/people`, `#/compare`. `navigate(routeFor(page, sid))` / `refresh()` / `markRoute(page)` (record a route without re-dispatching, for the edit-form flow).
+- `handleRoute()` parses the hash → switches session → data-guards (`requiresData && !state.planets` → the person's `edit` page, unless the session is mid-`restoring` after reload, which shows a placeholder) → `_setCurrent()` → `syncPageNav()` + `switchTab()` (DOM class toggles only) → `app-shell.setActive()` → `renderPage()`. Back/forward and cross-person history all funnel through `hashchange`.
+- **Current page/session live in `src/ui/nav-state.js`** (`getCurrentPage()`), a DOM-free module. `sessions.js` reads it (not the DOM) when snapshotting `innerTab`; keep nav-state Node-safe (sessions.js → nav-state is in the test import graph via export.js).
+- Session ids persist across reload (`persistSessions` stores `id`; `createSession(label, id)` reuses it) so deep links survive.
+
+**Adding a page** = one `PAGE_MAP` entry + a `<button data-tab>` in `#tab-nav` (person pages) or a `.side-item[data-nav]` in the sidebar (global pages) + a `<section id="tab-<id>">` panel. No `TAB_ORDER`, no `enableTab` fan-out, no `activateInnerTab` — those were removed. The sidebar people list is `renderSidebar()` in `src/ui/app-shell.js` (replaced the old `profile-tabs.js`). The workspace person header (avatar/name/pills + privacy toggle + Edit) is `src/ui/person-header.js`, rendered by the router; `isPrivacyOn()` there is the single privacy-mask source (chart.js reads it).
 
 ### Data flow on form submit (`src/tabs/input.js` → `onFormSubmit`)
 
@@ -72,7 +78,7 @@ Adding a new top-level tab requires updating all three plus `TAB_ORDER` in tabs.
 3. `calcDasha(moon, dob, { settings, swe, jd })` → async; **eagerly builds only 2 levels (maha → antar); deeper levels lazy via `ensureChildren(node, swe, flags)`**
 4. `calcPanchang(jd, lat, lon, { dateStr, timezone })`
 5. Ashtakavarga + Shadbala → `state.strength`
-6. Cloud save (`saveHoroscope`), tabs rendered, switch to Chart
+6. Cloud save (`saveHoroscope`), tabs rendered, `syncPageNav()` + `navigate(routeFor('chart'))`
 
 `recalcAll()` (same file) repeats this on settings change — keep both code paths in sync.
 
@@ -142,7 +148,9 @@ Dual (natal + transit side by side) or overlay view; per-session UI state in `ui
 - `vite.config.js` must exclude `swisseph-wasm` from `optimizeDeps`; dev server needs COOP/COEP headers
 - The module is lazily imported inside `initSwissEph()` — core modules are safe to import in Node (that's how `npm test` works)
 
-**Settings (`src/core/settings.js`):** localStorage `hora-prakash-settings`; ayanamsa (Lahiri default), yearMethod (sidereal default; 'true-solar' triggers async solar-return dasha), planetPositions, observerType, theme. Changing settings calls `recalcAll()`.
+**Settings (`src/core/settings.js`):** localStorage `hora-prakash-settings`; ayanamsa (Lahiri default), yearMethod (sidereal default; 'true-solar' triggers async solar-return dasha), customYearDays, planetPositions, observerType, theme. Changing settings calls `recalcAll()`. The settings modal (`src/ui/settings-modal.js`, opened from the sidebar footer via `openSettingsModal()`) exposes all of these including Year Method + Custom Year Days.
+
+**Modals (`src/ui/modal.js`):** one primitive — `openModal({title, content, actions, width})`, plus `confirmModal()` / `promptModal()` (Esc + scrim close, focus mgmt, `.modal-*` classes). Used by settings, export preset save/rename/delete, and profile-deletion confirms (replaced `window.prompt/confirm`). ⚠️ `modal.js` touches `document` only inside functions — safe to import into modules in the Node test graph (e.g. `export.js`). The auth screen (`src/auth-ui.js`) is a light `.auth-*` overlay matching the app theme.
 
 **Charts (`src/ui/chart-svg.js`):**
 - `renderChartSVG(planets, lagna, style, signLabels, centerLabel, activeAspects, activePlanetColors, isTransit)`

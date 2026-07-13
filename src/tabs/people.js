@@ -9,6 +9,7 @@ import {
 } from './profile-store.js'
 import { loadProfileById, editProfileById, renderInputTab } from './input.js'
 import { markRoute } from '../ui/router.js'
+import { confirmModal } from '../ui/modal.js'
 import { initSwissEph } from '../core/swisseph.js'
 import { getSettings, applyAyanamsa } from '../core/settings.js'
 import { toJulianDay } from '../utils/time.js'
@@ -238,7 +239,8 @@ function wireRows(panel, profiles) {
     if (e.target.closest('.pt-del')) {
       const p = profiles.find(q => q.id === id)
       const label = p ? `"${p.name}" (${p.dob})` : 'this person'
-      if (confirm(`Delete ${label}? This cannot be undone.`)) { deleteProfile(id); renderPeople() }
+      confirmModal(`Delete ${label}? This cannot be undone.`, { title: 'Delete person', confirmLabel: 'Delete', danger: true })
+        .then(ok => { if (ok) { deleteProfile(id); renderPeople() } })
     }
   })
   tbody.addEventListener('change', e => {

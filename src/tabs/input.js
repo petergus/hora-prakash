@@ -12,6 +12,7 @@ import { getSwe, initSwissEph } from '../core/swisseph.js'
 import { state } from '../state.js'
 import { syncPageNav } from '../ui/tabs.js'
 import { navigate, routeFor, markRoute } from '../ui/router.js'
+import { confirmModal } from '../ui/modal.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, parseTzInfo, fmtLat, fmtLon } from '../utils/format.js'
 import { parseBirthPaste } from '../utils/paste-parse.js'
 import { saveHoroscope } from '../cloud-store.js'
@@ -385,8 +386,8 @@ function renderSavedProfiles() {
   section.querySelector('#inp-import-jhd').addEventListener('change', e => {
     if (e.target.files.length) { importJhdFiles(e.target.files, renderSavedProfiles); e.target.value = '' }
   })
-  section.querySelector('#btn-clear-all').addEventListener('click', () => {
-    if (confirm('Delete all saved profiles?')) {
+  section.querySelector('#btn-clear-all').addEventListener('click', async () => {
+    if (await confirmModal('Delete all saved profiles?', { title: 'Clear all profiles', confirmLabel: 'Delete all', danger: true })) {
       clearAllProfiles()
       renderSavedProfiles()
     }
@@ -406,12 +407,12 @@ function renderSavedProfiles() {
     if (profile) { fillForm(profile); editingProfileId = profile.id }
   })
 
-  section.querySelector('#btn-delete-profile').addEventListener('click', () => {
+  section.querySelector('#btn-delete-profile').addEventListener('click', async () => {
     const id = sel.value
     if (!id) return
     const profile = profiles.find(p => p.id === id)
     const label = profile ? `"${profile.name}" (${profile.dob})` : 'this profile'
-    if (confirm(`Remove ${label}? This cannot be undone.`)) { deleteProfile(id); renderSavedProfiles() }
+    if (await confirmModal(`Remove ${label}? This cannot be undone.`, { title: 'Remove profile', confirmLabel: 'Remove', danger: true })) { deleteProfile(id); renderSavedProfiles() }
   })
 }
 

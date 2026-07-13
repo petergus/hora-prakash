@@ -1,12 +1,12 @@
 // src/main.js
 import { initTabs } from './ui/tabs.js'
-import { renderInputTab } from './tabs/input.js'
+import { initRouter, refresh as refreshRoute } from './ui/router.js'
 import { initSwissEph } from './core/swisseph.js'
 import { loadSettings, applyAyanamsa, getSettings } from './core/settings.js'
 import { loadBranding } from './config/branding.js'
 import { initSettingsModal } from './ui/settings-modal.js'
-import { createSession, switchSession, loadPersistedSessions } from './sessions.js'
-import { renderProfileTabs, activateInnerTab } from './ui/profile-tabs.js'
+import { createSession, switchSession, loadPersistedSessions, getSessions } from './sessions.js'
+import { renderProfileTabs } from './ui/profile-tabs.js'
 import { state } from './state.js'
 import { updateFavicon } from './ui/favicon.js'
 import { requireAuth, logout } from './auth-ui.js'
@@ -79,13 +79,22 @@ async function main() {
   initSettingsModal()
 
   // Recreate profile tabs persisted from this browser tab (sessionStorage);
-  // chart data is recalculated below once the ephemeris is ready.
+  // chart data is recalculated below once the ephemeris is ready. Persisted
+  // ids are reused so #/p/<id>/… deep links survive the reload.
   const persisted = loadPersistedSessions()
   const entries = persisted?.entries ?? [{}]
-  const ids = entries.map(e => createSession(e.label ?? 'New Profile'))
+  const ids = entries.map(e => createSession(e.label ?? 'New Profile', e.id || undefined))
   switchSession(ids[0])
+
+  // Sessions that will be recalculated below get a `restoring` flag so the
+  // router shows a placeholder instead of bouncing data-page routes to /edit.
+  for (const s of getSessions()) {
+    const entry = entries[ids.indexOf(s.id)]
+    if (entry?.birth?.dob && entry?.birth?.tob) s.restoring = true
+  }
+
   renderProfileTabs()
-  renderInputTab()
+  initRouter()
 
   // Preload WASM in background; form submit will await it if still loading
   const sweReady = initSwissEph().then(() => applyAyanamsa())
@@ -111,14 +120,18 @@ async function restoreSessionData(persisted, ids, sweReady) {
     switchSession(entry.id)
     state.birth = entry.birth
     await recalcAll()
+    const session = getSessions().find(s => s.id === entry.id)
+    if (session) session.restoring = false
     renderProfileTabs()
   }
+  for (const s of getSessions()) s.restoring = false
 
-  // Return to the session that was active before the reload
+  // Return to the session that was active before the reload. The hash stays
+  // the source of truth, so a reload keeps the user on the page they were on.
   const targetId = ids[persisted.activeIndex] ?? ids[0]
   switchSession(targetId)
   renderProfileTabs()
-  activateInnerTab(state.planets ? 'chart' : 'input')
+  await refreshRoute()
 }
 
 function installAuthHeader(user) {

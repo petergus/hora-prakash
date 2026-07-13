@@ -8,7 +8,7 @@ import {
   exportProfiles, importProfiles, importJhdFiles,
 } from './profile-store.js'
 import { loadProfileById, editProfileById, renderInputTab } from './input.js'
-import { switchTab } from '../ui/tabs.js'
+import { markRoute } from '../ui/router.js'
 import { initSwissEph } from '../core/swisseph.js'
 import { getSettings, applyAyanamsa } from '../core/settings.js'
 import { toJulianDay } from '../utils/time.js'
@@ -183,7 +183,7 @@ async function fillAstro(panel, profiles) {
 // ── Events ───────────────────────────────────────────────────────────────────
 function wireToolbar(panel) {
   panel.querySelector('#people-add')?.addEventListener('click', () => {
-    switchTab('input')
+    markRoute('input')
     renderInputTab()
     document.getElementById('btn-new-entry')?.click()
   })

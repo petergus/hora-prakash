@@ -10,7 +10,8 @@ import { calcShadbala } from '../core/shadbala.js'
 import { applyAyanamsa, getSettings } from '../core/settings.js'
 import { getSwe, initSwissEph } from '../core/swisseph.js'
 import { state } from '../state.js'
-import { switchTab, enableTab } from '../ui/tabs.js'
+import { syncPageNav } from '../ui/tabs.js'
+import { navigate, routeFor, markRoute } from '../ui/router.js'
 import { decToDMS, dmsToDec, offsetParts, offsetStr, ianaToOffset, parseTzInfo, fmtLat, fmtLon } from '../utils/format.js'
 import { parseBirthPaste } from '../utils/paste-parse.js'
 import { saveHoroscope } from '../cloud-store.js'
@@ -723,8 +724,8 @@ export async function computeAndRenderChart(birth, { profileId = null, onStatus 
   const { renderPanchang } = await import('./panchang.js')
   const { renderStrength } = await import('./strength.js')
   renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-  enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
-  switchTab('chart')
+  syncPageNav()
+  navigate(routeFor('chart'))
 }
 
 /** Load a saved profile by id and render its full chart (used by People directory). */
@@ -742,7 +743,7 @@ export async function loadProfileById(id) {
 export function editProfileById(id) {
   const p = loadProfiles().find(q => q.id === id)
   if (!p) return
-  switchTab('input')
+  markRoute('input')
   renderInputTab()
   fillForm(p)
   editingProfileId = p.id
@@ -1015,7 +1016,7 @@ export async function recalcAll() {
     const { renderStrength } = await import('./strength.js')
 
     renderChart(); renderDasha().catch(console.error); renderPanchang(); renderStrength()
-    enableTab('chart'); enableTab('dasha'); enableTab('panchang'); enableTab('strength'); enableTab('transit'); enableTab('compare'); enableTab('export')
+    syncPageNav()
   } catch (err) {
     const errEl = document.getElementById('calc-error')
     if (errEl) errEl.textContent = `Recalculation error: ${err.message}`

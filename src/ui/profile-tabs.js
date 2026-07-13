@@ -1,39 +1,13 @@
-// src/ui/profile-tabs.js
+// src/ui/profile-tabs.js — open-people tab strip (becomes the sidebar list in
+// the app shell). All page dispatch goes through the router.
 import { getSessions, getActiveId, createSession, switchSession, closeSession, activeInnerTab } from '../sessions.js'
-import { state } from '../state.js'
-import { switchTab, enableTab } from './tabs.js'
-import { renderChart } from '../tabs/chart.js'
-import { renderDasha } from '../tabs/dasha.js'
-import { renderPanchang } from '../tabs/panchang.js'
-import { renderInputTab } from '../tabs/input.js'
+import { navigate, routeFor } from './router.js'
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
 
 const PERSON_ICON = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg>`
 const PLUS_ICON   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>`
 const CLOSE_ICON  = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>`
-
-export async function activateInnerTab(tab) {
-  const hasData = !!state.planets
-  // Sync disabled state of content tabs with session data availability
-  ;['chart','dasha','panchang','strength','transit','compare','export'].forEach(t => {
-    const btn = document.querySelector(`.tab-btn[data-tab="${t}"]`)
-    if (!btn) return
-    btn.disabled = !hasData
-  })
-  // 'people' and 'input' work without a calculated chart; data tabs fall back to input.
-  if (!hasData && tab !== 'input' && tab !== 'people') tab = 'input'
-  switchTab(tab)
-  if (tab === 'chart')         renderChart()
-  else if (tab === 'dasha')    renderDasha().catch(console.error)
-  else if (tab === 'panchang') renderPanchang()
-  else if (tab === 'strength') (await import('../tabs/strength.js')).renderStrength()
-  else if (tab === 'transit')  (await import('../tabs/transit.js')).renderTransit()
-  else if (tab === 'export')   (await import('../tabs/export.js')).renderExport()
-  else if (tab === 'compare')  (await import('../tabs/compare.js')).renderCompare()
-  else if (tab === 'people')   (await import('../tabs/people.js')).renderPeople()
-  else                         renderInputTab()
-}
 
 export function renderProfileTabs() {
   const bar = document.getElementById('profile-tab-bar')
@@ -61,7 +35,7 @@ export function renderProfileTabs() {
     if (closeEl) {
       closeSession(closeEl.dataset.close)
       renderProfileTabs()
-      activateInnerTab(activeInnerTab())
+      navigate(routeFor(activeInnerTab()), { replace: true })
       return
     }
 
@@ -70,16 +44,17 @@ export function renderProfileTabs() {
       const id = createSession()
       switchSession(id)
       renderProfileTabs()
-      activateInnerTab('input')
+      navigate(routeFor('input', id))
       return
     }
 
-    // Switch profile tab
+    // Switch profile tab — deep-link to the page that person last had open.
     const ptab = e.target.closest('.ptab[data-sid]')
     if (ptab && ptab.dataset.sid !== getActiveId()) {
-      switchSession(ptab.dataset.sid)
+      const sid = ptab.dataset.sid
+      switchSession(sid)
       renderProfileTabs()
-      activateInnerTab(activeInnerTab())
+      navigate(routeFor(activeInnerTab(), sid))
     }
   }
 }

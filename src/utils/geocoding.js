@@ -1,5 +1,9 @@
 // src/utils/geocoding.js
-// places.json schema: { n: name, a: lat, o: lon, z: tz_offset }
+// places.json schema: { n: name, a: lat, o: lon, t: iana_zone [, z: numeric_offset] }
+// `t` is an IANA zone name (e.g. "America/Denver") resolved offline at build
+// time (scripts/enrich-places-tz.js) so the app can derive the birth-instant
+// offset with DST/historical rules. `z` (fixed numeric offset) survives only on
+// the rare entries where no zone could be resolved, as a fallback.
 import { searchCache } from './location-cache.js'
 
 const PLACES_URL = `${import.meta.env.BASE_URL}places.json`
@@ -19,7 +23,8 @@ function searchPlaces(query, data) {
   const results = []
   for (const entry of data) {
     if (entry.n.toLowerCase().includes(q)) {
-      results.push({ displayName: entry.n, lat: entry.a, lon: entry.o, tz: entry.z })
+      // Prefer the IANA zone (`t`); fall back to a legacy numeric offset (`z`).
+      results.push({ displayName: entry.n, lat: entry.a, lon: entry.o, tz: entry.t || entry.z })
       if (results.length === 5) break
     }
   }
@@ -43,7 +48,8 @@ async function fetchNominatim(query) {
  * Search locations. Returns { results, isLocal }.
  * results: array of { displayName, lat, lon, tz }
  * isLocal: true when results came from cache/places.json (not Nominatim)
- * tz is ±HH:MM for local results, null for Nominatim results (resolve via getTimezone()).
+ * tz is an IANA zone name for local results (rarely a ±HH:MM fallback), null for
+ * Nominatim results (resolve via getTimezone()).
  * Order: localStorage cache → places.json → Nominatim API.
  */
 export async function searchLocation(query) {

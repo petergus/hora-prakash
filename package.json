@@ -9,10 +9,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs",
+    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs && node tests/places-timezone.test.mjs",
     "test:ephemeris": "node tests/lunar-birthday.ephemeris.test.mjs",
     "preview": "vite preview",
     "parse-places": "node scripts/parse-places.js",
+    "enrich-places": "node scripts/enrich-places-tz.js",
     "build:firebase": "DEPLOY_TARGET=firebase vite build",
     "deploy:firebase": "npm run build:firebase && firebase deploy --only hosting"
   },
@@ -27,7 +28,7 @@
   },
   "dependencies": {
     "firebase": "^12.13.0",
-    "geo-tz": "^8.1.6",
+    "geo-tz": "^8.1.8",
     "jspdf": "^4.2.1",
     "swisseph-wasm": "^0.0.5"
   }

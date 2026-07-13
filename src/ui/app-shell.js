@@ -7,6 +7,7 @@ import { getSessions, getActiveId, createSession, switchSession, closeSession, a
 import { navigate, routeFor } from './router.js'
 import { logout } from '../auth-ui.js'
 import { openSettingsModal } from './settings-modal.js'
+import { renderPersonHeader } from './person-header.js'
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
 
@@ -116,6 +117,7 @@ export function setActive({ sid, page } = {}) {
 
   // The person page-nav only makes sense inside a person workspace.
   document.getElementById('tab-nav')?.toggleAttribute('hidden', !isPerson)
+  renderPersonHeader()
 
   const person = document.getElementById('topbar-person')
   if (person) person.textContent = isPerson && session ? session.label : ''

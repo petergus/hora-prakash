@@ -1,23 +1,6 @@
 // src/components/TransitToolbar.js
-import { state } from '../state.js'
 import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { CLEAR_ASPECTS_SVG } from '../ui/icons.js'
-
-function _trimPlace(s, max = 28) {
-  if (!s) return ''
-  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s
-}
-
-function _formatCoords(lat, lon) {
-  if (lat == null || lon == null) return ''
-  const la = Math.abs(lat).toFixed(2) + (lat >= 0 ? '°N' : '°S')
-  const lo = Math.abs(lon).toFixed(2) + (lon >= 0 ? '°E' : '°W')
-  return `${la} ${lo}`
-}
-
-function _initial(name) {
-  return name ? name.trim()[0].toUpperCase() : '?'
-}
 
 export class TransitToolbar {
   constructor(el, getState, onChange, onClearAspects) {
@@ -78,14 +61,6 @@ export class TransitToolbar {
     const divKey        = ui.transitDivisional ?? 'D1'
     const aspectToHouse = ui.aspectToHouse ?? ''
 
-    const birth = state.birth ?? {}
-    const name  = birth.name ?? 'Unknown'
-    const place = _trimPlace(birth.location)
-    const coords = _formatCoords(birth.lat, birth.lon)
-    const dob   = birth.dob ?? ''
-    const tob   = birth.tob ?? ''
-    const init  = _initial(name)
-
     const menuOpen = this._menuOpen
     const aspectCount = [ui.natalAspectSource, ui.transitAspectSource,
                          ui.overlayNatalAspectSource, ui.overlayTransitAspectSource]
@@ -93,15 +68,6 @@ export class TransitToolbar {
 
     this.el.innerHTML = `
       <div class="transit-toolbar">
-        <div class="transit-birth-card">
-          <div class="tbc-avatar">${init}</div>
-          <div class="tbc-name">${name}</div>
-          <div class="tbc-divider"></div>
-          ${place  ? `<div class="tbc-pill"><span class="tbc-icon">📍</span><span>${place}</span></div>` : ''}
-          ${coords ? `<div class="tbc-pill"><span class="tbc-icon">🌐</span><span>${coords}</span></div>` : ''}
-          ${dob    ? `<div class="tbc-pill"><span class="tbc-icon">📅</span><span>${dob}</span></div>` : ''}
-          ${tob    ? `<div class="tbc-pill"><span class="tbc-icon">🕐</span><span>${tob}</span></div>` : ''}
-        </div>
         <div class="transit-controls-row${menuOpen ? ' menu-open' : ''}">
           <div class="transit-style-group">
             <button class="transit-style-btn${chartStyle === 'north' ? ' active' : ''}" data-action="setStyle" data-style="north">N</button>

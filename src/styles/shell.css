@@ -1,27 +1,27 @@
 /* ── App shell: sidebar + workspace ────────────────────────────────────────
-   Desktop (≥900px): fixed 248px sidebar + fluid workspace.
+   Desktop (≥900px): fixed 248px sidebar pinned to the left + fluid workspace.
    Mobile  (<900px): sidebar becomes an off-canvas drawer behind a topbar. */
 
-#app-shell {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 100vh;
-  min-height: 100dvh;
-}
+:root { --sidebar-w: 248px; }
 
-/* ── Sidebar ── */
+#app-shell { min-height: 100vh; min-height: 100dvh; }
+
+/* ── Sidebar (fixed to the left edge, scrolls independently) ── */
 #app-sidebar {
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  position: sticky;
+  position: fixed;
   top: 0;
-  height: 100vh;
-  height: 100dvh;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--sp-4) var(--sp-3);
   gap: var(--sp-5);
+  z-index: var(--z-sticky);
 }
 
 #sidebar-brand h1 {
@@ -153,12 +153,11 @@
 #sidebar-install-slot:empty { display: none; }
 #sidebar-install-slot #btn-install { width: 100%; }
 
-/* ── Workspace ── */
+/* ── Workspace (offset to clear the fixed sidebar; content hugs the left) ── */
 #workspace {
-  width: 100%;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: var(--sp-5) var(--sp-6) var(--sp-8);
+  margin-left: var(--sidebar-w);
+  max-width: 1200px;
+  padding: var(--sp-5) clamp(var(--sp-4), 3vw, var(--sp-8)) var(--sp-8);
   min-width: 0;
 }
 
@@ -236,6 +235,6 @@
 
   #mobile-topbar { display: flex; }
 
-  #workspace { padding: var(--sp-4) var(--sp-3) var(--sp-6); }
+  #workspace { margin-left: 0; max-width: none; padding: var(--sp-4) var(--sp-3) var(--sp-6); }
   #mobile-topbar { margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-3)) var(--sp-3); }
 }

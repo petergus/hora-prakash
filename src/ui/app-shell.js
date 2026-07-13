@@ -42,12 +42,7 @@ export function initShell(user) {
   })
 
   // New person
-  addBtn?.addEventListener('click', () => {
-    const id = createSession()
-    switchSession(id)
-    renderSidebar()
-    navigate(routeFor('input', id))
-  })
+  addBtn?.addEventListener('click', () => newPerson())
 
   // Footer: settings + account
   const footer = document.getElementById('sidebar-footer')
@@ -121,6 +116,14 @@ export function setActive({ sid, page } = {}) {
 
   const person = document.getElementById('topbar-person')
   if (person) person.textContent = isPerson && session ? session.label : ''
+}
+
+/** Open a fresh person tab and land on its Birth Details page. */
+export function newPerson() {
+  const id = createSession()
+  switchSession(id)
+  renderSidebar()
+  navigate(routeFor('input', id))
 }
 
 export function openDrawer() {

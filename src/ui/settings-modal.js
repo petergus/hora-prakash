@@ -6,21 +6,6 @@ import {
 import { updateFavicon } from './favicon.js'
 import { openModal } from './modal.js'
 
-/**
- * Wire the settings gear. `mount` is the element the gear button is appended
- * to (defaults to the legacy <header> until the app shell provides a slot).
- */
-export function initSettingsModal(mount = document.querySelector('header')) {
-  const gearBtn = document.createElement('button')
-  gearBtn.id = 'settings-btn'
-  gearBtn.type = 'button'
-  gearBtn.title = 'Calculation Settings'
-  gearBtn.textContent = '⚙'
-  gearBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.15rem;padding:0.3rem 0.6rem;color:var(--muted);line-height:1;flex-shrink:0;'
-  mount?.appendChild(gearBtn)
-  gearBtn.addEventListener('click', openSettingsModal)
-}
-
 export function openSettingsModal() {
   const s = getSettings()
   const currentTheme = document.documentElement.dataset.theme || s.theme || 'crimson'

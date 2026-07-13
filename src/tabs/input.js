@@ -713,11 +713,11 @@ export async function computeAndRenderChart(birth, { profileId = null, onStatus 
     houses: state.houses,
   }).catch(err => console.error('Cloud horoscope save failed:', err))
 
-  // Update session label and profile tab bar
+  // Update session label and the sidebar people list
   const { updateActiveLabel } = await import('../sessions.js')
-  const { renderProfileTabs } = await import('../ui/profile-tabs.js')
+  const { renderSidebar } = await import('../ui/app-shell.js')
   updateActiveLabel(name)
-  renderProfileTabs()
+  renderSidebar()
 
   const { renderChart }    = await import('./chart.js')
   const { renderDasha }    = await import('./dasha.js')

@@ -1,5 +1,6 @@
 @import './styles/tokens.css';
 @import './styles/components.css';
+@import './styles/shell.css';
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -7,147 +8,8 @@ body {
   font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 1.5rem 1rem;
   font-size: 0.95rem;
 }
-
-/* ── Header ── */
-header {
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 0.6rem 1rem 0.6rem 1.25rem;
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-/* ── Profile tab bar (inside header) ── */
-#profile-tab-bar {
-  flex: 1;
-  min-width: 0;
-  align-self: flex-end;
-}
-
-.ptab-scroll {
-  display: flex;
-  align-items: flex-end;
-  overflow-x: auto;
-  scrollbar-width: none;
-  gap: 2px;
-  height: 36px;
-}
-.ptab-scroll::-webkit-scrollbar { display: none; }
-
-.ptab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.85rem;
-  min-width: 0;
-  max-width: 160px;
-  height: 30px;
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: 7px 7px 0 0;
-  background: var(--bg);
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-family: inherit;
-  color: var(--muted);
-  white-space: nowrap;
-  transition: background 0.12s, color 0.12s, height 0.1s;
-  flex-shrink: 0;
-  position: relative;
-}
-.ptab:hover { background: #e8ecf3; color: var(--text); }
-.ptab.active {
-  background: var(--surface);
-  color: var(--primary);
-  font-weight: 600;
-  height: 36px;
-  border-color: var(--border);
-  border-bottom: 1px solid var(--surface);
-  box-shadow: 0 -2px 6px rgba(0,0,0,0.06);
-  z-index: var(--z-raised);
-}
-/* curved feet on active tab */
-.ptab.active::before,
-.ptab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  width: 8px;
-  height: 8px;
-  pointer-events: none;
-}
-.ptab.active::before {
-  left: -8px;
-  border-bottom-right-radius: 8px;
-  box-shadow: 3px 1px 0 0 var(--surface);
-}
-.ptab.active::after {
-  right: -8px;
-  border-bottom-left-radius: 8px;
-  box-shadow: -3px 1px 0 0 var(--surface);
-}
-
-.ptab-icon { opacity: 0.6; display: flex; align-items: center; flex-shrink: 0; }
-.ptab.active .ptab-icon { opacity: 1; }
-
-.ptab-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.ptab-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.12s, background 0.12s;
-  margin-left: 0.1rem;
-}
-.ptab:hover .ptab-close { opacity: 0.5; }
-.ptab-close:hover { opacity: 1 !important; background: #fee2e2; color: var(--danger); }
-
-.ptab-new {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  flex-shrink: 0;
-  border-radius: 50%;
-  transition: background 0.12s, color 0.12s;
-  align-self: center;
-  margin-left: 2px;
-}
-.ptab-new:hover { background: rgba(0,0,0,0.07); color: var(--primary); }
-
-h1 {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--primary);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-h1 img { filter: var(--logo-filter, none); transition: filter 0.3s; }
 
 /* ── Sub-nav (content tabs) ── */
 #tab-nav {
@@ -158,14 +20,14 @@ h1 img { filter: var(--logo-filter, none); transition: filter 0.3s; }
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   background: var(--surface);
-  border-bottom-left-radius: var(--radius);
-  border-bottom-right-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border-top: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 0 0.5rem;
   margin-bottom: 1.25rem;
 }
 #tab-nav::-webkit-scrollbar { display: none; }
+#tab-nav[hidden] { display: none; }
 
 .tab-btn {
   padding: 0 1.1rem;
@@ -1190,18 +1052,7 @@ h3 {
 
 /* ── Responsive tables ── */
 @media (max-width: 600px) {
-  body { padding: 0.75rem 0.5rem; }
-
-  header { padding: 0.5rem 0.75rem; gap: 0.5rem; flex-wrap: wrap; }
-  h1 { font-size: 1.05rem; order: 1; flex: 1; }
-  h1 img { width: 26px !important; height: 26px !important; }
-  #settings-btn { order: 2; margin-left: 0; }
-  #profile-tab-bar { order: 3; flex-basis: 100%; border-top: 1px solid var(--border); margin-top: 0.1rem; padding-top: 0.15rem; }
   .tab-btn { padding: 0 0.7rem; font-size: 0.82rem; height: 36px; white-space: nowrap; flex-shrink: 0; }
-
-  .ptab { max-width: 120px; padding: 0 0.55rem; font-size: 0.77rem; height: 30px; }
-  .ptab-scroll { min-height: 30px; }
-  .ptab-new { width: 30px; height: 30px; }
 
   .card { padding: 1rem; }
 

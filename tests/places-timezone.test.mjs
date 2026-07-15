@@ -10,6 +10,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { offsetStr } from '../src/utils/format.js'
 import { localToUTC, getTZOffsetMinutes } from '../src/utils/time.js'
+import { nearestZone } from '../src/utils/nearest-zone.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const places = JSON.parse(
@@ -88,6 +89,36 @@ test('India has no DST — Mandasa stays +05:30 year-round', () => {
   assert.strictEqual(tz, 'Asia/Kolkata')
   assert.strictEqual(offsetAtBirth(tz, '1985-01-15', '12:00'), '+05:30')
   assert.strictEqual(offsetAtBirth(tz, '1985-07-15', '12:00'), '+05:30')
+})
+
+console.log('\n"Auto-detect from coordinates" resolves offline from the bundled city DB:')
+
+test('Perm coords resolve to Asia/Yekaterinburg (+5), not Europe/Moscow (+3)', () => {
+  // The reported bug: the online lookup mislabelled Perm as Europe/Moscow.
+  const zone = nearestZone(58.0297, 56.2668, places)
+  assert.strictEqual(zone, 'Asia/Yekaterinburg')
+  // Modern Perm has no DST (Russia abolished it in 2011) → +05:00 year-round.
+  assert.strictEqual(offsetAtBirth(zone, '2015-06-15', '12:00'), '+05:00')
+  assert.strictEqual(offsetAtBirth(zone, '2015-01-15', '12:00'), '+05:00')
+  // …and the engine still honours the USSR summer time that applied in 1990.
+  assert.strictEqual(offsetAtBirth(zone, '1990-06-15', '12:00'), '+06:00')
+})
+
+test('auto-detect on a picked city returns that city\'s own zone (consistent)', () => {
+  // Picking a city then hitting auto-detect must not change the zone.
+  for (const name of ['Perm', 'Las Cruces', 'Viersen', 'Mandasa']) {
+    const city = byName(name)
+    assert.strictEqual(nearestZone(city.a, city.o, places), city.t)
+  }
+})
+
+test('coordinates near a city snap to its zone', () => {
+  // ~15 km from Perm's centre → still Asia/Yekaterinburg.
+  assert.strictEqual(nearestZone(58.10, 56.10, places), 'Asia/Yekaterinburg')
+})
+
+test('remote coordinates (mid-Pacific) fall through to the online lookup', () => {
+  assert.strictEqual(nearestZone(0, -140, places), null)
 })
 
 console.log(`\n✅ places-timezone: ${passed} checks passed`)

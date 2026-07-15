@@ -5,6 +5,7 @@
 // offset with DST/historical rules. `z` (fixed numeric offset) survives only on
 // the rare entries where no zone could be resolved, as a fallback.
 import { searchCache } from './location-cache.js'
+import { nearestZone } from './nearest-zone.js'
 
 const PLACES_URL = `${import.meta.env.BASE_URL}places.json`
 let placesPromise = null
@@ -82,11 +83,25 @@ export async function searchOnline(query) {
 }
 
 /**
- * Get IANA timezone string for coordinates via timeapi.io (free, no key).
- * Only needed for Nominatim fallback results (tz === null).
+ * Get an IANA timezone string for coordinates.
+ *
+ * Offline-first: resolve from the bundled city DB (accurate zones baked at build
+ * time via geo-tz) by nearest neighbour. This keeps "auto-detect from
+ * coordinates" consistent with picking a city from the search box, and prevents
+ * a mislabelled online result from overwriting a correct zone — timeapi.io has
+ * returned Europe/Moscow (+3) for Perm, which is Asia/Yekaterinburg (+5).
+ *
+ * Only coordinates far from any bundled city fall back to the online lookup
+ * (timeapi.io, free, no key).
  */
 export async function getTimezone(lat, lon) {
   if (!isFinite(lat) || !isFinite(lon)) throw new Error('Invalid coordinates for timezone lookup')
+  // 1. Nearest bundled city's zone (offline, accurate for inhabited coords).
+  try {
+    const local = nearestZone(lat, lon, await loadPlaces())
+    if (local) return local
+  } catch { /* fall through to online lookup */ }
+  // 2. Online fallback for remote coordinates not covered by the city DB.
   const url = `https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lon}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Timezone lookup failed: ${res.status}`)

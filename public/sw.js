@@ -1,8 +1,12 @@
 // Service worker — offline-first for app shell, cache-first for WASM/ephemeris.
 // CACHE_NAME is replaced at build time with a unique hash — no manual bumping needed.
 const CACHE_NAME = 'hora-__BUILD_HASH__'
-const WASM_PREFIX = '/hora-prakash/wasm/'
-const BASE = '/hora-prakash/'
+// Derive the deploy base from the SW's own URL so caching works at ANY root —
+// "/" (Firebase / custom domain) or "/hora-prakash/" (GitHub Pages). Hardcoding
+// it meant PRECACHE 404'd on a root deploy, so cache.addAll() rejected, the new
+// SW never installed, and the old cached build served forever.
+const BASE = new URL('./', self.location).pathname
+const WASM_PREFIX = `${BASE}wasm/`
 
 const PRECACHE = [
   BASE,

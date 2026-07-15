@@ -573,6 +573,158 @@ h3 {
   padding-bottom: 0.75rem;
 }
 
+/* ── Further Information (Moon phase & more) ── */
+.further-info-card {
+  --moon-lit: #fdf2cf;
+  --moon-dark: #334155;
+  --moon-edge: #94a3b8;
+}
+.further-info-card.collapsed { padding-bottom: 0.75rem; }
+.further-info-card > .collapsible-content { margin-top: 0.9rem; }
+
+.info-subsection {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 10px);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.info-subsection + .info-subsection { margin-top: 0.75rem; }
+.info-subsection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  transition: background 0.15s;
+}
+.info-subsection-header:hover { background: color-mix(in srgb, var(--primary) 5%, var(--surface-2)); }
+.info-subsection-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  user-select: none;
+}
+.info-subsection-emoji { font-size: 1rem; color: var(--muted); }
+.info-subsection-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.info-subsection-tag.is-wax { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
+.info-subsection-tag.is-wane { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+.info-subsection > .collapsible-content { padding: 0 0.85rem 0.9rem; }
+
+/* Moon subsection body */
+.moon-info-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+.moon-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  min-width: 108px;
+  padding-top: 0.35rem;
+}
+.moon-disc {
+  filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.18));
+  border-radius: 50%;
+}
+.moon-visual-caption { text-align: center; }
+.moon-phase-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+.moon-waxwane {
+  display: inline-block;
+  margin: 0.2rem 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+}
+.moon-waxwane.is-wax  { color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
+.moon-waxwane.is-wane { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); }
+.moon-illum-line { font-size: 0.75rem; color: var(--muted); }
+
+.moon-stats {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.info-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.info-stat:last-child { border-bottom: none; }
+.info-stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.info-stat-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.35;
+}
+.info-stat-sub { font-weight: 500; color: var(--muted); font-size: 0.8rem; }
+.info-stat-note { font-size: 0.68rem; font-weight: 500; color: var(--muted); margin-top: 0.05rem; }
+
+.info-stat--bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+.info-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  overflow: hidden;
+}
+.info-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 55%, white), var(--primary));
+  transition: width 0.3s ease;
+}
+.info-stat--flag { justify-content: flex-start; gap: 0.6rem; }
+.moon-combust-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .moon-info-body { gap: 0.9rem; }
+  .moon-visual { min-width: 0; width: 100%; }
+}
+
 /* Scrollable wrapper for wide tables */
 .table-scroll {
   overflow-x: auto;

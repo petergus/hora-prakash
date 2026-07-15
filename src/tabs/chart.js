@@ -2,6 +2,7 @@
 import { state } from '../state.js'
 import { renderChartSVG } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
+import { calcMoonInfo } from '../core/moon-info.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
@@ -156,6 +157,114 @@ function buildPlanetJSON(key, planets, lagna) {
       }
     }),
   }
+}
+
+// ── Moon phase visual ───────────────────────────────────────────────────────
+// Renders a Moon disc lit to `illum` (0..1). The terminator is a half-ellipse
+// centred on the disc: for a crescent (illum<0.5) a dark ellipse carves the lit
+// semicircle; for a gibbous (illum>0.5) a lit ellipse fills into the dark side.
+// The lit limb is on the right while waxing, on the left while waning.
+function moonDiscSVG(illum, waxing, size = 84) {
+  const R = size / 2
+  const cx = R, cy = R
+  const k  = Math.max(0, Math.min(1, illum))
+  const rx = Math.abs(R * (1 - 2 * k))            // terminator ellipse x-radius
+  const litHalf = waxing
+    ? `M ${cx} ${cy - R} A ${R} ${R} 0 0 1 ${cx} ${cy + R} Z`   // right semicircle
+    : `M ${cx} ${cy - R} A ${R} ${R} 0 0 0 ${cx} ${cy + R} Z`   // left semicircle
+  const dark = 'var(--moon-dark, #334155)'
+  const lit  = 'var(--moon-lit, #fdf2cf)'
+  const ellipseFill = k < 0.5 ? dark : lit
+  return `<svg class="moon-disc" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Moon ${Math.round(k * 100)}% illuminated, ${waxing ? 'waxing' : 'waning'}">
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${dark}"/>
+    <path d="${litHalf}" fill="${lit}"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx.toFixed(2)}" ry="${R}" fill="${ellipseFill}"/>
+    <circle cx="${cx}" cy="${cy}" r="${R - 0.5}" fill="none" stroke="var(--moon-edge, #94a3b8)" stroke-width="1"/>
+  </svg>`
+}
+
+// Format a decimal-days duration as "Nd Nh" (or "Nh" when under a day).
+function fmtDays(d) {
+  if (!isFinite(d) || d < 0) return '—'
+  let days  = Math.floor(d)
+  let hours = Math.round((d - days) * 24)
+  if (hours === 24) { days += 1; hours = 0 }
+  return days === 0 ? `${hours}h` : `${days}d ${hours}h`
+}
+
+function infoStatRow(label, value, note) {
+  return `<div class="info-stat">
+    <span class="info-stat-label">${esc(label)}</span>
+    <span class="info-stat-value">${value}${note ? `<span class="info-stat-note">${esc(note)}</span>` : ''}</span>
+  </div>`
+}
+
+// The "Moon & the Sun" subsection body.
+function buildMoonInfoBody(m) {
+  const illumPct = m.illumination * 100
+  const pakshaTag = m.waxing ? 'Shukla' : 'Krishna'
+  const separationNote = m.combust
+    ? `combust — within ${12}° of the Sun`
+    : `${m.separation.toFixed(1)}° apart (shortest)`
+  return `
+    <div class="moon-info-body">
+      <div class="moon-visual">
+        ${moonDiscSVG(m.illumination, m.waxing, 92)}
+        <div class="moon-visual-caption">
+          <div class="moon-phase-name">${esc(m.phase)}</div>
+          <div class="moon-waxwane ${m.waxing ? 'is-wax' : 'is-wane'}">
+            ${m.waxing ? '▲ Waxing' : '▼ Waning'}
+          </div>
+          <div class="moon-illum-line">${illumPct.toFixed(1)}% illuminated</div>
+        </div>
+      </div>
+      <div class="moon-stats">
+        <div class="info-stat info-stat--bar">
+          <span class="info-stat-label">Illumination</span>
+          <div class="info-bar"><div class="info-bar-fill" style="width:${illumPct.toFixed(1)}%"></div></div>
+          <span class="info-stat-value">${illumPct.toFixed(1)}%</span>
+        </div>
+        ${infoStatRow('Paksha', esc(m.paksha.name), m.paksha.label)}
+        ${infoStatRow('Tithi', `${esc(m.tithi.name)} <span class="info-stat-sub">(${m.tithi.inPaksha}/15)</span>`, `${pakshaTag} · ${m.tithi.percentElapsed.toFixed(0)}% elapsed`)}
+        ${infoStatRow('Elongation from Sun', `${m.elongation.toFixed(2)}°`, 'Moon − Sun (0–360°)')}
+        ${infoStatRow('Angular separation', `${m.separation.toFixed(2)}°`, separationNote)}
+        ${m.combust ? `<div class="info-stat info-stat--flag"><span class="moon-combust-chip">Moon combust</span><span class="info-stat-note" style="margin:0">Sun overpowers the Moon within 12°</span></div>` : ''}
+        ${m.daysToFull != null ? infoStatRow('Next Full Moon', `≈ ${fmtDays(m.daysToFull)}`, 'approx.') : ''}
+        ${m.daysToNew  != null ? infoStatRow('Next New Moon',  `≈ ${fmtDays(m.daysToNew)}`,  'approx.') : ''}
+      </div>
+    </div>`
+}
+
+// The collapsible "Further Information" card (section + collapsible subsections).
+function buildFurtherInfo(planets, collapsedTables) {
+  const moon = calcMoonInfo(planets)
+  if (!moon) return ''
+  const sectionCollapsed = collapsedTables['further-info'] ?? false
+  const moonCollapsed    = collapsedTables['further-moon'] ?? false
+  return `
+    <div class="card further-info-card${sectionCollapsed ? ' collapsed' : ''}">
+      <div class="planet-positions-header cursor-pointer" data-toggle-collapse="further-info">
+        <span class="section-label" style="display:inline-flex;align-items:center;gap:0.4rem;user-select:none;margin:0">
+          ${CHEVRON_ICON}
+          Further Information
+        </span>
+      </div>
+      <div class="collapsible-content">
+        <div class="info-subsection${moonCollapsed ? ' collapsed' : ''}">
+          <div class="info-subsection-header cursor-pointer" data-toggle-collapse="further-moon">
+            <span class="info-subsection-title">
+              ${CHEVRON_ICON}
+              <span class="info-subsection-emoji" aria-hidden="true">☾</span>
+              Moon &amp; the Sun
+            </span>
+            <span class="info-subsection-tag ${moon.waxing ? 'is-wax' : 'is-wane'}">${esc(moon.phase)}</span>
+          </div>
+          <div class="collapsible-content">
+            ${buildMoonInfoBody(moon)}
+          </div>
+        </div>
+      </div>
+    </div>`
 }
 
 function renderSVGOnly() {
@@ -348,6 +457,9 @@ export function renderChart() {
     ? `<div class="card planet-positions-card${isSingleCollapsed ? ' collapsed' : ''}">${planetCardInner}</div>`
     : ''
 
+  // Further Information — Moon phase & Moon–Sun relationship (chart-independent).
+  const furtherInfo = buildFurtherInfo(planets, collapsedTables)
+
   const splitRatio = ui.splitRatio ?? 0.40
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
@@ -405,6 +517,7 @@ export function renderChart() {
       </div>
     </div>
   ${planetCard}
+  ${furtherInfo}
   `
 
   if (showDasha) {

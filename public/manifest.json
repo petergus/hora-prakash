@@ -1,18 +1,18 @@
 {
-  "id": "/hora-prakash/",
+  "id": "/",
   "name": "Hora Prakash",
   "short_name": "Hora",
   "description": "Vedic Astrology — birth chart, dasha, panchang",
-  "start_url": "/hora-prakash/",
-  "scope": "/hora-prakash/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#7f1d1d",
   "theme_color": "#7f1d1d",
   "icons": [
-    { "src": "/hora-prakash/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/hora-prakash/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/hora-prakash/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/hora-prakash/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -56,6 +56,7 @@ const GEAR_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" s
 const DOWNLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 8l3 3 3-3"/><path d="M2 13h12"/></svg>`
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5v-7A1.5 1.5 0 0 1 3.5 1h7A1.5 1.5 0 0 1 12 2.5V5"/></svg>`
 const CHECK_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-7"/></svg>`
+const CHEVRON_ICON = `<svg class="collapse-chevron" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>`
 
 function divLabel(key) {
   return DIVISIONAL_OPTIONS.find(o => o.value === key)?.label ?? key
@@ -195,6 +196,7 @@ export function renderChart() {
   if (_chartDashaPanel) { _chartDashaPanel.destroy(); _chartDashaPanel = null }
 
   const ui = c()
+  const collapsedTables = ui.collapsedTables ??= {}
   const { chartStyle, viewMode, divisional, multiDivs, activeMultiTab, tableDiv: _tableDiv,
           activePlanets, multiActivePlanets: _map } = ui
   // Ensure per-slot Sets exist (backward compat)
@@ -261,9 +263,23 @@ export function renderChart() {
     // Desktop: plain grid — no aspects (aspects only in single view on desktop)
     const gridCells = keys.map((key, i) => {
       const { dPlanets, dLagna, signLabels, label } = buildSingleChart(planets, lagna, key)
+      const copyBtnHtml = `<button class="chart-style-btn chart-icon-btn copy-json-btn" data-div="${key}" title="Copy positions as JSON">${COPY_ICON}</button>`
+      const isCellCollapsed = collapsedTables[`slot-${i}`] ?? false
       return `<div class="multi-chart-cell">
         <div class="multi-chart-label">${divSelectHtml('multi-div-' + i, key)}</div>
         ${renderChartSVG(dPlanets, dLagna, chartStyle, signLabels, label, [], {})}
+        <div class="multi-chart-table-wrap${isCellCollapsed ? ' collapsed' : ''}">
+          <div class="planet-positions-header cursor-pointer" data-toggle-collapse="slot-${i}">
+            <span class="section-label" style="display:inline-flex;align-items:center;gap:0.4rem;user-select:none;margin:0">
+              ${CHEVRON_ICON}
+              Planetary Positions — ${key}
+            </span>
+            ${copyBtnHtml}
+          </div>
+          <div class="collapsible-content">
+            ${buildPlanetTable(key, planets, lagna)}
+          </div>
+        </div>
       </div>`
     }).join('')
 
@@ -275,6 +291,8 @@ export function renderChart() {
       activeDP.filter(p => mobileAP.has(p.abbr)).map(p => [p.abbr, PLANET_COLORS[p.abbr]])
     )
 
+    const activeIsCollapsed = collapsedTables[`slot-${ui.activeMultiTab}`] ?? false
+    const activeCopyBtnHtml = `<button class="chart-style-btn chart-icon-btn copy-json-btn" data-div="${activeKey}" title="Copy positions as JSON">${COPY_ICON}</button>`
     chartArea = `
       ${renderMultiTabNav(keys, ui.activeMultiTab)}
       <div class="multi-chart-grid multi-chart-grid-${slots}${slots === 2 && showDasha ? ' multi-chart-grid-2--dasha' : ''}">
@@ -282,6 +300,18 @@ export function renderChart() {
       </div>
       <div id="chart-container" class="multi-chart-mobile-view">
         ${renderChartSVG(activeDP, activeDL, chartStyle, activeLabels, activeLabel, activeAspects, activePlanetColors)}
+        <div class="multi-chart-table-wrap${activeIsCollapsed ? ' collapsed' : ''}">
+          <div class="planet-positions-header cursor-pointer" data-toggle-collapse="slot-${ui.activeMultiTab}">
+            <span class="section-label" style="display:inline-flex;align-items:center;gap:0.4rem;user-select:none;margin:0">
+              ${CHEVRON_ICON}
+              Planetary Positions — ${activeKey}
+            </span>
+            ${activeCopyBtnHtml}
+          </div>
+          <div class="collapsible-content">
+            ${buildPlanetTable(activeKey, planets, lagna)}
+          </div>
+        </div>
       </div>`
   }
 
@@ -298,18 +328,31 @@ export function renderChart() {
 
   const copyBtnHtml = `<button id="btn-copy-planet-json" class="chart-style-btn chart-icon-btn copy-json-btn" title="Copy positions as JSON">${COPY_ICON}</button>`
 
+  const isSingleCollapsed = collapsedTables['single'] ?? false
+
   const planetCardInner = viewMode === '1'
-    ? `<div class="planet-positions-header"><h3 class="section-label">Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}</h3>${copyBtnHtml}</div>
-       ${buildPlanetTable(divisional, planets, lagna)}`
+    ? `<div class="planet-positions-header cursor-pointer" data-toggle-collapse="single">
+         <span class="section-label" style="display:inline-flex;align-items:center;gap:0.4rem;user-select:none;margin:0">
+           ${CHEVRON_ICON}
+           Planetary Positions${divisional !== 'D1' ? ' — ' + divLabel(divisional) : ''}
+         </span>
+         ${copyBtnHtml}
+       </div>
+       <div class="collapsible-content">
+         ${buildPlanetTable(divisional, planets, lagna)}
+       </div>`
     : `<div class="planet-positions-header">${tableDivSelect}${copyBtnHtml}</div>
        ${buildPlanetTable(tableDiv, planets, lagna)}`
 
-  const planetCard = `<div class="card planet-positions-card">${planetCardInner}</div>`
+  const planetCard = viewMode === '1'
+    ? `<div class="card planet-positions-card${isSingleCollapsed ? ' collapsed' : ''}">${planetCardInner}</div>`
+    : ''
 
   const splitRatio = ui.splitRatio ?? 0.40
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`
 
   panel.classList.toggle('has-dasha', showDasha)
+  panel.classList.toggle('multi-view', viewMode !== '1')
 
   panel.innerHTML = `
     <div class="card">
@@ -541,19 +584,22 @@ export function renderChart() {
   // ── Events ──
 
   // Copy planet positions as JSON
-  panel.querySelector('#btn-copy-planet-json')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget
-    const activeKey = viewMode === '1' ? divisional : tableDiv
-    const json = buildPlanetJSON(activeKey, planets, lagna)
-    const ok = await copyText(JSON.stringify(json, null, 2))
-    if (ok) {
-      btn.innerHTML = CHECK_ICON
-      btn.classList.add('copy-success')
-      setTimeout(() => { btn.innerHTML = COPY_ICON; btn.classList.remove('copy-success') }, 1500)
-    } else {
-      btn.title = 'Copy failed'
-      setTimeout(() => { btn.title = 'Copy positions as JSON' }, 2000)
-    }
+  // Copy planet positions as JSON (supports single view and multi-view buttons)
+  panel.querySelectorAll('.copy-json-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const b = e.currentTarget
+      const activeKey = b.dataset.div || (viewMode === '1' ? divisional : tableDiv)
+      const json = buildPlanetJSON(activeKey, planets, lagna)
+      const ok = await copyText(JSON.stringify(json, null, 2))
+      if (ok) {
+        b.innerHTML = CHECK_ICON
+        b.classList.add('copy-success')
+        setTimeout(() => { b.innerHTML = COPY_ICON; b.classList.remove('copy-success') }, 1500)
+      } else {
+        b.title = 'Copy failed'
+        setTimeout(() => { b.title = 'Copy positions as JSON' }, 2000)
+      }
+    })
   })
 
   document.getElementById('btn-export-chart')?.addEventListener('click', () => {
@@ -742,4 +788,15 @@ export function renderChart() {
       })
     }
   }
+
+  // Toggle collapse state for tables
+  panel.querySelectorAll('[data-toggle-collapse]').forEach(header => {
+    header.addEventListener('click', (e) => {
+      const key = e.currentTarget.dataset.toggleCollapse
+      const ui = c()
+      ui.collapsedTables ??= {}
+      ui.collapsedTables[key] = !ui.collapsedTables[key]
+      renderChart()
+    })
+  })
 }

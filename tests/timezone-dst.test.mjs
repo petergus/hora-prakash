@@ -38,6 +38,13 @@ test('Moscow summer 1985 used MSD (+04:00) — DST since abolished', () => {
   assert.strictEqual(offsetStr(offsetParts('Europe/Moscow', new Date('1985-07-15T12:00:00Z'))), '+04:00')
 })
 
+test('Yerevan July 1982 used USSR summer time (+05:00), winter +04:00', () => {
+  assert.strictEqual(offsetStr(offsetParts('Asia/Yerevan', new Date('1982-07-11T12:00:00Z'))), '+05:00')
+  assert.strictEqual(offsetStr(offsetParts('Asia/Yerevan', new Date('1982-01-11T12:00:00Z'))), '+04:00')
+  // Armenia abolished DST in 2012 → +04:00 year-round today.
+  assert.strictEqual(offsetStr(offsetParts('Asia/Yerevan', new Date('2020-07-11T12:00:00Z'))), '+04:00')
+})
+
 test('São Paulo observed DST in Jan 2018 (-02:00) but not Jan 2020 (-03:00)', () => {
   assert.strictEqual(offsetStr(offsetParts('America/Sao_Paulo', new Date('2018-01-15T12:00:00Z'))), '-02:00')
   assert.strictEqual(offsetStr(offsetParts('America/Sao_Paulo', new Date('2020-01-15T12:00:00Z'))), '-03:00')

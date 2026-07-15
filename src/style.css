@@ -455,8 +455,18 @@ h3 {
   align-items: center;
   min-width: 0;
 }
-.multi-chart-cell svg { width: 100%; height: auto; max-width: 400px; }
+.multi-chart-cell > svg { width: 100%; height: auto; max-width: 400px; }
 .multi-chart-label { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
+
+.multi-chart-table-wrap {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
 
 /* Tab nav — visible only on mobile */
 .multi-tab-nav { display: none; width: 100%; gap: 0; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -539,6 +549,34 @@ h3 {
   color: #16a34a;
   border-color: #16a34a;
   background: #f0fdf4;
+}
+
+/* ── Collapsible Panel ── */
+.cursor-pointer {
+  cursor: pointer;
+}
+.collapse-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.collapsed .collapse-chevron {
+  transform: rotate(-90deg);
+}
+.collapsed .collapsible-content {
+  display: none;
+}
+.card.planet-positions-card.collapsed,
+.multi-chart-table-wrap.collapsed {
+  padding-bottom: 0.75rem;
+}
+
+/* Scrollable wrapper for wide tables */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Planet table ── */
@@ -996,7 +1034,7 @@ h3 {
   /* Chart tab (no dasha): chart card sticky left, planet positions right */
   #tab-chart.active:not(.has-dasha) {
     display: grid !important;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(460px, 1fr);
     gap: 1.25rem;
     align-items: start;
   }
@@ -1004,12 +1042,17 @@ h3 {
     position: sticky;
     top: 1rem;
   }
-  /* Chart tab (dasha active): chart card full width, planet table below */
-  #tab-chart.active.has-dasha {
+  /* Chart tab (dasha or multi-view active): chart card full width, planet table below/integrated */
+  #tab-chart.active.has-dasha,
+  #tab-chart.active.multi-view {
     display: block !important;
   }
   /* Allow a bigger chart in the wider left column */
   #chart-container { max-width: 540px; }
+
+  .multi-chart-grid {
+    gap: 2rem;
+  }
 
   /* Dasha tab: vimshottari full-width top, age + progression side by side below */
   .prog-drag-container {
@@ -1063,8 +1106,7 @@ h3 {
   .form-actions { flex-direction: column; }
   .form-actions > button { width: 100%; justify-content: center; }
 
-  /* Scrollable wrapper for wide tables */
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
 
   .planet-table, .dasha-table, .panchang-table { min-width: 480px; }
 
@@ -1119,7 +1161,7 @@ h3 {
     max-width: 100%;
     margin: 0 auto;
   }
-  .multi-chart-mobile-view svg { width: 100%; height: auto; }
+  .multi-chart-mobile-view > svg { width: 100%; height: auto; }
 
 
   /* Swap planet table sections on mobile */

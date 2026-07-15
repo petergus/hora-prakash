@@ -1,15 +1,16 @@
 // src/utils/nearest-zone.js
 //
-// Nearest bundled-city timezone from coordinates — an offline, accurate
-// alternative to a flaky online lat/lon → zone API.
+// Nearest bundled-city timezone from coordinates — a *fallback* heuristic,
+// used only when the exact tz boundary lookup (tz-resolve.js) is unavailable.
 //
 // The bundled city DB (public/places.json) is a ~13k-point coordinate → IANA
-// zone dataset, resolved at build time with geo-tz. The nearest city's zone is
-// therefore a reliable answer for any inhabited coordinate, and — crucially —
-// it stays consistent with picking that same city from the search box, so the
-// "auto-detect from coordinates" button can't overwrite a correct zone with a
-// mislabelled online one (e.g. timeapi.io reporting Perm as Europe/Moscow +3
-// when it is Asia/Yekaterinburg +5).
+// zone dataset, resolved at build time with geo-tz — but it covers only ~49
+// countries, so "nearest city" can cross a border into the wrong zone where
+// coverage is missing (Yerevan's nearest bundled city is Vladikavkaz, Russia,
+// ~300 km away → Europe/Moscow, when Armenia is Asia/Yerevan). Exact boundary
+// lookup is the primary resolver; this remains as the offline backstop before
+// the flaky online API (which once reported Perm as Europe/Moscow +3 when it
+// is Asia/Yekaterinburg +5).
 
 /**
  * Zone of the nearest place within `maxDeg` degrees, or null if the nearest is

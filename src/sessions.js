@@ -48,6 +48,7 @@ export function defaultChartUI() {
     chartDasha:     null,
     fromHouseSign:  null,
     chalitMethod:   'equal',
+    collapsedTables: {},
   }
 }
 

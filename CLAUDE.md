@@ -16,7 +16,7 @@ No linter is configured. `npm test` runs five Node suites (no browser/WASM):
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
 - `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
 - `tests/timezone-dst.test.mjs` — birth-instant UTC offset resolution, incl. historical/abolished DST (Moscow 1985, São Paulo)
-- `tests/places-timezone.test.mjs` — the bundled city DB (`public/places.json`) carries a valid IANA zone per city so DST is applied at the birth instant
+- `tests/places-timezone.test.mjs` — the bundled city DB (`public/places.json`) carries a valid IANA zone per city; exact coordinate→zone boundary lookup (`tz-resolve.js`, incl. countries the DB doesn't cover, e.g. Yerevan 1982 USSR DST) and stale location-cache reconciliation
 
 `npm run test:ephemeris` runs `tests/lunar-birthday.ephemeris.test.mjs`, which loads the real Swiss Ephemeris WASM (Node-native) and checks the lunar-date/Adhika logic against documented festival dates. It's kept out of `npm test` because it loads the 12 MB ephemeris; run it after touching `src/core/lunar-birthday.js`.
 
@@ -29,7 +29,7 @@ Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yoga
 
 ## Architecture
 
-**Hora Prakash** is a Vedic astrology web app built with Vite + Vanilla JS (no framework, no backend server; Firebase for auth + Firestore profile sync). Deployed to GitHub Pages and optionally Firebase Hosting (`npm run deploy:firebase`). Note: `vite.config.js` sets `base: '/'` (custom domain / root deploy), not `/hora-prakash/`. Routing is hash-based (`#/p/<sid>/<page>`) so it is base-path-agnostic regardless.
+**Hora Prakash** is a Vedic astrology web app built with Vite + Vanilla JS (no framework, no backend server; Firebase for auth + Firestore profile sync). Deployed to Firebase Hosting (`npm run deploy:firebase`). Note: `vite.config.js` sets `base: '/'` (custom domain / root deploy), not `/hora-prakash/`. Routing is hash-based (`#/p/<sid>/<page>`) so it is base-path-agnostic regardless.
 
 ### Startup sequence (`src/main.js`)
 
@@ -164,16 +164,18 @@ Dual (natal + transit side by side) or overlay view; per-session UI state in `ui
 
 **Saved profiles:** `src/tabs/profile-store.js` — localStorage `hora-prakash-profiles`, mirrored to Firestore via `src/cloud-store.js` (upsert/delete/bulk), plus JSON/JHD import-export. `input.js` owns only the form/rendering and passes `renderSavedProfiles` as the import-done callback.
 
-**External APIs (no keys):** Nominatim geocoding; timeapi.io timezone lookup (only the ⟳ "auto-detect" button and the Nominatim fallback path — bundled cities already carry their zone).
+**External APIs (no keys):** Nominatim geocoding; timeapi.io timezone lookup (last-resort only — coordinate→zone now resolves offline, see below; timeapi has mislabelled zones before, e.g. Perm as Europe/Moscow).
 
-**City database (`public/places.json`, `src/utils/geocoding.js`):** ~13k cities, schema `{ n, a: lat, o: lon, t: IANA_zone }` (rare `z: "+HH:MM"` fallback where no zone resolves). ⚠️ **`t` is an IANA name, not an offset** — resolved offline from coordinates at build time by `geo-tz` (a *build-only* dependency; **never import it into `src/`** — it bundles huge boundary data). Regenerate with `npm run enrich-places` (enriches the existing JSON in place) or `npm run parse-places` (from `places.txt`). This is what lets a bundled-city selection get a DST-correct, birth-instant offset like an online lookup does — earlier the file stored one fixed offset per city (baked to summer for DST zones), so winter births in DST regions were an hour off and the ⟳ button "changed" the number by re-resolving via IANA. `geocoding.js#searchPlaces` reads `entry.t || entry.z`.
+**Coordinate → timezone (`src/utils/tz-resolve.js`):** `zoneFromCoords(lat, lon)` does an **exact offline tz-boundary lookup** via `@photostructure/tz-lookup` (lazily imported → its packed boundary data is a separate ~72 kB chunk, loaded on first use; Node-safe, so tests import it directly). `getTimezone` in geocoding.js chains: boundary lookup → `nearestZone` (bundled-city heuristic, only if the chunk failed to load) → timeapi.io. ⚠️ **Never use `nearestZone` as a primary resolver** — the city DB covers only ~49 countries (no Armenia/Georgia/Ukraine/Ireland/Iran/NZ/…), so "nearest city" crosses borders where coverage is missing: Yerevan's nearest bundled city is Vladikavkaz, Russia (~300 km) → Europe/Moscow, when a July 1982 Yerevan birth must be Asia/Yerevan +5 (USSR DST), not Moscow's +4. `zoneFromCoords` also validates the zone name against the runtime's Intl before returning it.
+
+**City database (`public/places.json`, `src/utils/geocoding.js`):** ~13k cities, schema `{ n, a: lat, o: lon, t: IANA_zone }` (rare `z: "+HH:MM"` fallback where no zone resolves). ⚠️ **`t` is an IANA name, not an offset** — resolved offline from coordinates at build time by `geo-tz` (a *build-only* dependency; **never import it into `src/`** — it bundles huge boundary data). Regenerate with `npm run enrich-places` (enriches the existing JSON in place) or `npm run parse-places` (from `places.txt`). This is what lets a bundled-city selection get a DST-correct, birth-instant offset like an online lookup does — earlier the file stored one fixed offset per city (baked to summer for DST zones), so winter births in DST regions were an hour off and the ⟳ button "changed" the number by re-resolving via IANA. `geocoding.js#searchPlaces` reads `entry.t || entry.z`. ⚠️ **The localStorage location cache (`hora-prakash-location-cache`) outlives data fixes** — cache hits rank above places.json in `searchLocation` and once served stale zones saved before the IANA migration (Perm as Europe/Moscow +3 instead of Asia/Yekaterinburg +5, while ⟳ said +5). `searchLocation` therefore re-resolves every cache hit's `tz` via `reconcileCachedZones` (`src/utils/tz-resolve.js`); entries only keep their cached zone when the boundary lookup can't resolve.
 
 **Timezone / DST (`src/utils/time.js`, `src/utils/format.js`, `src/tabs/input.js`):** A birth record's `timezone` is either an **IANA name** (`America/New_York`) or a **fixed numeric offset** (`-05:00`). The two are treated differently on purpose:
 - IANA → the offset is derived **at the birth instant** via `getTZOffsetMinutes`/`localToUTC`, which honours DST including *historical* DST that has since been abolished (Moscow +04 in 1985, São Paulo pre-2019, wartime double summer time, etc.). Always prefer storing IANA names so DST is applied.
 - Numeric offset → used verbatim. This is correct for manual entry, paste, and `.jhd` imports (JHora already bakes the birth-day DST into the offset it stores). Never re-derive DST on top of a numeric offset.
 - ⚠️ `offsetParts(iana)` / `ianaToOffset(iana)` / `parseTzInfo(iana)` take an optional **`refDate`** — pass the birth instant, or the displayed offset defaults to *today's* (wrong across a DST boundary). `offsetPartsAtBirth(tz, dob, tob)` in `input.js` returns exactly what `toJulianDay` will use, and the form's UTC-offset field auto-updates as you edit the date (`refreshTzForDate`). Bundled-city selections now supply an IANA name (see City database above) so this all applies to them too. Regression coverage: `tests/timezone-dst.test.mjs`, `tests/places-timezone.test.mjs`.
 
-**Deployment:** GitHub Actions deploys to GitHub Pages on push to `main`. Current version: see `package.json` (1.5.x). Export payload `APP_VERSION` in `src/tabs/export.js` is tracked separately.
+**Deployment:** Deployed to Firebase Hosting (`npm run deploy:firebase`). Current version: see `package.json` (1.5.x). Export payload `APP_VERSION` in `src/tabs/export.js` is tracked separately.
 
 ## Pending / Known Issues
 

@@ -42,9 +42,6 @@ npm run dev        # dev server → http://localhost:5173/hora-prakash/
 npm run build      # production build → dist/
 npm run preview    # preview production build locally
 ```
-
-Pushes to `main` deploy automatically to GitHub Pages via `.github/workflows/deploy.yml`.
-
 ---
 
 ## Calculations
@@ -101,7 +98,7 @@ Pure DOM/SVG — no React, Vue, or canvas. WASM engine initializes on load; all 
 
 ### Tooling
 - **[Vite](https://vitejs.dev/)** — build tool and dev server
-- **[coi-serviceworker](https://github.com/gzuidhof/coi-serviceworker)** — Cross-Origin Isolation for WASM SharedArrayBuffer on GitHub Pages
+- **[coi-serviceworker](https://github.com/gzuidhof/coi-serviceworker)** — Cross-Origin Isolation for WASM SharedArrayBuffer (fallback for environments where custom HTTP headers are unavailable)
 
 ---
 

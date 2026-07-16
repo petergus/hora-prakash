@@ -80,42 +80,145 @@ function buildPlanetTable(key, planets, lagna) {
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
   const houseLabel = key === 'Chalit' ? 'House' : `${key} House`
+
+  const uiState = c()
+  const sortCol = uiState.sortCol
+  const sortDir = uiState.sortDir ?? 'asc'
+
+  // Combine planets and lagna into a unified row structure
+  const rows = dPlanets.map((p, idx) => {
+    const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
+    const orig = origByName[p.name]
+    return {
+      isLagna: false,
+      name: p.name,
+      sign: p.sign,
+      degree: p.degree,
+      house: divHouse,
+      nakshatra: orig?.nakshatra ?? '—',
+      pada: orig?.pada ?? '—',
+      planetObj: p,
+      originalIndex: idx
+    }
+  })
+
+  rows.push({
+    isLagna: true,
+    name: 'Lagna',
+    sign: dLagna.sign,
+    degree: dLagna.degree,
+    house: 1,
+    nakshatra: lagna.nakshatra ?? '—',
+    pada: lagna.pada ?? '—',
+    planetObj: null,
+    originalIndex: dPlanets.length
+  })
+
+  // Sort rows if a column has been selected for sorting
+  if (sortCol) {
+    rows.sort((a, b) => {
+      let valA, valB
+
+      if (sortCol === 'planet') {
+        valA = a.name
+        valB = b.name
+      } else if (sortCol === 'sign') {
+        if (a.sign !== b.sign) {
+          valA = a.sign
+          valB = b.sign
+        } else {
+          valA = a.degree
+          valB = b.degree
+        }
+      } else if (sortCol === 'degree') {
+        valA = a.degree
+        valB = b.degree
+      } else if (sortCol === 'house') {
+        if (a.house !== b.house) {
+          valA = a.house
+          valB = b.house
+        } else if (a.sign !== b.sign) {
+          valA = a.sign
+          valB = b.sign
+        } else {
+          valA = a.degree
+          valB = b.degree
+        }
+      } else if (sortCol === 'nakshatra') {
+        if (a.nakshatra !== b.nakshatra) {
+          valA = a.nakshatra === '—' ? (sortDir === 'asc' ? 'zzzzzz' : '') : a.nakshatra
+          valB = b.nakshatra === '—' ? (sortDir === 'asc' ? 'zzzzzz' : '') : b.nakshatra
+        } else {
+          const numA = Number(a.pada)
+          const numB = Number(b.pada)
+          valA = isNaN(numA) ? (sortDir === 'asc' ? 999 : -999) : numA
+          valB = isNaN(numB) ? (sortDir === 'asc' ? 999 : -999) : numB
+        }
+      } else if (sortCol === 'pada') {
+        const numA = Number(a.pada)
+        const numB = Number(b.pada)
+        valA = isNaN(numA) ? (sortDir === 'asc' ? 999 : -999) : numA
+        valB = isNaN(numB) ? (sortDir === 'asc' ? 999 : -999) : numB
+      }
+
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1
+      return a.originalIndex - b.originalIndex
+    })
+  }
+
+  const renderHeader = (colId, labelText) => {
+    const isSorted = sortCol === colId
+    const arrow = isSorted ? `<span class="sort-arrow">${sortDir === 'asc' ? '▲' : '▼'}</span>` : ''
+    return `<th class="sortable-header${isSorted ? ' sorted' : ''}" data-sort-col="${colId}" style="cursor:pointer; user-select:none;">${esc(labelText)}${arrow}</th>`
+  }
+
   return `
     <div class="table-scroll"><table class="planet-table">
       <thead>
-        <tr><th>Planet</th><th>Sign</th><th>Deg</th><th>${houseLabel}</th><th>Nakshatra</th><th>Pada</th></tr>
+        <tr>
+          ${renderHeader('planet', 'Planet')}
+          ${renderHeader('sign', 'Sign')}
+          ${renderHeader('degree', 'Deg')}
+          ${renderHeader('house', houseLabel)}
+          ${renderHeader('nakshatra', 'Nakshatra')}
+          ${renderHeader('pada', 'Pada')}
+        </tr>
       </thead>
       <tbody>
-        ${dPlanets.map(p => {
-          const signLabel = SIGN_NAMES[p.sign - 1]
-          const orig = origByName[p.name]
-          const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
-          const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
-          const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
-          const rowCls = isExalt ? ' class="row-exalt"' : isDebil ? ' class="row-debil"' : ''
-          const badges = [
-            p.retrograde ? '<span class="planet-chip chip-retro">R</span>' : '',
-            p.combust    ? '<span class="planet-chip chip-combust">C</span>' : '',
-            isExalt      ? '<span class="planet-chip chip-exalt">Exalt</span>' : '',
-            isDebil      ? '<span class="planet-chip chip-debil">Debil</span>' : '',
-          ].join('')
-          return `<tr${rowCls}>
-            <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
-            <td>${signLabel}</td>
-            <td>${fmtDeg(p.degree)}</td>
-            <td>${divHouse}</td>
-            <td>${orig?.nakshatra ?? '—'}</td>
-            <td>${orig?.pada ?? '—'}</td>
-          </tr>`
+        ${rows.map(r => {
+          if (r.isLagna) {
+            return `
+              <tr style="background:#fef3ff">
+                <td><strong>Lagna</strong></td>
+                <td>${SIGN_NAMES[r.sign - 1]}</td>
+                <td>${fmtDeg(r.degree)}</td>
+                <td>1</td>
+                <td>${r.nakshatra}</td>
+                <td>${r.pada}</td>
+              </tr>`
+          } else {
+            const p = r.planetObj
+            const signLabel = SIGN_NAMES[p.sign - 1]
+            const isExalt = isD1 && EXALT_SIGN[p.name] === p.sign
+            const isDebil = isD1 && DEBIL_SIGN[p.name] === p.sign
+            const rowCls = isExalt ? ' class="row-exalt"' : isDebil ? ' class="row-debil"' : ''
+            const badges = [
+              p.retrograde ? '<span class="planet-chip chip-retro">R</span>' : '',
+              p.combust    ? '<span class="planet-chip chip-combust">C</span>' : '',
+              isExalt      ? '<span class="planet-chip chip-exalt">Exalt</span>' : '',
+              isDebil      ? '<span class="planet-chip chip-debil">Debil</span>' : '',
+            ].join('')
+            return `<tr${rowCls}>
+              <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
+              <td>${signLabel}</td>
+              <td>${fmtDeg(p.degree)}</td>
+              <td>${r.house}</td>
+              <td>${r.nakshatra}</td>
+              <td>${r.pada}</td>
+            </tr>`
+          }
         }).join('')}
-        <tr style="background:#fef3ff">
-          <td><strong>Lagna</strong></td>
-          <td>${SIGN_NAMES[dLagna.sign - 1]}</td>
-          <td>${fmtDeg(dLagna.degree)}</td>
-          <td>1</td>
-          <td>${lagna.nakshatra}</td>
-          <td>${lagna.pada}</td>
-        </tr>
       </tbody>
     </table></div>`
 }
@@ -909,6 +1012,22 @@ export function renderChart() {
       const ui = c()
       ui.collapsedTables ??= {}
       ui.collapsedTables[key] = !ui.collapsedTables[key]
+      renderChart()
+    })
+  })
+
+  // Table sorting headers
+  panel.querySelectorAll('.sortable-header').forEach(th => {
+    th.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const colId = th.dataset.sortCol
+      const ui = c()
+      if (ui.sortCol === colId) {
+        ui.sortDir = ui.sortDir === 'asc' ? 'desc' : 'asc'
+      } else {
+        ui.sortCol = colId
+        ui.sortDir = 'asc'
+      }
       renderChart()
     })
   })

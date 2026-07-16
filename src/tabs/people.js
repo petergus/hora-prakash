@@ -330,13 +330,20 @@ function wireRows(panel, profiles, manual) {
     if (!row) return
     const id = row.dataset.pid
 
-    if (e.target.closest('.pt-open')) { loadProfileById(id).catch(err => console.error(err)); return }
     if (e.target.closest('.pt-edit')) { editProfileById(id); return }
     if (e.target.closest('.pt-del')) {
       const p = profiles.find(q => q.id === id)
       const label = p ? `"${p.name}" (${p.dob})` : 'this person'
       confirmModal(`Delete ${label}? This cannot be undone.`, { title: 'Delete person', confirmLabel: 'Delete', danger: true })
         .then(ok => { if (ok) { deleteProfile(id); renderPeople() } })
+      return
+    }
+    // The ▶ button or a click anywhere on the row (outside the reorder grip
+    // and the List checkbox) opens the person in a tab and shows the chart.
+    const cell = e.target.closest('td')
+    if (e.target.closest('.pt-open') ||
+        (cell && !cell.classList.contains('pt-reorder') && !cell.classList.contains('pt-show'))) {
+      loadProfileById(id).catch(err => console.error(err))
     }
   })
   tbody.addEventListener('change', e => {

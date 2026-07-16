@@ -2,7 +2,7 @@
 // Per-session state: chart data snapshot + UI state for each tab.
 
 import { state } from './state.js'
-import { getCurrentPage } from './ui/nav-state.js'
+import { PERSON_PAGES } from './ui/nav-registry.js'
 
 function genId() {
   return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
@@ -49,6 +49,8 @@ export function defaultChartUI() {
     fromHouseSign:  null,
     chalitMethod:   'equal',
     collapsedTables: {},
+    sortCol:        null,
+    sortDir:        'asc',
   }
 }
 
@@ -73,10 +75,6 @@ export function defaultTransitUI() {
   }
 }
 
-function currentInnerTab() {
-  return getCurrentPage() ?? 'input'
-}
-
 let sessions = []
 let activeId  = null
 
@@ -91,7 +89,10 @@ export function persistSessions() {
     const entries = sessions.map(s => ({
       id: s.id,   // stable across reloads so #/p/<id>/… deep links survive
       label: s.label,
-      birth: s.id === activeId ? state.birth : s.snap.birth,
+      // Active session: state is the source of truth (its snap may be stale).
+      // Fall back to the snap so a momentarily-null state.birth can't wipe a
+      // persisted chart (e.g. mid-restore, before state.birth is re-assigned).
+      birth: s.id === activeId ? (state.birth ?? s.snap.birth) : s.snap.birth,
     }))
     sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ entries, activeIndex: sessions.findIndex(s => s.id === activeId) }))
   } catch { /* storage full / unavailable — persistence is best-effort */ }
@@ -132,7 +133,38 @@ function saveActiveSnapshot() {
   cur.snap = { birth: state.birth, planets: state.planets, lagna: state.lagna,
                houses: state.houses, sripatiHouses: state.sripatiHouses,
                dasha: state.dasha, panchang: state.panchang, strength: state.strength }
-  cur.innerTab = currentInnerTab()
+}
+
+/**
+ * Record the person page a session is on — its re-entry point when you click it
+ * in the sidebar. The router calls this on every route, so it stays current
+ * (a snapshot-time read would lag by one switch). Global pages (people/compare)
+ * are ignored: they are not somewhere a person tab can re-enter, and storing one
+ * here would make routeFor() send the click to the global page instead.
+ */
+export function setSessionInnerTab(sid, page) {
+  if (!PERSON_PAGES.includes(page)) return
+  const s = sessions.find(x => x.id === sid)
+  if (s) s.innerTab = page
+}
+
+/**
+ * Snapshot the active session's live state and persist. Call after computing a
+ * chart into the active session outside of a switch (e.g. reload-restore), so
+ * its snap + the persisted birth reflect the freshly-computed data — otherwise
+ * the snapshot only happens on the next switchSession, and switching to a
+ * session that's already active early-returns without ever saving it.
+ */
+export function commitActive() {
+  saveActiveSnapshot()
+  persistSessions()
+}
+
+/** The open session whose loaded birth record came from this saved profile, or null. */
+export function findSessionByProfileId(pid) {
+  if (!pid) return null
+  return sessions.find(s =>
+    (s.id === activeId ? state.birth?.profileId : s.snap.birth?.profileId) === pid) ?? null
 }
 
 export function switchSession(id) {

@@ -5,6 +5,8 @@
 
 import { getSessions, getActiveId, createSession, switchSession, closeSession, activeInnerTab } from '../sessions.js'
 import { navigate, routeFor } from './router.js'
+import { PAGE_MAP } from './nav-registry.js'
+import { getCurrentPage } from './nav-state.js'
 import { logout } from '../auth-ui.js'
 import { openSettingsModal } from './settings-modal.js'
 import { renderPersonHeader } from './person-header.js'
@@ -72,9 +74,11 @@ export function renderSidebar() {
 
   const sessions = getSessions()
   const curId    = getActiveId()
+  // Match setActive(): no person is the active one while a global page is open.
+  const onGlobal = PAGE_MAP[getCurrentPage()]?.scope === 'global'
 
   list.innerHTML = sessions.map(s => `
-    <div class="side-person${s.id === curId ? ' active' : ''}" data-sid="${s.id}" role="button" tabindex="0" title="${esc(s.label)}">
+    <div class="side-person${!onGlobal && s.id === curId ? ' active' : ''}" data-sid="${s.id}" role="button" tabindex="0" title="${esc(s.label)}">
       <span class="side-item-icon">${PERSON_ICON}</span>
       <span class="side-person-label">${esc(s.label)}</span>
       ${sessions.length > 1
@@ -90,10 +94,12 @@ export function renderSidebar() {
       navigate(routeFor(activeInnerTab()), { replace: true })
       return
     }
+    // Clicking a person always re-enters their workspace — including the person
+    // who is already active, which is how you get back from a global page.
     const item = e.target.closest('.side-person[data-sid]')
-    if (item && item.dataset.sid !== getActiveId()) {
+    if (item) {
       const sid = item.dataset.sid
-      switchSession(sid)
+      switchSession(sid)          // no-op when already active
       renderSidebar()
       navigate(routeFor(activeInnerTab(), sid))
     }
@@ -102,13 +108,15 @@ export function renderSidebar() {
 
 /** Router hook: highlight the routed person/page and update the topbar. */
 export function setActive({ sid, page } = {}) {
+  const session = getSessions().find(s => s.id === sid)
+  const isPerson = PAGE_MAP[page]?.scope !== 'global'
+
+  // On a global page the global item is the active one — highlighting the
+  // person too reads as two active places at once.
   document.querySelectorAll('#sidebar-people .side-person').forEach(el =>
-    el.classList.toggle('active', el.dataset.sid === sid))
+    el.classList.toggle('active', isPerson && el.dataset.sid === sid))
   document.querySelectorAll('#sidebar-global .side-item').forEach(el =>
     el.classList.toggle('active', el.dataset.nav === page))
-
-  const session = getSessions().find(s => s.id === sid)
-  const isPerson = !['people', 'compare'].includes(page)
 
   // The person page-nav only makes sense inside a person workspace.
   document.getElementById('tab-nav')?.toggleAttribute('hidden', !isPerson)

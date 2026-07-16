@@ -10,7 +10,7 @@
 
 import { PAGE_MAP, ROUTE_ALIAS, SEGMENT_FOR, renderPage } from './nav-registry.js'
 import { _setCurrent } from './nav-state.js'
-import { getSessions, getActiveId, switchSession } from '../sessions.js'
+import { getSessions, getActiveId, switchSession, setSessionInnerTab } from '../sessions.js'
 import { state } from '../state.js'
 import { switchTab, syncPageNav } from './tabs.js'
 
@@ -41,6 +41,7 @@ export function refresh() { return handleRoute() }
 export function markRoute(page, sid = getActiveId()) {
   history.replaceState(null, '', routeFor(page, sid))
   _setCurrent(page, sid)
+  setSessionInnerTab(sid, page)
   syncPageNav()
   switchTab(page)
   syncShell(sid, page)
@@ -84,6 +85,7 @@ async function handleRoute() {
   if (location.hash !== canonical) history.replaceState(null, '', canonical)
 
   _setCurrent(page, sid)
+  setSessionInnerTab(sid, page)
   syncPageNav()
   switchTab(page)
   syncShell(sid, page)

@@ -4,7 +4,7 @@ import { initRouter, refresh as refreshRoute } from './ui/router.js'
 import { initSwissEph } from './core/swisseph.js'
 import { loadSettings, applyAyanamsa, getSettings } from './core/settings.js'
 import { loadBranding } from './config/branding.js'
-import { createSession, switchSession, loadPersistedSessions, getSessions } from './sessions.js'
+import { createSession, switchSession, loadPersistedSessions, getSessions, commitActive } from './sessions.js'
 import { initShell, renderSidebar } from './ui/app-shell.js'
 import { state } from './state.js'
 import { updateFavicon } from './ui/favicon.js'
@@ -119,6 +119,9 @@ async function restoreSessionData(persisted, ids, sweReady) {
     await recalcAll()
     const session = getSessions().find(s => s.id === entry.id)
     if (session) session.restoring = false
+    // Snapshot + persist now so this session's freshly-computed chart survives
+    // a subsequent reload even if we never switch away from it again.
+    commitActive()
     renderSidebar()
   }
   for (const s of getSessions()) s.restoring = false
@@ -127,6 +130,7 @@ async function restoreSessionData(persisted, ids, sweReady) {
   // the source of truth, so a reload keeps the user on the page they were on.
   const targetId = ids[persisted.activeIndex] ?? ids[0]
   switchSession(targetId)
+  commitActive()   // switchSession early-returns when target is already active
   renderSidebar()
   await refreshRoute()
 }

@@ -759,6 +759,27 @@ h3 {
 .planet-table tr.row-exalt td { background: #f0fdf4; }
 .planet-table tr.row-debil  td { background: #fff7f7; }
 
+.planet-table th.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+.planet-table th.sortable-header:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.planet-table th.sortable-header.sorted {
+  color: var(--primary);
+}
+.planet-table th.sortable-header .sort-arrow {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--primary);
+  vertical-align: middle;
+}
+
 .planet-name-cell { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 
 .planet-chip {
@@ -1184,13 +1205,13 @@ h3 {
   body { padding: 1.5rem 2rem; }
 
   /* Chart tab (no dasha): chart card sticky left, planet positions right */
-  #tab-chart.active:not(.has-dasha) {
+  #tab-chart.active:not(.has-dasha):not(.multi-view) {
     display: grid !important;
     grid-template-columns: minmax(0, 1.2fr) minmax(460px, 1fr);
     gap: 1.25rem;
     align-items: start;
   }
-  #tab-chart.active:not(.has-dasha) > .card:first-child {
+  #tab-chart.active:not(.has-dasha):not(.multi-view) > .card:first-child {
     position: sticky;
     top: 1rem;
   }
@@ -1743,6 +1764,11 @@ h3 {
 .people-table tbody tr:hover { background: var(--surface-2); }
 .people-table tbody tr:last-child td { border-bottom: none; }
 .people-table .pt-name { font-weight: 600; color: var(--text); }
+/* Row body opens the person; the reorder grip and List checkbox don't. */
+.people-table tbody td { cursor: pointer; }
+.people-table tbody td.pt-reorder,
+.people-table tbody td.pt-show,
+.people-table tbody td.pt-actions { cursor: default; }
 
 /* Drag-and-drop reorder (manual mode) */
 .people-table tr[draggable="true"] .pt-grip { cursor: grab; }

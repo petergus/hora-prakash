@@ -729,10 +729,32 @@ export async function computeAndRenderChart(birth, { profileId = null, onStatus 
   navigate(routeFor('chart'))
 }
 
-/** Load a saved profile by id and render its full chart (used by People directory). */
+/**
+ * Open a saved profile in a sidebar person tab and land on its chart. If the
+ * person is already open, focus that tab; otherwise reuse the active tab when
+ * it's an empty "New Profile", else open a fresh tab. (Used by the People
+ * directory.)
+ */
 export async function loadProfileById(id) {
   const p = loadProfiles().find(q => q.id === id)
   if (!p) return
+  const { findSessionByProfileId, getActiveSession, createSession, switchSession } =
+    await import('../sessions.js')
+  const { renderSidebar } = await import('../ui/app-shell.js')
+
+  const existing = findSessionByProfileId(id)
+  if (existing) {
+    switchSession(existing.id)
+    renderSidebar()
+    if (state.planets) { navigate(routeFor('chart', existing.id)); return }
+    // Restored-but-not-yet-computed tab: fall through and (re)compute in place.
+  } else {
+    // Reuse a fresh, empty tab; otherwise open a new one for this person.
+    const active = getActiveSession()
+    if (!active || state.birth) switchSession(createSession(p.name))
+    renderSidebar()
+  }
+
   editingProfileId = p.id
   await computeAndRenderChart(
     { name: p.name, dob: p.dob, tob: p.tob, lat: p.lat, lon: p.lon, timezone: p.timezone, location: p.location || '' },

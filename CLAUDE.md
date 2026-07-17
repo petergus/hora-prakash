@@ -11,7 +11,7 @@ npm test          # Node smoke test (tests/export-payload.test.mjs) — no brows
 npm run preview   # Preview the production build locally
 ```
 
-No linter is configured. `npm test` runs fifteen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
+No linter is configured. `npm test` runs seventeen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
 - `tests/export-payload.test.mjs` — divisional transforms, dasha tree, sandhi, yogas, Export-tab payload
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
 - `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
@@ -27,6 +27,8 @@ No linter is configured. `npm test` runs fifteen Node suites (no browser/WASM �
 - `tests/muhurta.test.mjs` — tarabala/chandrabala counting, tithi classes, the veto rules, sweep window merging
 - `tests/calendar-events.test.mjs` — event collectors, timezone day-bucketing, and the iCal UID-collision regression
 - `tests/interpret.test.mjs` — corpus exhaustiveness (all 108 placements, 144 house-lord pairs, every yoga key the **real** detector emits), the A6 strength layer, the depth dial, and a 144-combination render sweep
+- `tests/ai.test.mjs` — AI config gating (BYOK key stored apart from the synced settings), the chart-context grounding builder, tool definitions, prompt builders (no SDK/network/Firebase — those are browser-only)
+- `tests/reading-tools.test.mjs` — the chat tool executor's dispatch + data-shaping for the ephemeris-free tools, and graceful degradation when the WASM ephemeris isn't up
 
 `npm run test:ephemeris` runs the four suites that load the real Swiss Ephemeris WASM (Node-native) and check against documented real-world values. Kept out of `npm test` because of the 12 MB ephemeris load:
 - `tests/lunar-birthday.ephemeris.test.mjs` — lunar-date/Adhika logic vs documented festival dates. Run after touching `src/core/lunar-birthday.js`.
@@ -182,6 +184,18 @@ Dual (natal + transit side by side) or overlay view; per-session UI state in `ui
 - **`house-lords.js` is composed, not hand-written** (144 combos), because the tradition itself states the rule compositionally ("A's matters arrive through B"). The classically-named cases (lord in own house; 6th/8th/12th from itself) are hand-written overrides.
 - ⚠️ **`buildReading` de-duplicates via an internal `ctx`**: a planet's placement paragraph and its strength qualifier are each emitted **once per reading**, with later sections emitting a short pointer instead. Without this, Saturn's paragraph repeated verbatim in two sections and the Moon was called weak three times. If you add a section, thread `ctx` through it.
 - `state` holds no `yogas`/`avasthas` — reading.js derives both on demand (as strength.js and export.js do).
+
+### AI layer (`src/core/ai.js`, `functions/`, Reading page AI + Ask sub-tabs)
+
+The Reading page has three sub-tabs: **Overview** (deterministic, always offline), **AI Reading** (A2, streamed), **Ask** (A3, chat with tools). Per-session UI in `uiState.reading` (`subTab`, in-session `aiText` cache, `chat`/`chatApi` history).
+
+- **Two transports, one abstraction** (`src/core/ai.js`): `byok` (user's own Anthropic key, direct browser → Anthropic with `dangerouslyAllowBrowser`) and `proxy` (Firebase Cloud Function holds the key; browser sends its Firebase ID token). `makeClient()` builds the right SDK client; the proxy path overrides `fetch` to attach a **fresh** ID token per request (tokens expire ~1h — never bake one into a header at construction).
+- ⚠️ **The `@anthropic-ai/sdk` is lazily imported** inside `loadSDK()` so it stays in its own ~150 kB chunk (`dist/assets/sdk-*.js`), fetched only on first AI use — same rule as swisseph-wasm. Don't add a top-level `import` of it anywhere.
+- ⚠️ **The BYOK key is stored under its own localStorage slot** (`hora-prakash-ai-key`), never in the settings blob, so a future settings-sync can't carry it to the cloud. `getAIKey`/`setAIKey` in ai.js; the settings modal writes it only when actually changed (it shows `••••` as a placeholder).
+- **Grounding**: `buildChartContext(chart)` (pure, tested) is a terse factual snapshot; `buildReadingRequest` adds the deterministic reading's factors so the AI and offline readings rest on the same evidence. Uses `claude-opus-4-8` by default (settings-overridable), adaptive thinking, streaming.
+- **A3 tools are the point** — `CHART_TOOLS` (pure defs in ai.js) let Claude call the app's own compute; `executeChartTool` (`src/tabs/reading-tools.js`, browser-side, needs `state`+`swe`) dispatches to `calcDivisional`/`dashaLordsAt`/`findNextEvents`/`findMuhurta`/strength. So "when does my dasha end?" is **computed, not guessed**. The executor never throws into the chat loop — any failure (incl. uninitialised ephemeris) returns `{ error }`.
+- **Cloud Function** (`functions/index.js`, `aiProxy`): verifies the Firebase ID token, forwards **only** `POST /v1/messages` to Anthropic with the server-held key (a Functions secret `ANTHROPIC_API_KEY`), streams the response back. Needs the **Blaze plan**; deploy with `firebase deploy --only functions`. `functions/` is its own CommonJS package, untouched by the Vite build or `npm test`. See `functions/README.md`.
+- ⚠️ **The interpretive corpus AND the AI output are both un-reviewed by a professional** — every AI surface shows a disclaimer and refuses medical/legal/financial advice in the system prompt. Keep those.
 
 ### Calendar page (`src/tabs/calendar.js`, `src/core/calendar-events.js`)
 

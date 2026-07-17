@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs && node tests/places-timezone.test.mjs && node tests/moon-info.test.mjs && node tests/sadesati.test.mjs && node tests/activation.test.mjs && node tests/avastha.test.mjs && node tests/upagraha.test.mjs && node tests/gunamilan.test.mjs && node tests/ics.test.mjs && node tests/muhurta.test.mjs && node tests/calendar-events.test.mjs && node tests/interpret.test.mjs",
+    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs && node tests/places-timezone.test.mjs && node tests/moon-info.test.mjs && node tests/sadesati.test.mjs && node tests/activation.test.mjs && node tests/avastha.test.mjs && node tests/upagraha.test.mjs && node tests/gunamilan.test.mjs && node tests/ics.test.mjs && node tests/muhurta.test.mjs && node tests/calendar-events.test.mjs && node tests/interpret.test.mjs && node tests/ai.test.mjs && node tests/reading-tools.test.mjs",
     "test:ephemeris": "node tests/lunar-birthday.ephemeris.test.mjs && node tests/upagraha.ephemeris.test.mjs && node tests/sadesati.ephemeris.test.mjs && node tests/calendar.ephemeris.test.mjs",
     "preview": "vite preview",
     "parse-places": "node scripts/parse-places.js",
@@ -27,6 +27,7 @@
     "vite-plugin-pwa": "^1.3.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.2",
     "@photostructure/tz-lookup": "^11.6.0",
     "firebase": "^12.13.0",
     "geo-tz": "^8.1.8",

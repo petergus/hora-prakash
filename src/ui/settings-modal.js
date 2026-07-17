@@ -3,11 +3,13 @@ import {
   getSettings, saveSettings,
   AYANAMSA_OPTIONS, YEAR_METHOD_OPTIONS, PLANET_POSITION_OPTIONS, OBSERVER_TYPE_OPTIONS, THEME_OPTIONS,
 } from '../core/settings.js'
+import { AI_MODELS, getAIConfig, saveAIConfig, getAIKey, setAIKey } from '../core/ai.js'
 import { updateFavicon } from './favicon.js'
 import { openModal } from './modal.js'
 
 export function openSettingsModal() {
   const s = getSettings()
+  const ai = getAIConfig()
   const currentTheme = document.documentElement.dataset.theme || s.theme || 'crimson'
 
   const opts = (list, sel) => list.map(o =>
@@ -43,6 +45,31 @@ export function openSettingsModal() {
         <label>Observer</label>
         <select id="settings-observer-type">${opts(OBSERVER_TYPE_OPTIONS, s.observerType)}</select>
       </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0 0.5rem">
+      <div class="modal-field">
+        <label>AI features <span title="Powers the AI Reading and Ask tabs" style="cursor:help;color:var(--muted)">ⓘ</span></label>
+        <select id="settings-ai-mode">
+          <option value="off"${ai.mode === 'off' ? ' selected' : ''}>Off</option>
+          <option value="byok"${ai.mode === 'byok' ? ' selected' : ''}>Use my own API key</option>
+          <option value="proxy"${ai.mode === 'proxy' ? ' selected' : ''}>Use a proxy (shared key)</option>
+        </select>
+      </div>
+      <div class="modal-field" id="settings-ai-key-field" style="display:${ai.mode === 'byok' ? '' : 'none'}">
+        <label>Anthropic API key</label>
+        <input type="password" id="settings-ai-key" autocomplete="off" placeholder="sk-ant-…" value="${getAIKey() ? '••••••••••••' : ''}" />
+        <p style="font-size:var(--fs-xs);color:var(--muted);margin:0.3rem 0 0;line-height:1.5">
+          Stored only in this browser, never synced. Get one at console.anthropic.com. You pay Anthropic for usage.
+        </p>
+      </div>
+      <div class="modal-field" id="settings-ai-proxy-field" style="display:${ai.mode === 'proxy' ? '' : 'none'}">
+        <label>Proxy URL</label>
+        <input type="text" id="settings-ai-proxy" autocomplete="off" placeholder="https://…cloudfunctions.net/aiProxy" value="${ai.proxyUrl || ''}" />
+      </div>
+      <div class="modal-field" id="settings-ai-model-field" style="display:${ai.mode === 'off' ? 'none' : ''}">
+        <label>Model</label>
+        <select id="settings-ai-model">${opts(AI_MODELS, ai.model)}</select>
+      </div>
     `,
     actions: [
       { id: 'settings-cancel', label: 'Cancel', variant: 'ghost' },
@@ -66,6 +93,13 @@ export function openSettingsModal() {
       e.target.value === 'custom' ? '' : 'none'
   })
 
+  el.querySelector('#settings-ai-mode').addEventListener('change', e => {
+    const mode = e.target.value
+    el.querySelector('#settings-ai-key-field').style.display   = mode === 'byok' ? '' : 'none'
+    el.querySelector('#settings-ai-proxy-field').style.display = mode === 'proxy' ? '' : 'none'
+    el.querySelector('#settings-ai-model-field').style.display = mode === 'off' ? 'none' : ''
+  })
+
   async function applySettings(closeModal) {
     const ayanamsa        = parseInt(el.querySelector('#settings-ayanamsa').value, 10)
     const yearMethod      = el.querySelector('#settings-year-method').value
@@ -74,6 +108,15 @@ export function openSettingsModal() {
     const observerType    = el.querySelector('#settings-observer-type').value
     const theme = el.querySelector('.theme-swatch.active')?.dataset.theme || 'crimson'
     saveSettings({ ayanamsa, yearMethod, customYearDays, planetPositions, observerType, theme })
+
+    // AI settings — the key is stored separately (never in the synced blob).
+    const aiMode  = el.querySelector('#settings-ai-mode').value
+    const aiModel = el.querySelector('#settings-ai-model').value
+    const aiProxyUrl = el.querySelector('#settings-ai-proxy').value.trim()
+    saveAIConfig({ mode: aiMode, model: aiModel, proxyUrl: aiProxyUrl })
+    const keyVal = el.querySelector('#settings-ai-key').value
+    if (keyVal && !/^•+$/.test(keyVal)) setAIKey(keyVal.trim())  // only overwrite if actually changed
+
     document.documentElement.dataset.theme = theme
     updateFavicon(theme)
     closeModal()

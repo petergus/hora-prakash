@@ -11,6 +11,9 @@ const DEFAULTS = {
   observerType:    'geocentric', // 'geocentric' | 'topocentric'
   theme:           'crimson',
   readingDepth:    'beginner',   // 'beginner' | 'practitioner' — the Reading page's depth dial
+  aiMode:          'off',        // 'off' | 'byok' | 'proxy' — the AI transport (key stored separately)
+  aiModel:         'claude-opus-4-8',
+  aiProxyUrl:      '',           // Cloud Function URL for the proxy transport
 }
 
 let _settings = { ...DEFAULTS }

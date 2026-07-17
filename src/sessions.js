@@ -55,6 +55,17 @@ export function defaultChartUI() {
   }
 }
 
+export function defaultReadingUI() {
+  return {
+    subTab:  'overview',   // 'overview' | 'ai' | 'ask'
+    aiText:  null,         // last generated AI reading (in-session cache)
+    aiBusy:  false,
+    chat:    [],           // [{ role: 'user'|'assistant', text }] for display
+    chatApi: [],           // the API message array (carries tool_use/tool_result blocks)
+    chatBusy: false,
+  }
+}
+
 export function defaultCalendarUI() {
   return {
     month:        null,                 // "YYYY-MM"; null → the current month
@@ -131,7 +142,7 @@ export function createSession(label = 'New Profile', id = genId()) {
     snap:    emptySnap(),
     innerTab: 'input',
     uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI(),
-               calendar: defaultCalendarUI() },
+               calendar: defaultCalendarUI(), reading: defaultReadingUI() },
   })
   persistSessions()
   return id

@@ -10,6 +10,7 @@ const DEFAULTS = {
   planetPositions: 'apparent',     // 'apparent' | 'true'
   observerType:    'geocentric', // 'geocentric' | 'topocentric'
   theme:           'crimson',
+  readingDepth:    'beginner',   // 'beginner' | 'practitioner' — the Reading page's depth dial
 }
 
 let _settings = { ...DEFAULTS }

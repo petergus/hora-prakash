@@ -11,14 +11,28 @@ npm test          # Node smoke test (tests/export-payload.test.mjs) — no brows
 npm run preview   # Preview the production build locally
 ```
 
-No linter is configured. `npm test` runs five Node suites (no browser/WASM):
+No linter is configured. `npm test` runs fifteen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
 - `tests/export-payload.test.mjs` — divisional transforms, dasha tree, sandhi, yogas, Export-tab payload
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
 - `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
 - `tests/timezone-dst.test.mjs` — birth-instant UTC offset resolution, incl. historical/abolished DST (Moscow 1985, São Paulo)
 - `tests/places-timezone.test.mjs` — the bundled city DB (`public/places.json`) carries a valid IANA zone per city; exact coordinate→zone boundary lookup (`tz-resolve.js`, incl. countries the DB doesn't cover, e.g. Yerevan 1982 USSR DST) and stale location-cache reconciliation
+- `tests/moon-info.test.mjs` — Moon phase / elongation / tithi maths
+- `tests/sadesati.test.mjs` — Saturn phase classification + the sign scanner (incl. a synthetic retrograde bounce)
+- `tests/activation.test.mjs` — dasha-lord lookup at a date + forecast-event activation flagging
+- `tests/avastha.test.mjs` — Baladi bands/even-sign reversal, panchadha friendship, Deeptadi precedence
+- `tests/upagraha.test.mjs` — special-lagna formulas + Gulika/Mandi portion timing vs JHora
+- `tests/gunamilan.test.mjs` — Ashta Koota scoring (incl. the classic 28/36 identical-Moon result) + Mangal dosha
+- `tests/ics.test.mjs` — the iCalendar writer: RFC 5545 escaping, octet-based folding, all-day DTEND exclusivity
+- `tests/muhurta.test.mjs` — tarabala/chandrabala counting, tithi classes, the veto rules, sweep window merging
+- `tests/calendar-events.test.mjs` — event collectors, timezone day-bucketing, and the iCal UID-collision regression
+- `tests/interpret.test.mjs` — corpus exhaustiveness (all 108 placements, 144 house-lord pairs, every yoga key the **real** detector emits), the A6 strength layer, the depth dial, and a 144-combination render sweep
 
-`npm run test:ephemeris` runs `tests/lunar-birthday.ephemeris.test.mjs`, which loads the real Swiss Ephemeris WASM (Node-native) and checks the lunar-date/Adhika logic against documented festival dates. It's kept out of `npm test` because it loads the 12 MB ephemeris; run it after touching `src/core/lunar-birthday.js`.
+`npm run test:ephemeris` runs the four suites that load the real Swiss Ephemeris WASM (Node-native) and check against documented real-world values. Kept out of `npm test` because of the 12 MB ephemeris load:
+- `tests/lunar-birthday.ephemeris.test.mjs` — lunar-date/Adhika logic vs documented festival dates. Run after touching `src/core/lunar-birthday.js`.
+- `tests/upagraha.ephemeris.test.mjs` — the full Gulika/Mandi/special-lagna pipeline vs JHora's Indira Gandhi values (all 7 points land within ~1.7 arcmin; the residual is our sunrise sitting ~2 s from JHora's, which Ghati Lagna's 1.25°/min rate amplifies). Run after touching `src/core/upagraha.js` or the sunrise code in `panchang.js`.
+- `tests/sadesati.ephemeris.test.mjs` — Saturn's Lahiri ingress dates 2020–2025, the 7.5-year window shape, and the scan-step resolution guarantee. Run after touching `src/core/sadesati.js`.
+- `tests/calendar.ephemeris.test.mjs` — the Calendar pipeline end to end (real chart → forecast + dasha + Sade Sati + birthdays → merged events → valid .ics), and the **only** coverage of `findNextEvents` itself. Run after touching `transitForecast.js`, `calendar-events.js` or `ics.js`.
 
 Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yogas.js`, or `src/tabs/export.js`. The deploy workflow runs `npm test` before build.
 
@@ -72,7 +86,7 @@ The UI is a **left sidebar + person workspace** shell (`index.html` → `#app-sh
 - ⚠️ **The router owns each session's `innerTab`** (its sidebar re-entry page): `handleRoute`/`markRoute` call `setSessionInnerTab(sid, page)`, which **ignores global pages**. Don't derive `innerTab` from `getCurrentPage()` at snapshot time — `saveActiveSnapshot()` runs on switch, so it lags a page behind and, worse, would store `people`/`compare` on a person; `routeFor()` then sends a sidebar click to `#/people` and the sidebar highlights the person *and* the global item at once.
 - Session ids persist across reload (`persistSessions` stores `id`; `createSession(label, id)` reuses it) so deep links survive.
 
-**Adding a page** = one `PAGE_MAP` entry + a `<button data-tab>` in `#tab-nav` (person pages) or a `.side-item[data-nav]` in the sidebar (global pages) + a `<section id="tab-<id>">` panel. No `TAB_ORDER`, no `enableTab` fan-out, no `activateInnerTab` — those were removed. The sidebar people list is `renderSidebar()` in `src/ui/app-shell.js` (replaced the old `profile-tabs.js`). The workspace person header (avatar/name/pills + privacy toggle + Edit) is `src/ui/person-header.js`, rendered by the router; `isPrivacyOn()` there is the single privacy-mask source (chart.js reads it).
+**Adding a page** = one `PAGE_MAP` entry + `PERSON_PAGES` order + a `<button data-tab>` in `#tab-nav` (person pages) or a `.side-item[data-nav]` in the sidebar (global pages) + a `<section id="tab-<id>">` panel + (if it holds UI state) a `default<Name>UI()` in sessions.js wired into `createSession`. The `calendar` page is the worked example. No `TAB_ORDER`, no `enableTab` fan-out, no `activateInnerTab` — those were removed. The sidebar people list is `renderSidebar()` in `src/ui/app-shell.js` (replaced the old `profile-tabs.js`). The workspace person header (avatar/name/pills + privacy toggle + Edit) is `src/ui/person-header.js`, rendered by the router; `isPrivacyOn()` there is the single privacy-mask source (chart.js reads it).
 
 ### Data flow on form submit (`src/tabs/input.js` → `onFormSubmit`)
 
@@ -116,7 +130,33 @@ Chart tab also has a per-table "Copy positions as JSON" button (`buildPlanetJSON
 
 ### Compare tab (`src/tabs/compare.js`)
 
-Synastry between open profile tabs: side-by-side D1 charts, whole-sign house overlays both directions, inter-chart sign aspects. Reads other sessions' data from `session.snap` (active session reads `state`).
+Synastry between two **saved profiles** (selectors, not open sessions): side-by-side D1 charts, a Guna Milan card, whole-sign house overlays both directions, inter-chart sign aspects. Charts are computed on demand from the profile record and memoised in a module-level `compareCache` keyed by profile+ayanamsa+observer.
+
+### Guna Milan (`src/core/gunamilan.js`)
+
+`calcGunaMilan(girl, boy)` (each `{ moonLon }`) → `{ total, max: 36, kootas: [{ key, name, max, points, girl, boy, note }], verdict }`. `calcMangalDosha(planets, lagnaSign)` → `{ present, afflictions, cancellations, effective }`; `mangalDoshaMatch(a, b)` handles the both-Manglik mutual cancellation.
+- ⚠️ **Several kootas are directional** — Varna, Vashya, Tara and Gana score differently by role, so argument order (girl, boy) matters. The Compare card exposes a ⇄ swap button rather than guessing gender.
+- Lookup tables (yoni 14×14, gana 3×3, vashya 5×5 incl. the Sagittarius/Capricorn half-sign splits) are transcribed from the Saravali/Muhurta tradition; sources are cited in the module header. Sanity anchor: two identical Moons score **28/36** (everything full except Nadi).
+
+### Sade Sati (`src/core/sadesati.js`)
+
+`calcSadeSati(moonSign, { fromJd, toJd, swe, now })` → `{ segments, windows, current }`. Scans Saturn's sign occupancy, classifies each stay relative to the natal Moon (Sade Sati 12th/1st/2nd, Kantaka 4th, Ashtama 8th), and groups runs into windows. Rendered as a Dasha-tab card (`_sadesatiHtml`), cached per chart+ayanamsa in `dasha-panel.js`.
+- ⚠️ **The fixed scan step only resolves stays longer than `stepDays`.** Real Saturn dips back across a boundary for as little as ~9.5 days (Libra, Feb 2041), so the 5-day default keeps ~2× margin — don't raise it casually. A 90-year scan costs ~150 ms, hence the cache.
+- Retrograde bounces intentionally stay **inside one window** and surface as repeated phases (`rising,peak,rising,peak,setting`).
+
+### Dasha activations (`src/core/activation.js`)
+
+`annotateActivations(events, dasha, transitPlanetName)` tags `findNextEvents` output with `activation = { planet, levels: ['MD'|'AD'|'PD'], kind }` when an event touches a running dasha lord — either the transit hits a lord's natal position (`transit-to-lord`) or the transiting planet *is* a lord (`lord-transit`). Rendered as ⚡ badges in `TransitTable`/`TransitTooltip`. `dashaLordsAt` reads only already-computed tree levels, so PD is `null` until `ensureChildren` has run — that's deliberate, not a bug.
+
+### Upagrahas & special lagnas (`src/core/upagraha.js`)
+
+`calcUpagrahas(birth, lagna, planets, swe?)` → `{ points: [Gulika, Mandi, Bhava/Hora/Ghati/Sree/Indu Lagna], meta }`, rendered in the chart's Further-Information panel and included in the per-table copy-JSON.
+- The **Vedic day runs sunrise→sunrise**: a pre-dawn birth belongs to the previous day's span *and weekday* (the module shifts both). Gulika/Mandi = the ascendant at the start/middle of Saturn's eighth-portion of the day (from the weekday lord) or night (from the 5th lord after it).
+- Sunrise comes from `calcRiseSet` (exported from `panchang.js` — the Hindu disc-center/no-refraction `swe_rise_trans` call). Ghati Lagna moves 1.25°/min, so it amplifies any sunrise error ~30× — that's the whole tolerance story in the ephemeris test.
+
+### Avasthas (`src/core/avastha.js`)
+
+`calcAvasthas(planets)` → per planet `{ baladi, jagradadi, deeptadi, dispositor, relation }` (nodes → `null`). Baladi runs on the degree and **reverses in even signs**; Deeptadi precedence is dignity → combustion → residence, where residence uses the compound (natural + temporal) relation with the sign lord. Also exports the shared `SIGN_LORDS`, `EXALT_SIGN`/`DEBIL_SIGN` and the friendship helpers (`compoundRelation` etc.) that `upagraha.js` reuses. Surfaced as a positions-table column + a Further-Info subsection.
 
 ### Strength (`src/core/shadbala.js`, `src/core/ashtakavarga.js`)
 
@@ -129,6 +169,36 @@ Synastry between open profile tabs: side-by-side D1 charts, whole-sign house ove
 Dual (natal + transit side by side) or overlay view; per-session UI state in `uiState.transit`; forecast events in `src/core/transitForecast.js`. Transit export goes through the same `showExportModal` with `context: 'transit'` and an `extraSvgFn`.
 - `TransitToolbar` has a date scrubber (±day/week/month/year + play animation); the play timer lives on the toolbar instance — `destroy()` must clear it.
 - `TransitTable` shows a SAV column (natal Sarvashtakavarga points of the transit planet's sign, D1 only, from `state.strength.sarva`).
+
+### Interpretation layer (`src/core/interpret.js`, `src/content/interpretation/`)
+
+`buildReading(chart, { depth, now })` → `{ depth, corpusVersion, sections: [{ key, title, subtitle, paragraphs: [{ text, factors }] }] }`. Rendered by the **Reading** page (`src/tabs/reading.js`). Deterministic: it selects and composes corpus text, it does not generate.
+
+- ⚠️ **The corpus is Claude-authored and NOT expert-reviewed.** Every file in `src/content/interpretation/` carries that banner, and the Reading page shows it to the user. Keep both if you extend the corpus.
+- **Every paragraph carries `factors`** — the evidence it rests on. The Reading page renders them as chips; clicking one sets `uiState.chart.activePlanets` and routes to the chart, so any sentence can be audited against the geometry. Don't emit a paragraph without factors.
+- **Exhaustiveness is enforced, not hoped for.** A missing corpus key would render an empty paragraph, so `tests/interpret.test.mjs` asserts all 108 planet-in-house entries, 12 houses/signs, 27 nakshatras, 9 dasha lords, and drives the **real `detectYogas`** over 144 synthetic charts to prove every key it can emit has a meaning. Add a yoga to `yogas.js` without content and the test fails.
+- ⚠️ **Yoga meanings key by FAMILY, not by key** — `yogas.js` templates keys (`raj-${pair}`, `mahapurusha-${planet}`, `dhana-${pair}`…), so an exact-key map silently misses most of them. Use `yogaFamily()`/`yogaMeaning()`.
+- **A6 (strength weighting) lives in `qualifiers.js`, not in the 108 entries.** Baking strong/weak/neutral variants into each placement would have tripled the corpus and hidden the reasoning; instead a placement always reads the same and a qualifier states the Shadbala ratio, avastha and SAV bindus plainly. No strength data → **no qualifier at all**, never an invented one.
+- **`house-lords.js` is composed, not hand-written** (144 combos), because the tradition itself states the rule compositionally ("A's matters arrive through B"). The classically-named cases (lord in own house; 6th/8th/12th from itself) are hand-written overrides.
+- ⚠️ **`buildReading` de-duplicates via an internal `ctx`**: a planet's placement paragraph and its strength qualifier are each emitted **once per reading**, with later sections emitting a short pointer instead. Without this, Saturn's paragraph repeated verbatim in two sections and the Moon was called weak three times. If you add a section, thread `ctx` through it.
+- `state` holds no `yogas`/`avasthas` — reading.js derives both on demand (as strength.js and export.js do).
+
+### Calendar page (`src/tabs/calendar.js`, `src/core/calendar-events.js`)
+
+Month grid of everything the app can date for a person + an iCal export + the Muhurta finder. `buildCalendarEvents` merges four sources into one chronological stream: the transit forecast (`findNextEvents`, annotated with `activation.js`), Vimshottari period starts, Sade Sati phase boundaries, and lunar birthdays. Per-session UI in `uiState.calendar` (month, selected day, filter Set, muhurta inputs).
+- ⚠️ **Transit reach is per-planet** — `findNextEvents` scans a fixed window (Moon 30 d … Saturn 730 d), so a range longer than a month silently loses Moon events at the far end. The Calendar drives it one month at a time, which sits inside every planet's window.
+- ⚠️ **iCal UIDs must discriminate on `label`.** A sign ingress emits several `natal_aspect` events at the *same instant* for the *same planet*; a UID of type+time+planet collides, and clients then treat them as one event and drop the rest on import. UIDs are built from semantic parts only, so they stay stable across re-exports (a subscription updates in place instead of duplicating).
+- Sade Sati + lunar birthday are lifetime-scale, so they're cached per chart — the key includes the **ayanamsa**, or a settings change would keep serving the old Saturn dates.
+- `src/utils/ics.js` is a dependency-free RFC 5545 writer. Folding is measured in **octets, not characters** (multi-byte sequences must never split), and all-day `DTEND` is **exclusive** (a single-day event ends the next day).
+
+### Muhurta finder (`src/core/muhurta.js`, `src/content/muhurta-activities.js`)
+
+`findMuhurta({ activity, from, to, lat, lon, timezone, natal, … })` → ranked `windows`, each carrying the full per-factor breakdown the UI renders (a verdict is never a bare number). Scores tithi class, vara, nakshatra, yoga, karana, Tarabala, Chandra bala, Rahu/Gulika kalam and lagna.
+- **Cost model — do not collapse this.** The sweep splits work by how fast each factor changes: per **day** one `calcPanchang` (sunrise, kalams, vara); per **slot** `calcPanchangAngles` + one `houses_ex`. A 30-day sweep at 30-min steps is ~1440 slots ≈ 230 ms warm; running a full `calcPanchang` per slot would be ~4× that. `calcPanchangAngles` is the extracted seam that makes this possible — reuse it, don't re-derive tithi/yoga/karana anywhere.
+- `veto: true` factors (Rikta tithi, Amavasya, Vishti karana, Rahu/Gulika kalam, Chandrashtama, Vadha tara) disqualify a slot outright regardless of score — verified in practice by windows breaking exactly at the Rahu/Gulika kalam boundaries.
+- **Score is a fraction of what was judged**: omitting `natal` drops Tara/Chandra bala from both score *and* max, so a chart-less search isn't silently penalised.
+- Activity presets lean on the classical **nakshatra nature** classification (dhruva/chara/kshipra/mridu/ugra/tikshna/mishra) rather than opaque per-activity lists, with explicit `prefer`/`avoid` where tradition names stars directly.
+- The **Vedic day runs sunrise→sunrise**, so a pre-dawn slot scores against the *previous* weekday — `calcPanchang`'s `vara` is civil-date based, and muhurta.js corrects it per slot.
 
 ### Dasha extras (`src/core/dasha.js`)
 

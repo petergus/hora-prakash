@@ -17,6 +17,7 @@ export function defaultDashaUI() {
   const mobile = window.innerWidth < 600
   return {
     dashaCollapsed:  false,
+    sadesatiCollapsed: mobile,
     ageCollapsed:    mobile,
     progCollapsed:   mobile,
     selectedProgLord: null,
@@ -51,6 +52,18 @@ export function defaultChartUI() {
     collapsedTables: {},
     sortCol:        null,
     sortDir:        'asc',
+  }
+}
+
+export function defaultCalendarUI() {
+  return {
+    month:        null,                 // "YYYY-MM"; null → the current month
+    selectedDay:  null,                 // "YYYY-MM-DD"
+    filters:      null,                 // Set<eventType>; null → all (filled on first render)
+    muhurtaActivity: 'marriage',
+    muhurtaFrom:  null,
+    muhurtaTo:    null,
+    muhurtaResult: null,
   }
 }
 
@@ -117,7 +130,8 @@ export function createSession(label = 'New Profile', id = genId()) {
     label,
     snap:    emptySnap(),
     innerTab: 'input',
-    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI() },
+    uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI(),
+               calendar: defaultCalendarUI() },
   })
   persistSessions()
   return id

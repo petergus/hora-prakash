@@ -11,10 +11,14 @@ export const PAGE_MAP = {
               render: () => import('../tabs/input.js').then(m => m.renderInputTab()) },
   chart:    { label: 'Chart',    scope: 'person', requiresData: true,
               render: () => import('../tabs/chart.js').then(m => m.renderChart()) },
+  reading:  { label: 'Reading',  scope: 'person', requiresData: true,
+              render: () => import('../tabs/reading.js').then(m => m.renderReading()) },
   dasha:    { label: 'Dasha',    scope: 'person', requiresData: true,
               render: () => import('../tabs/dasha.js').then(m => m.renderDasha()) },
   transit:  { label: 'Transit',  scope: 'person', requiresData: true,
               render: () => import('../tabs/transit.js').then(m => m.renderTransit()) },
+  calendar: { label: 'Calendar', scope: 'person', requiresData: true,
+              render: () => import('../tabs/calendar.js').then(m => m.renderCalendar()) },
   panchang: { label: 'Panchang', scope: 'person', requiresData: true,
               render: () => import('../tabs/panchang.js').then(m => m.renderPanchang()) },
   strength: { label: 'Strength', scope: 'person', requiresData: true,
@@ -23,12 +27,12 @@ export const PAGE_MAP = {
               render: () => import('../tabs/export.js').then(m => m.renderExport()) },
   people:   { label: 'People',   scope: 'global', requiresData: false,
               render: () => import('../tabs/people.js').then(m => m.renderPeople()) },
-  compare:  { label: 'Compare',  scope: 'global', requiresData: true,
+  compare:  { label: 'Compare',  scope: 'global', requiresData: false,
               render: () => import('../tabs/compare.js').then(m => m.renderCompare()) },
 }
 
 /** Person pages in visual/swipe order. */
-export const PERSON_PAGES = ['input', 'chart', 'dasha', 'transit', 'panchang', 'strength', 'export']
+export const PERSON_PAGES = ['input', 'chart', 'reading', 'dasha', 'transit', 'calendar', 'panchang', 'strength', 'export']
 
 /** Route segment → page id (and back). */
 export const ROUTE_ALIAS = { edit: 'input' }

@@ -19,7 +19,7 @@ export async function renderDasha() {
   if (_panel) _panel.destroy()
   _panel = new DashaPanel(el, getState)
   await _panel.render(state.dasha, state.birth, {
-    cards: ['vimshottari', 'age', 'progression'],
+    cards: ['vimshottari', 'sadesati', 'age', 'progression'],
     draggable: true,
   })
 }

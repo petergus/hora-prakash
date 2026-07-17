@@ -1,5 +1,6 @@
 // src/components/TransitTooltip.js
 import { parseTzInfo, fmtTransitDate } from '../utils/format.js'
+import { activationBadge, activationTitle } from '../core/activation.js'
 
 const PLANET_ICONS = { Su:'☉', Mo:'☽', Ma:'♂', Me:'☿', Ju:'♃', Ve:'♀', Sa:'♄', Ra:'☊', Ke:'☋', Asc:'↑' }
 const SIGN_SYMS    = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
@@ -84,13 +85,20 @@ export class TransitTooltip {
   _buildForecastEl(events) {
     const el = document.createElement('div')
     el.className = 'p-tt-forecast'
-    const top2 = events.filter(e => e.type !== 'pada').slice(0, 2)
+    const pool = events.filter(e => e.type !== 'pada')
+    // Chronological top-2, but always surface the first dasha activation if
+    // one exists further out — those are the events worth acting on.
+    const top2 = pool.slice(0, 2)
+    const firstZap = pool.find(e => e.activation)
+    if (firstZap && !top2.includes(firstZap)) top2[1] = firstZap
     if (top2.length === 0) { el.style.display = 'none'; return el }
     el.innerHTML = `
       <div class="p-tt-divider">Next Events</div>
       ${top2.map(ev => `
         <div class="p-tt-row">
-          <span class="p-tt-lbl">${ev.label}</span>
+          <span class="p-tt-lbl">${ev.label}${ev.activation
+            ? ` <span class="transit-exp-zap" title="${activationTitle(ev.activation)}">${activationBadge(ev.activation)}</span>`
+            : ''}</span>
           <span class="p-tt-val">${fmtTransitDate(ev.date, this._tzOffset, this._tzAbbr)}</span>
         </div>`).join('')}`
     return el

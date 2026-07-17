@@ -12,9 +12,27 @@ import {
   calcHouseActiveFromAge, calcAgeComponents,
   DASHA_YEARS, ensureChildren, getDashaSandhi,
 } from '../core/dasha.js'
+import { calcSadeSati } from '../core/sadesati.js'
 import { PLANET_COLORS } from '../core/aspects.js'
 import { state } from '../state.js'
 import { toJulianDay } from '../utils/time.js'
+
+// Sade Sati scans ~90 years of Saturn positions — cache per chart+ayanamsa.
+const _sadesatiCache = new Map()
+
+function getSadeSatiReport(birth) {
+  const moon = state.planets?.find(p => p.name === 'Moon')
+  if (!moon || !birth?.dob || !birth?.tob) return null
+  const { ayanamsa } = getSettings()
+  const birthJd = toJulianDay(birth.dob, birth.tob, birth.timezone ?? '+00:00')
+  const key = `${moon.sign}|${birthJd.toFixed(4)}|${ayanamsa}`
+  if (_sadesatiCache.has(key)) return _sadesatiCache.get(key)
+  const nowJd = Date.now() / 86400000 + 2440587.5
+  const toJd  = Math.max(birthJd + 90 * 365.25, nowJd + 30 * 365.25)
+  const report = calcSadeSati(moon.sign, { fromJd: birthJd, toJd })
+  _sadesatiCache.set(key, report)
+  return report
+}
 
 const PLANET_ABBR = {
   Ketu:'Ke', Venus:'Ve', Sun:'Su', Moon:'Mo', Mars:'Ma',
@@ -79,6 +97,12 @@ export class DashaPanel {
     if (cards.includes('vimshottari')) {
       const rows = await this._buildDashaRows(dasha, ui)
       html += this._vimsHtml(dasha, birth, ui, rows, draggable)
+    }
+    if (cards.includes('sadesati')) {
+      try {
+        const report = getSadeSatiReport(birth)
+        if (report) html += this._sadesatiHtml(report, ui, draggable)
+      } catch (err) { console.error('sadesati:', err) }
     }
     if (cards.includes('age')) {
       const ref = ui.ageAsOf
@@ -201,6 +225,78 @@ export class DashaPanel {
             <thead><tr><th>Period</th><th>Start</th><th>End</th></tr></thead>
             <tbody>${rows}</tbody>
           </table></div>
+        </div>
+      </div>`
+  }
+
+  _sadesatiHtml(report, ui, draggable) {
+    const { windows, segments, current } = report
+
+    const dur = (a, b) => {
+      const days = (b.getTime() - a.getTime()) / 86400000
+      const y = Math.floor(days / 365.25)
+      const m = Math.round((days - y * 365.25) / 30.44)
+      return y > 0 ? `${y}y ${m}m` : `${m}m`
+    }
+    const fmtD = d => this._fmt(d)
+
+    const PHASE_LABEL = { rising: '1st phase (12th)', peak: 'Peak (over Moon)', setting: 'Final phase (2nd)' }
+
+    let banner
+    if (current) {
+      const seg = current
+      banner = `<div class="dasha-sandhi-banner" style="background:var(--warn-bg,#fef3c7);border-color:var(--warn-border,#f59e0b)">
+        🪐 <strong>${seg.label}</strong> — running since ${fmtD(seg.start)}, until ${fmtD(seg.end)}
+      </div>`
+    } else {
+      const nowMs = Date.now()
+      const next = segments.find(s => s.kind && s.start.getTime() > nowMs)
+      banner = `<div class="dasha-sandhi-banner" style="background:var(--ok-bg,#ecfdf5);border-color:var(--ok-border,#10b981)">
+        🪐 No Sade Sati, Kantaka or Ashtama Shani running${next ? ` — next: ${next.label}, from ${fmtD(next.start)}` : ''}
+      </div>`
+    }
+
+    const windowRows = windows.map((w, i) => {
+      const head = `<tr class="dasha-d0${w.current ? ' current-period' : ''}">
+        <td style="padding-left:0.5rem"><strong>Sade Sati ${i + 1}</strong>${w.current ? ' <span class="dasha-now-badge">★ now</span>' : ''} <span class="dasha-level-label">${dur(w.start, w.end)}</span></td>
+        <td>${fmtD(w.start)}</td><td>${fmtD(w.end)}</td></tr>`
+      const phases = w.segments.map(s => `<tr class="dasha-d1${s.current ? ' current-period' : ''}">
+        <td style="padding-left:1.8rem">${PHASE_LABEL[s.phase] ?? s.phase} · Saturn in ${s.signName}</td>
+        <td>${fmtD(s.start)}</td><td>${fmtD(s.end)}</td></tr>`).join('')
+      return head + phases
+    }).join('')
+
+    const otherRows = segments.filter(s => s.kind === 'kantaka' || s.kind === 'ashtama').map(s =>
+      `<tr class="${s.current ? 'current-period' : ''}">
+        <td style="padding-left:0.5rem">${s.kind === 'kantaka' ? 'Kantaka' : 'Ashtama'} Shani${s.current ? ' <span class="dasha-now-badge">★ now</span>' : ''} · Saturn in ${s.signName}</td>
+        <td>${fmtD(s.start)}</td><td>${fmtD(s.end)}</td></tr>`
+    ).join('')
+
+    return `
+      <div class="card${draggable ? ' prog-draggable' : ''}" data-sadesati-section${draggable ? ' draggable="true"' : ''}>
+        <div class="prog-card-header">
+          <div class="prog-card-header-row">
+          <div class="prog-card-title">
+            ${draggable ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
+            <button data-toggle-sadesati class="toggle-btn">${ui.sadesatiCollapsed ? '▶' : '▼'}</button>
+            <h3>Sade Sati &amp; Saturn Phases</h3>
+          </div>
+          </div>
+        </div>
+        <div data-sadesati-body style="display:${ui.sadesatiCollapsed ? 'none' : ''}">
+          ${banner}
+          <div class="table-scroll"><table class="dasha-table">
+            <thead><tr><th>Sade Sati (Saturn 12th/1st/2nd from Moon)</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>${windowRows || '<tr><td colspan="3" style="color:var(--muted)">None in the scanned span.</td></tr>'}</tbody>
+          </table></div>
+          <div class="table-scroll" style="margin-top:0.6rem"><table class="dasha-table">
+            <thead><tr><th>Kantaka (4th) &amp; Ashtama (8th) Shani</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>${otherRows || '<tr><td colspan="3" style="color:var(--muted)">None in the scanned span.</td></tr>'}</tbody>
+          </table></div>
+          <p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0">
+            Sign-based (whole-sign) Saturn transits relative to the natal Moon; retrograde
+            re-entries appear as separate phase rows. Dates use the birth timezone.
+          </p>
         </div>
       </div>`
   }
@@ -590,6 +686,13 @@ export class DashaPanel {
         const body = this.el.querySelector('[data-vims-body]')
         if (body) body.style.display = ui.dashaCollapsed ? 'none' : ''
         e.target.textContent = ui.dashaCollapsed ? '▶' : '▼'
+        return
+      }
+      if (e.target.closest('[data-toggle-sadesati]')) {
+        ui.sadesatiCollapsed = !ui.sadesatiCollapsed
+        const body = this.el.querySelector('[data-sadesati-body]')
+        if (body) body.style.display = ui.sadesatiCollapsed ? 'none' : ''
+        e.target.textContent = ui.sadesatiCollapsed ? '▶' : '▼'
         return
       }
       if (e.target.closest('[data-toggle-age]')) {

@@ -3,6 +3,8 @@ import { state } from '../state.js'
 import { renderChartSVG } from '../ui/chart-svg.js'
 import { calcDivisional, DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { calcMoonInfo } from '../core/moon-info.js'
+import { calcAvasthas } from '../core/avastha.js'
+import { calcUpagrahas } from '../core/upagraha.js'
 import { PLANET_COLORS, getAspectedSigns } from '../core/aspects.js'
 import { getActiveSession, defaultChartUI, defaultDashaUI } from '../sessions.js'
 import { DashaPanel } from '../components/dasha-panel.js'
@@ -68,6 +70,10 @@ function chalitOptions() {
   return { chalitMethod, houses: state.houses, sripatiHouses: state.sripatiHouses }
 }
 
+function safeAvasthas(planets) {
+  try { return calcAvasthas(planets) } catch { return null }
+}
+
 function buildSingleChart(planets, lagna, key) {
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const signLabels = undefined
@@ -80,6 +86,7 @@ function buildPlanetTable(key, planets, lagna) {
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
   const houseLabel = key === 'Chalit' ? 'House' : `${key} House`
+  const avasthas = isD1 ? safeAvasthas(planets) : null
 
   const uiState = c()
   const sortCol = uiState.sortCol
@@ -183,6 +190,7 @@ function buildPlanetTable(key, planets, lagna) {
           ${renderHeader('house', houseLabel)}
           ${renderHeader('nakshatra', 'Nakshatra')}
           ${renderHeader('pada', 'Pada')}
+          ${avasthas ? '<th title="Baladi (age) · Deeptadi (mood) avasthas">Avastha</th>' : ''}
         </tr>
       </thead>
       <tbody>
@@ -196,6 +204,7 @@ function buildPlanetTable(key, planets, lagna) {
                 <td>1</td>
                 <td>${r.nakshatra}</td>
                 <td>${r.pada}</td>
+                ${avasthas ? '<td>—</td>' : ''}
               </tr>`
           } else {
             const p = r.planetObj
@@ -209,6 +218,10 @@ function buildPlanetTable(key, planets, lagna) {
               isExalt      ? '<span class="planet-chip chip-exalt">Exalt</span>' : '',
               isDebil      ? '<span class="planet-chip chip-debil">Debil</span>' : '',
             ].join('')
+            const av = avasthas?.[p.name]
+            const avCell = avasthas
+              ? `<td>${av ? `<span title="${esc(`${av.baladi.name}: ${av.baladi.meaning} · ${av.deeptadi.name}: ${av.deeptadi.meaning}`)}">${av.baladi.name} · ${av.deeptadi.name}</span>` : '—'}</td>`
+              : ''
             return `<tr${rowCls}>
               <td><span class="planet-name-cell">${esc(p.name)}${badges}</span></td>
               <td>${signLabel}</td>
@@ -216,6 +229,7 @@ function buildPlanetTable(key, planets, lagna) {
               <td>${r.house}</td>
               <td>${r.nakshatra}</td>
               <td>${r.pada}</td>
+              ${avCell}
             </tr>`
           }
         }).join('')}
@@ -227,6 +241,7 @@ function buildPlanetJSON(key, planets, lagna) {
   const { planets: dPlanets, lagna: dLagna } = calcDivisional(planets, lagna, key, chalitOptions())
   const origByName = Object.fromEntries(planets.map(p => [p.name, p]))
   const isD1 = key === 'D1'
+  const avasthasJSON = isD1 ? safeAvasthas(planets) : null
   const b = state.birth
   return {
     ...(b ? { birth: { name: b.name, dob: b.dob, tob: b.tob, location: b.location, timezone: b.timezone } } : {}),
@@ -244,6 +259,7 @@ function buildPlanetJSON(key, planets, lagna) {
     planets: dPlanets.map(p => {
       const orig = origByName[p.name]
       const divHouse = ((p.sign - dLagna.sign + 12) % 12) + 1
+      const av = avasthasJSON?.[p.name]
       return {
         name: p.name,
         sign: SIGN_NAMES[p.sign - 1],
@@ -257,8 +273,26 @@ function buildPlanetJSON(key, planets, lagna) {
         combust: !!p.combust,
         exalted: isD1 && EXALT_SIGN[p.name] === p.sign,
         debilitated: isD1 && DEBIL_SIGN[p.name] === p.sign,
+        ...(av ? { avastha: { baladi: av.baladi.name, jagradadi: av.jagradadi.name, deeptadi: av.deeptadi.name } } : {}),
       }
     }),
+    ...(isD1 ? (() => {
+      try {
+        const up = calcUpagrahas(state.birth, lagna, planets)
+        return up ? {
+          specialPoints: up.points.map(p => ({
+            name: p.name,
+            sign: SIGN_NAMES[p.sign - 1],
+            signNumber: p.sign,
+            degree: fmtDeg(p.degree),
+            degreeDecimal: Math.round(p.degree * 1e4) / 1e4,
+            house: p.house,
+            nakshatra: p.nakshatra,
+            pada: p.pada,
+          })),
+        } : {}
+      } catch { return {} }
+    })() : {}),
   }
 }
 
@@ -338,12 +372,109 @@ function buildMoonInfoBody(m) {
     </div>`
 }
 
+// A collapsible subsection inside the Further Information card.
+function infoSubsection(key, collapsed, emoji, title, tagHtml, bodyHtml) {
+  return `
+    <div class="info-subsection${collapsed ? ' collapsed' : ''}">
+      <div class="info-subsection-header cursor-pointer" data-toggle-collapse="${key}">
+        <span class="info-subsection-title">
+          ${CHEVRON_ICON}
+          <span class="info-subsection-emoji" aria-hidden="true">${emoji}</span>
+          ${title}
+        </span>
+        ${tagHtml}
+      </div>
+      <div class="collapsible-content">
+        ${bodyHtml}
+      </div>
+    </div>`
+}
+
+// "Special Points" subsection body: upagrahas + special lagnas table.
+function buildSpecialPointsBody(up) {
+  const rows = up.points.map(p => `<tr>
+    <td>${esc(p.name)}</td>
+    <td>${SIGN_NAMES[p.sign - 1]}</td>
+    <td>${fmtDeg(p.degree)}</td>
+    <td>${p.house}</td>
+    <td>${esc(p.nakshatra)} (${p.pada})</td>
+  </tr>`).join('')
+  return `
+    <div class="table-scroll"><table class="planet-table">
+      <thead><tr><th>Point</th><th>Sign</th><th>Deg</th><th>House</th><th>Nakshatra</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0">
+      Gulika/Mandi rise at the start/middle of Saturn's portion of the
+      ${up.meta.isNight ? 'night' : 'day'} (${up.meta.isNight ? 'night' : 'day'} birth,
+      ${up.meta.ghatis.toFixed(2)} ghatis after sunrise). Bhava/Hora/Ghati lagna advance
+      from the sunrise Sun at 1 sign per 5 / 2.5 / 1 ghati (BPHS).
+    </p>`
+}
+
+// "Avasthas" subsection body: planetary states table.
+function buildAvasthaBody(avasthas) {
+  const rows = Object.entries(avasthas)
+    .filter(([, a]) => a)
+    .map(([name, a]) => {
+      const rel = a.dispositor
+        ? `<span class="info-stat-note" style="margin:0">${esc(a.dispositor)} ${esc((a.relation ?? '').replace('-', ' '))}</span>`
+        : '<span class="info-stat-note" style="margin:0">own sign</span>'
+      return `<tr>
+        <td>${esc(name)}</td>
+        <td title="${esc(a.baladi.meaning)}">${a.baladi.name}</td>
+        <td title="${esc(a.jagradadi.meaning)}">${a.jagradadi.name}</td>
+        <td title="${esc(a.deeptadi.meaning)}">${a.deeptadi.name}</td>
+        <td>${rel}</td>
+      </tr>`
+    }).join('')
+  return `
+    <div class="table-scroll"><table class="planet-table">
+      <thead><tr>
+        <th>Planet</th>
+        <th title="Age-state from the degree in sign">Baladi</th>
+        <th title="Awake / dreaming / asleep, from dignity">Jagradadi</th>
+        <th title="Mood-state from dignity, combustion and the dispositor relation">Deeptadi</th>
+        <th>Dispositor</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0">
+      Baladi: age-state from the degree (reversed in even signs). Jagradadi: alertness from
+      dignity. Deeptadi: mood from exaltation/debility, combustion, own sign, or the compound
+      (natural + temporal) relation with the sign's lord. Hover a state for its meaning.
+    </p>`
+}
+
 // The collapsible "Further Information" card (section + collapsible subsections).
-function buildFurtherInfo(planets, collapsedTables) {
+function buildFurtherInfo(planets, lagna, collapsedTables) {
   const moon = calcMoonInfo(planets)
-  if (!moon) return ''
+  const avasthas = safeAvasthas(planets)
+  let upagrahas = null
+  try { upagrahas = calcUpagrahas(state.birth, lagna, planets) } catch { /* pre-init or polar */ }
+  if (!moon && !avasthas && !upagrahas) return ''
+
   const sectionCollapsed = collapsedTables['further-info'] ?? false
-  const moonCollapsed    = collapsedTables['further-moon'] ?? false
+  const subs = []
+  if (moon) {
+    subs.push(infoSubsection('further-moon', collapsedTables['further-moon'] ?? false, '☾',
+      'Moon &amp; the Sun',
+      `<span class="info-subsection-tag ${moon.waxing ? 'is-wax' : 'is-wane'}">${esc(moon.phase)}</span>`,
+      buildMoonInfoBody(moon)))
+  }
+  if (upagrahas) {
+    subs.push(infoSubsection('further-special', collapsedTables['further-special'] ?? true, '✦',
+      'Special Points — Upagrahas &amp; Lagnas',
+      `<span class="info-subsection-tag">${upagrahas.meta.isNight ? 'Night birth' : 'Day birth'}</span>`,
+      buildSpecialPointsBody(upagrahas)))
+  }
+  if (avasthas) {
+    subs.push(infoSubsection('further-avastha', collapsedTables['further-avastha'] ?? true, '☯',
+      'Planetary Avasthas',
+      '',
+      buildAvasthaBody(avasthas)))
+  }
+
   return `
     <div class="card further-info-card${sectionCollapsed ? ' collapsed' : ''}">
       <div class="planet-positions-header cursor-pointer" data-toggle-collapse="further-info">
@@ -353,19 +484,7 @@ function buildFurtherInfo(planets, collapsedTables) {
         </span>
       </div>
       <div class="collapsible-content">
-        <div class="info-subsection${moonCollapsed ? ' collapsed' : ''}">
-          <div class="info-subsection-header cursor-pointer" data-toggle-collapse="further-moon">
-            <span class="info-subsection-title">
-              ${CHEVRON_ICON}
-              <span class="info-subsection-emoji" aria-hidden="true">☾</span>
-              Moon &amp; the Sun
-            </span>
-            <span class="info-subsection-tag ${moon.waxing ? 'is-wax' : 'is-wane'}">${esc(moon.phase)}</span>
-          </div>
-          <div class="collapsible-content">
-            ${buildMoonInfoBody(moon)}
-          </div>
-        </div>
+        ${subs.join('')}
       </div>
     </div>`
 }
@@ -560,8 +679,8 @@ export function renderChart() {
     ? `<div class="card planet-positions-card${isSingleCollapsed ? ' collapsed' : ''}">${planetCardInner}</div>`
     : ''
 
-  // Further Information — Moon phase & Moon–Sun relationship (chart-independent).
-  const furtherInfo = buildFurtherInfo(planets, collapsedTables)
+  // Further Information — Moon phase, upagrahas/special lagnas, avasthas.
+  const furtherInfo = buildFurtherInfo(planets, lagna, collapsedTables)
 
   const splitRatio = ui.splitRatio ?? 0.40
   const gridCols = `${splitRatio}fr 6px ${1 - splitRatio}fr`

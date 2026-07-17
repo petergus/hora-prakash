@@ -1,5 +1,6 @@
 import { DIVISIONAL_OPTIONS } from '../core/divisional.js'
 import { parseTzInfo, fmtTransitDate } from '../utils/format.js'
+import { activationBadge, activationTitle } from '../core/activation.js'
 import { state } from '../state.js'
 
 const SIGN_NAMES = ['','Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -176,11 +177,15 @@ export class TransitTable {
     const aspectEvents  = events.filter(e => e.type === 'natal_aspect')
 
     const renderRows = (evs) => evs.map(ev =>
-      `<div class="transit-exp-row">
+      `<div class="transit-exp-row${ev.activation ? ' transit-exp-row--zap' : ''}">
         <span class="transit-exp-date">${fmtTransitDate(ev.date, this._tzOffset, this._tzAbbr)}</span>
-        <span class="transit-exp-label">${ev.label}</span>
+        <span class="transit-exp-label">${ev.label}${ev.activation
+          ? ` <span class="transit-exp-zap" title="${activationTitle(ev.activation)}">${activationBadge(ev.activation)}</span>`
+          : ''}</span>
       </div>`
     ).join('')
+
+    const hasZap = events.some(e => e.activation)
 
     return `
       <div class="transit-exp-section">
@@ -191,6 +196,7 @@ export class TransitTable {
       <div class="transit-exp-section">
         <div class="transit-exp-heading">NATAL ASPECTS</div>
         ${renderRows(aspectEvents)}
-      </div>` : ''}`
+      </div>` : ''}
+      ${hasZap ? '<div class="transit-exp-zap-note">⚡ dasha activation — the event involves a running Mahadasha/Antardasha/Pratyantara lord</div>' : ''}`
   }
 }

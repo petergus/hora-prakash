@@ -33,7 +33,14 @@ window.addEventListener('beforeinstallprompt', e => {
 })
 
 // Register SW as early as possible so it can intercept the 12MB ephemeris fetch.
-if ('serviceWorker' in navigator) {
+// Production only: in dev the offline-first SW serves a stale cached build
+// whenever the Vite server is down/restarting, hiding source changes.
+if ('serviceWorker' in navigator && import.meta.env.DEV) {
+  navigator.serviceWorker.getRegistrations()
+    .then(regs => regs.forEach(r => r.unregister()))
+    .catch(() => {})
+  if (window.caches) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {})
+} else if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data?.type !== 'SW_UPDATED') return

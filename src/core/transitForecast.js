@@ -15,14 +15,13 @@ const SCAN_WINDOWS = {
 // Sidereal + speed flags
 const FLAGS = 65536 | 256
 
-function getRawData(abbr, id, jd) {
-  const r   = getSwe().calc_ut(jd, id, FLAGS)
+function getRawData(swe, abbr, id, jd) {
+  const r   = swe.calc_ut(jd, id, FLAGS)
   const lon = abbr === 'Ke' ? (r[0] + 180) % 360 : r[0]
   return { lon, speed: r[3] }
 }
 
-function getSunLon(jd) {
-  const swe = getSwe()
+function getSunLon(swe, jd) {
   return swe.calc_ut(jd, 0, FLAGS)[0]
 }
 
@@ -75,14 +74,18 @@ const SIGN_NAMES = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
  * @param {number} fromJD           - start Julian Day (current transit JD)
  * @param {object[]} natalPlanets   - state.planets
  * @param {number} natalLagnaSign   - state.lagna.sign (1–12)
+ * @param {object} [_swe]           - ephemeris override; defaults to the WASM
+ *                                    singleton. Pass one to run in Node (the
+ *                                    same seam calcPanchang/calcSadeSati use).
  * @returns {{ type: string, date: Date, label: string, detail: string }[]}
  */
-export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
+export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign, _swe) {
+  const swe = _swe || getSwe()
   const { abbr, id, name } = planet
   const window = SCAN_WINDOWS[abbr] ?? 180
   const events = []
 
-  const initData     = getRawData(abbr, id, fromJD)
+  const initData     = getRawData(swe, abbr, id, fromJD)
   let prevLon        = initData.lon
   let prevSpeed      = initData.speed
   let prevSign       = signOf(prevLon)
@@ -90,7 +93,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
   let prevPada       = padaOf(prevLon)
   let prevInGandanta = isGandanta(prevLon)
   const orb          = COMBUST_ORBS[name]
-  let prevSunLon     = orb !== undefined ? getSunLon(fromJD) : null
+  let prevSunLon     = orb !== undefined ? getSunLon(swe, fromJD) : null
   let prevCombust    = orb !== undefined ? angularDist(prevLon, prevSunLon) <= orb : false
 
   // Track natal planets already aspected at start (avoid re-reporting current state)
@@ -104,7 +107,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
   for (let d = 1; d <= window; d++) {
     const jd  = fromJD + d
-    const { lon, speed: spd } = getRawData(abbr, id, jd)
+    const { lon, speed: spd } = getRawData(swe, abbr, id, jd)
     const sgn = signOf(lon)
     const nak = nakOf(lon)
     const pda = padaOf(lon)
@@ -112,16 +115,16 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Retrograde / Direct
     if (prevSpeed >= 0 && spd < 0) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(abbr, id, jd2).speed < 0)
+      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(swe, abbr, id, jd2).speed < 0)
       events.push({ type: 'retro', date: jdToDate(jdEvent), label: 'Goes Retrograde ℞', detail: '' })
     } else if (prevSpeed < 0 && spd >= 0) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(abbr, id, jd2).speed >= 0)
+      const jdEvent = bisect(jd - 1, jd, jd2 => getRawData(swe, abbr, id, jd2).speed >= 0)
       events.push({ type: 'direct', date: jdToDate(jdEvent), label: 'Goes Direct ◎', detail: '' })
     }
 
     // Sign ingress
     if (sgn !== prevSign) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => signOf(getRawData(abbr, id, jd2).lon) === sgn)
+      const jdEvent = bisect(jd - 1, jd, jd2 => signOf(getRawData(swe, abbr, id, jd2).lon) === sgn)
       const house   = ((sgn - natalLagnaSign + 12) % 12) + 1
       events.push({
         type: 'sign',
@@ -157,7 +160,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
     // Nakshatra change (skip Moon — covered by Panchang)
     if (nak !== prevNak) {
       if (abbr !== 'Mo') {
-        const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawData(abbr, id, jd2).lon) === nak)
+        const jdEvent = bisect(jd - 1, jd, jd2 => nakOf(getRawData(swe, abbr, id, jd2).lon) === nak)
         const nakInfo = getNakshatraInfo(lon)
         events.push({
           type: 'nakshatra',
@@ -172,7 +175,7 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
     // Pada change (skip Moon — covered by Panchang)
     if (pda !== prevPada) {
       if (abbr !== 'Mo') {
-        const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawData(abbr, id, jd2).lon) === pda)
+        const jdEvent = bisect(jd - 1, jd, jd2 => padaOf(getRawData(swe, abbr, id, jd2).lon) === pda)
         const nakInfo = getNakshatraInfo(lon)
         events.push({
           type: 'pada',
@@ -186,27 +189,27 @@ export function findNextEvents(planet, fromJD, natalPlanets, natalLagnaSign) {
 
     // Gandanta
     if (!prevInGandanta && inGandanta) {
-      const jdEvent = bisect(jd - 1, jd, jd2 => isGandanta(getRawData(abbr, id, jd2).lon))
+      const jdEvent = bisect(jd - 1, jd, jd2 => isGandanta(getRawData(swe, abbr, id, jd2).lon))
       events.push({ type: 'gandanta', date: jdToDate(jdEvent), label: '⚠ Gandanta crossing', detail: '' })
     }
     prevInGandanta = inGandanta
 
     // Combust
     if (orb !== undefined) {
-      const sunLon  = getSunLon(jd)
+      const sunLon  = getSunLon(swe, jd)
       const dist    = angularDist(lon, sunLon)
       const combust = dist <= orb
       if (!prevCombust && combust) {
         const jdEvent = bisect(jd - 1, jd, jd2 => {
-          const l = getRawData(abbr, id, jd2).lon
-          const s = getSunLon(jd2)
+          const l = getRawData(swe, abbr, id, jd2).lon
+          const s = getSunLon(swe, jd2)
           return angularDist(l, s) <= orb
         })
         events.push({ type: 'combust_enter', date: jdToDate(jdEvent), label: `☀ Combust (within ${orb}°)`, detail: '' })
       } else if (prevCombust && !combust) {
         const jdEvent = bisect(jd - 1, jd, jd2 => {
-          const l = getRawData(abbr, id, jd2).lon
-          const s = getSunLon(jd2)
+          const l = getRawData(swe, abbr, id, jd2).lon
+          const s = getSunLon(swe, jd2)
           return angularDist(l, s) > orb
         })
         events.push({ type: 'combust_exit', date: jdToDate(jdEvent), label: '☀ Leaves combustion', detail: '' })

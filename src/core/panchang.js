@@ -72,24 +72,57 @@ function parseTzOffsetHours(timezone) {
 }
 
 /**
- * Calculate panchang for a given Julian Day and location.
- * @param {number} jd   Julian Day (UT)
- * @param {number} lat  Latitude
- * @param {number} lon  Longitude
- * @param {object} [options] { dateStr: "YYYY-MM-DD", timezone: IANA or "+05:30" }
- * @returns {object}
+ * Hindu sunrise/sunset (disc center, no refraction — matches JHora) for the
+ * day starting at local-midnight `dayStartJd`, via a direct swe_rise_trans C
+ * call. The swisseph-wasm v0.0.5 rise_trans() wrapper has wrong arg mapping
+ * (passes lon/lat as numbers instead of a geopos pointer array) — bypass it.
+ * Returns nulls when the module is unavailable or no event exists (polar).
  */
-export function calcPanchang(jd, lat, lon, options = {}, _swe) {
+export function calcRiseSet(dayStartJd, lat, lon, _swe) {
   const swe = _swe || getSwe()
-  const timezone = options.timezone || '+00:00'
+  function riseTrans(rsmi) {
+    try {
+      const M = swe.SweModule
+      const geoPtr  = M._malloc(3 * 8)   // double[3]: lon, lat, alt
+      const tretPtr = M._malloc(8)        // double: return JD
+      const serrPtr = M._malloc(256)      // char[256]: error string
+      M.HEAPF64[geoPtr >> 3]       = lon
+      M.HEAPF64[(geoPtr >> 3) + 1] = lat
+      M.HEAPF64[(geoPtr >> 3) + 2] = 0
+      // SE_BIT_DISC_CENTER=256, SE_BIT_NO_REFRACTION=512 → Hindu rising
+      const hinduRsmi = rsmi | 256 | 512
+      // swe_rise_trans(tjd_ut, ipl, *starname, epheflag, rsmi, *geopos, atpress, attemp, *tret, *serr)
+      const flag = M.ccall('swe_rise_trans', 'number',
+        ['number','number','number','number','number','number','number','number','number','number'],
+        [dayStartJd, 0, 0, 2, hinduRsmi, geoPtr, 1013.25, 15, tretPtr, serrPtr])
+      const tret = M.HEAPF64[tretPtr >> 3]
+      M._free(geoPtr); M._free(tretPtr); M._free(serrPtr)
+      return flag >= 0 && tret > 1000000 ? tret : null
+    } catch { return null }
+  }
+  return { sunriseJd: riseTrans(1), sunsetJd: riseTrans(2) }
+}
+
+/**
+ * The four angle-derived panchang limbs — tithi, nakshatra, yoga, karana —
+ * for an instant. These depend only on Sun/Moon longitudes (no lat/lon, no
+ * sunrise), which makes them ~10× cheaper than a full `calcPanchang` and lets
+ * a sweep evaluate many instants per day (see `src/core/muhurta.js`).
+ *
+ * `calcPanchang` calls this, so the derivations live in exactly one place —
+ * don't re-derive tithi/yoga/karana elsewhere.
+ *
+ * @param {number} jd Julian Day (UT)
+ * @param {object} [_swe] ephemeris override (defaults to the WASM singleton)
+ */
+export function calcPanchangAngles(jd, _swe) {
+  const swe = _swe || getSwe()
 
   // Tropical longitudes for tithi/karana (moon-sun diff, ayanamsa cancels out)
   const TROPICAL_FLAG  = 2 | 256           // SEFLG_SWIEPH | SEFLG_SPEED
   const SIDEREAL_FLAG  = 2 | 65536 | 256   // SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED
-  const sunResult  = swe.calc_ut(jd, 0, TROPICAL_FLAG)
-  const moonResult = swe.calc_ut(jd, 1, TROPICAL_FLAG)
-  const sunLon  = sunResult[0]
-  const moonLon = moonResult[0]
+  const sunLon  = swe.calc_ut(jd, 0, TROPICAL_FLAG)[0]
+  const moonLon = swe.calc_ut(jd, 1, TROPICAL_FLAG)[0]
   // Sidereal Sun for yoga (yoga uses sidereal positions per Vedic tradition)
   const sidSunLon = swe.calc_ut(jd, 0, SIDEREAL_FLAG)[0]
 
@@ -108,26 +141,8 @@ export function calcPanchang(jd, lat, lon, options = {}, _swe) {
   }
   const tithiPctLeft = (1 - (diff % 12) / 12) * 100
 
-  // Vara is based on the local civil date at the birth location.
-  const localDate = options.dateStr
-    ? parseDateStr(options.dateStr)
-    : getLocalDateParts(jdToDate(jd), timezone)
-  const vara = VARA_NAMES[localDate.weekday]
-
-  // Lunar year-month (samvat). Month follows the traditional sidereal-sankranti
-  // amanta rule (new-moon-bounded), flagged Adhika when the month has no sankranti.
-  const amanta = amantaMonth(swe, jd)
-  const lunarMonth = LUNAR_MONTH_NAMES[amanta.amantaIndex] + (amanta.isAdhika ? ' (Adhika)' : '')
-  // Hindu lunar year starts in Chaitra (≈April). For dates before Hindu New Year
-  // (roughly months Jan–Mar), the samvat year still belongs to the prior Gregorian year.
-  const samvatBaseYear = localDate.month >= 4 ? localDate.year : localDate.year - 1
-  const kaliYear = samvatBaseYear + 3101
-  const samvatIdx = (kaliYear + 12) % 60
-  const lunarYear = SAMVAT_NAMES[samvatIdx]
-
   // Nakshatra: sidereal Moon longitude
-  const sidMoonResult = swe.calc_ut(jd, 1, SIDEREAL_FLAG)
-  const sidMoonLon = sidMoonResult[0]
+  const sidMoonLon = swe.calc_ut(jd, 1, SIDEREAL_FLAG)[0]
   const nakshatra = getNakshatraInfo(sidMoonLon)
   const nakshatraPctLeft = (1 - (sidMoonLon % (360 / 27)) / (360 / 27)) * 100
 
@@ -149,6 +164,53 @@ export function calcPanchang(jd, lat, lon, options = {}, _swe) {
   }
   const karanaPctLeft = (1 - (diff % 6) / 6) * 100
 
+  return {
+    tithi:     { num: tithiNum, name: tithiName, percentLeft: tithiPctLeft },
+    nakshatra: { index: nakshatra.index, name: nakshatra.name, pada: nakshatra.pada,
+                 lord: nakshatra.lord, percentLeft: nakshatraPctLeft },
+    yoga:      { index: Math.floor(yogaVal), name: yogaName, percentLeft: yogaPctLeft },
+    karana:    { num: karanaNum, name: karanaName, percentLeft: karanaPctLeft },
+    sunLon, moonLon, sidSunLon, sidMoonLon, elongation: diff,
+  }
+}
+
+/**
+ * Calculate panchang for a given Julian Day and location.
+ * @param {number} jd   Julian Day (UT)
+ * @param {number} lat  Latitude
+ * @param {number} lon  Longitude
+ * @param {object} [options] { dateStr: "YYYY-MM-DD", timezone: IANA or "+05:30" }
+ * @returns {object}
+ */
+export function calcPanchang(jd, lat, lon, options = {}, _swe) {
+  const swe = _swe || getSwe()
+  const timezone = options.timezone || '+00:00'
+
+  const angles = calcPanchangAngles(jd, swe)
+  const { tithi, nakshatra: nakInfo, yoga, karana } = angles
+  const tithiNum = tithi.num, tithiName = tithi.name, tithiPctLeft = tithi.percentLeft
+  const nakshatraPctLeft = nakInfo.percentLeft
+  const nakshatra = { name: nakInfo.name, pada: nakInfo.pada, lord: nakInfo.lord }
+  const yogaName = yoga.name, yogaPctLeft = yoga.percentLeft
+  const karanaName = karana.name, karanaPctLeft = karana.percentLeft
+
+  // Vara is based on the local civil date at the birth location.
+  const localDate = options.dateStr
+    ? parseDateStr(options.dateStr)
+    : getLocalDateParts(jdToDate(jd), timezone)
+  const vara = VARA_NAMES[localDate.weekday]
+
+  // Lunar year-month (samvat). Month follows the traditional sidereal-sankranti
+  // amanta rule (new-moon-bounded), flagged Adhika when the month has no sankranti.
+  const amanta = amantaMonth(swe, jd)
+  const lunarMonth = LUNAR_MONTH_NAMES[amanta.amantaIndex] + (amanta.isAdhika ? ' (Adhika)' : '')
+  // Hindu lunar year starts in Chaitra (≈April). For dates before Hindu New Year
+  // (roughly months Jan–Mar), the samvat year still belongs to the prior Gregorian year.
+  const samvatBaseYear = localDate.month >= 4 ? localDate.year : localDate.year - 1
+  const kaliYear = samvatBaseYear + 3101
+  const samvatIdx = (kaliYear + 12) % 60
+  const lunarYear = SAMVAT_NAMES[samvatIdx]
+
   // Sunrise and Sunset via direct swe_rise_trans C call.
   // The swisseph-wasm v0.0.5 rise_trans() wrapper has wrong arg mapping (passes lon/lat as
   // individual numbers instead of allocating a geopos pointer array). Bypass it entirely.
@@ -164,33 +226,7 @@ export function calcPanchang(jd, lat, lon, options = {}, _swe) {
     dayStart = Math.floor(jd - 0.5 + tzOffsetDays) + 0.5 - tzOffsetDays
   }
 
-  function riseTrans(rsmi) {
-    try {
-      const M = swe.SweModule
-      const geoPtr  = M._malloc(3 * 8)   // double[3]: lon, lat, alt
-      const tretPtr = M._malloc(8)        // double: return JD
-      const serrPtr = M._malloc(256)      // char[256]: error string
-      M.HEAPF64[geoPtr >> 3]       = lon
-      M.HEAPF64[(geoPtr >> 3) + 1] = lat
-      M.HEAPF64[(geoPtr >> 3) + 2] = 0
-      // SE_BIT_DISC_CENTER=256, SE_BIT_NO_REFRACTION=512 → Hindu rising (disc center, no refraction)
-      // matches JHora's Vedic sunrise definition
-      const hinduRsmi = rsmi | 256 | 512
-      // swe_rise_trans(tjd_ut, ipl, *starname, epheflag, rsmi, *geopos, atpress, attemp, *tret, *serr)
-      const flag = M.ccall('swe_rise_trans', 'number',
-        ['number','number','number','number','number','number','number','number','number','number'],
-        [dayStart, 0, 0, 2, hinduRsmi, geoPtr, 1013.25, 15, tretPtr, serrPtr])
-      const tret = M.HEAPF64[tretPtr >> 3]
-      M._free(geoPtr); M._free(tretPtr); M._free(serrPtr)
-      return flag >= 0 && tret > 1000000 ? tret : null
-    } catch { return null }
-  }
-
-  const sunriseJd = riseTrans(1)
-  const sunsetJd  = riseTrans(2)
-  const isValidJd = (r) => r && r[0] > 1000000  // kept for hora lord compat below
-  const riseResult = sunriseJd ? [sunriseJd] : null
-  const setResult  = sunsetJd  ? [sunsetJd]  : null
+  const { sunriseJd, sunsetJd } = calcRiseSet(dayStart, lat, lon, swe)
   const sunrise = sunriseJd ? jdToDate(sunriseJd) : null
   const sunset  = sunsetJd  ? jdToDate(sunsetJd)  : null
 

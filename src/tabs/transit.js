@@ -10,6 +10,7 @@ import { TransitToolbar }                                       from '../compone
 import { TransitChartPane }                                     from '../components/TransitChartPane.js'
 import { TransitTable }                                         from '../components/TransitTable.js'
 import { findNextEvents }  from '../core/transitForecast.js'
+import { annotateActivations } from '../core/activation.js'
 import { PLANETS }         from '../core/swisseph.js'
 import { showExportModal } from '../ui/chart-export.js'
 
@@ -209,7 +210,9 @@ function requestForecast(abbr) {
   if (!planet) return
 
   Promise.resolve().then(() => {
-    const events = findNextEvents(planet, jd, state.planets, state.lagna.sign)
+    const events = annotateActivations(
+      findNextEvents(planet, jd, state.planets, state.lagna.sign),
+      state.dasha, planet.name)
     ui.forecastCache[abbr] = events
     _tooltip?.setForecast(abbr, events)
     _table?.setForecast(abbr, events)

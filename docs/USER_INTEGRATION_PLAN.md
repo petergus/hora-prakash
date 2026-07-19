@@ -174,6 +174,16 @@ Superadmin bootstrap lives **only** in this script — never an HTTP endpoint.
 **Tests:** `tests/authz.test.mjs` — pure claim→entitlement resolution, disabled/unverified states
 (no Firebase imports, same style as `tests/ai.test.mjs`).
 
+> **Implementation note (v1, revised):** point 3's soft-gate banner and the auto-`sendEmailVerification`
+> on sign-up (point 1) were both **removed** shortly after shipping — testing surfaced that a
+> verification email may not arrive at all depending on the Firebase project's email-sending
+> configuration/quota, and a banner nagging about something the user has no way to diagnose was worse
+> than no banner. Nothing else depended on it: no feature enforces `email_verified` yet (that's still
+> future Phase 4 work, not built), so removing the nag didn't break anything. `accessFrom(...).verified`
+> and `/buro`'s Verified column still track the underlying Auth flag — only the proactive UI is gone.
+> Reintroduce deliberately once a real feature is ready to gate on it, ideally paired with confirming
+> the project's email deliverability first.
+
 ---
 
 ## 4. Phase 2 — Security rules v2

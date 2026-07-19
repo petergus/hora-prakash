@@ -1,11 +1,10 @@
 // src/auth-ui.js — the login/sign-up gate. Resolves once a signed-in,
-// non-disabled user is present. Also owns the verify-email banner.
+// non-disabled user is present.
 import { auth } from './firebase.js'
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   sendPasswordResetEmail,
   updateProfile,
   signOut,
@@ -14,7 +13,6 @@ import { clearPersonalCaches } from './user-scope.js'
 
 const OVERLAY_ID = 'auth-overlay'
 const MIN_PASSWORD = 8
-const VERIFY_DISMISS_KEY = 'hora-prakash-verify-dismissed'
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
 
@@ -129,11 +127,8 @@ function renderCard(overlay, mode) {
         const cred = await createUserWithEmailAndPassword(auth, email, pw)
         // Best-effort — the account exists and the auth gate is already
         // resolving (this overlay is about to be torn down), so a failure
-        // here has nowhere left to display in the UI. Still log it instead
-        // of swallowing it silently — the verify banner's own "Resend" (which
-        // does surface a "Failed" state) is the retry path once signed in.
+        // here has nowhere left to display in the UI anyway.
         if (name) updateProfile(cred.user, { displayName: name }).catch(err => console.error('Failed to set display name:', err))
-        sendEmailVerification(cred.user).catch(err => console.error('Failed to send verification email:', err))
       } else {
         await signInWithEmailAndPassword(auth, email, pw)
       }
@@ -147,33 +142,6 @@ function renderCard(overlay, mode) {
   $('auth-submit').addEventListener('click', submit)
   overlay.onkeydown = e => { if (e.key === 'Enter') submit() }   // assignment: one live handler per render
   setTimeout(() => $('auth-email').focus(), 0)
-}
-
-/**
- * Dismissible top banner nagging unverified accounts (soft gate — the app
- * stays usable; AI/paid features will require verification server-side).
- */
-export function showVerifyBanner(user) {
-  if (!user || user.emailVerified) return
-  try { if (sessionStorage.getItem(VERIFY_DISMISS_KEY)) return } catch { /* storage unavailable */ }
-  if (document.getElementById('verify-banner')) return
-  const banner = document.createElement('div')
-  banner.id = 'verify-banner'
-  banner.innerHTML = `
-    <span>Please verify your email address — check your inbox.</span>
-    <button id="verify-resend" type="button">Resend</button>
-    <button id="verify-dismiss" type="button" aria-label="Dismiss">✕</button>`
-  banner.querySelector('#verify-resend').onclick = async () => {
-    const b = banner.querySelector('#verify-resend')
-    b.disabled = true
-    try { await sendEmailVerification(user); b.textContent = 'Sent ✓' }
-    catch { b.textContent = 'Failed'; b.disabled = false }
-  }
-  banner.querySelector('#verify-dismiss').onclick = () => {
-    try { sessionStorage.setItem(VERIFY_DISMISS_KEY, '1') } catch { /* storage unavailable */ }
-    banner.remove()
-  }
-  document.body.prepend(banner)
 }
 
 function friendlyError(err) {

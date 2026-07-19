@@ -47,36 +47,45 @@ function _set(access) {
 
 /**
  * Start claims tracking for the signed-in user (call once after requireAuth).
- * Reads the current token's claims, then watches users/{uid}.claimsSyncedAt —
- * every bump means a Cloud Function changed this user's claims.
+ * Force-refreshes the token once so a role/plan/status change made *before*
+ * this session started (e.g. the backfill script granting superadmin, or an
+ * admin action taken while this browser had no tab open) is picked up
+ * immediately — a merely-cached token can carry claims that are stale rather
+ * than absent, which a "does the token have a role at all" check can't tell
+ * apart from current ones. Then watches users/{uid}.claimsSyncedAt for
+ * changes made *during* the session (a live promotion/demotion/disable).
  */
 export async function initAuthz(user) {
-  const t = await user.getIdTokenResult()
-  _set(accessFrom(t.claims, { emailVerified: user.emailVerified }))
-  const tokenHadClaims = t.claims.role !== undefined
+  const refresh = async () => {
+    try {
+      const fresh = await user.getIdTokenResult(true)   // force refresh
+      _set(accessFrom(fresh.claims, { emailVerified: user.emailVerified }))
+    } catch {
+      // Offline, or the very first call right after sign-up racing the
+      // onUserCreated trigger — fall back to whatever's cached so the app
+      // isn't stuck; the snapshot listener below catches up once online.
+      try {
+        const cached = await user.getIdTokenResult()
+        _set(accessFrom(cached.claims, { emailVerified: user.emailVerified }))
+      } catch { /* leave DEFAULT_ACCESS */ }
+    }
+  }
+  await refresh()
 
   const [{ db }, { doc, onSnapshot }] = await Promise.all([
     import('../firebase.js'),
     import('firebase/firestore'),
   ])
 
-  const refresh = async () => {
-    try {
-      const fresh = await user.getIdTokenResult(true)   // force refresh
-      _set(accessFrom(fresh.claims, { emailVerified: user.emailVerified }))
-    } catch { /* offline — the next natural token refresh catches up */ }
-  }
-
   let lastSynced   // undefined = initial snapshot not yet processed
   onSnapshot(doc(db, 'users', user.uid), snap => {
     const at = snap.data()?.claimsSyncedAt?.toMillis?.() ?? null
-    const initial = lastSynced === undefined
+    // The initial snapshot just confirms what the forced refresh above
+    // already established — only a LATER change (a bump during this
+    // session) should trigger another refresh.
+    if (lastSynced === undefined) { lastSynced = at; return }
     if (at === lastSynced) return
     lastSynced = at
-    // On the initial snapshot, re-read only when claims exist server-side but
-    // this token predates them (first sign-in after a backfill). A brand-new
-    // user's doc arrives moments later as a normal change and refreshes then.
-    if (initial && (at === null || tokenHadClaims)) return
     refresh()
-  }, () => { /* watch failed (offline/rules) — access stays as the token said */ })
+  }, () => { /* watch failed (offline/rules) — access stays as the forced refresh said */ })
 }

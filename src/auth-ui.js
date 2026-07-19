@@ -127,9 +127,13 @@ function renderCard(overlay, mode) {
       if (signup) {
         const name = $('auth-name')?.value.trim()
         const cred = await createUserWithEmailAndPassword(auth, email, pw)
-        // Best-effort — the account exists and the auth gate is already resolving.
-        if (name) updateProfile(cred.user, { displayName: name }).catch(() => {})
-        sendEmailVerification(cred.user).catch(() => {})
+        // Best-effort — the account exists and the auth gate is already
+        // resolving (this overlay is about to be torn down), so a failure
+        // here has nowhere left to display in the UI. Still log it instead
+        // of swallowing it silently — the verify banner's own "Resend" (which
+        // does surface a "Failed" state) is the retry path once signed in.
+        if (name) updateProfile(cred.user, { displayName: name }).catch(err => console.error('Failed to set display name:', err))
+        sendEmailVerification(cred.user).catch(err => console.error('Failed to send verification email:', err))
       } else {
         await signInWithEmailAndPassword(auth, email, pw)
       }

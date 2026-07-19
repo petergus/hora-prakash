@@ -79,7 +79,14 @@ async function main() {
 
   // Claims tracking: users/{uid}.claimsSyncedAt bumps force a token refresh so
   // plan/role changes land mid-session; a mid-session disable signs out.
-  initAuthz(user).catch(() => {})
+  // Awaited (not fire-and-forget) so getAccess() is already correct by the
+  // time initRouter() below evaluates the /buro adminOnly guard — otherwise a
+  // superadmin deep-linking straight to #/buro on a fresh load could lose a
+  // race against claims resolution and bounce to /people once, before the
+  // reactive onAccessChanged listener (registered next) self-corrects it. For
+  // an already-authenticated session this reads a locally cached token, so it
+  // adds no network round trip — negligible cost for a deterministic guard.
+  await initAuthz(user).catch(() => {})
   onAccessChanged(a => { if (a.status === 'disabled') logout() })
   showVerifyBanner(user)
 

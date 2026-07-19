@@ -3,11 +3,15 @@
 // parts that are cheap and high-value to unit-test: the superadmin
 // authorization gate, setAccess's validation + self-lockout guards,
 // deleteUser's self-delete guard, createUser's defaulting, and the shape of
-// every audit-log entry a mutation writes. listUsers/dashboardStats lean on
-// Firestore query/aggregation features (composite indexes, .count()) that a
-// hand-rolled fake can't faithfully reproduce — those are exercised manually
-// against the emulator/console instead, same call as the deferred
-// firestore.rules emulator suite (see docs/USER_INTEGRATION_PLAN.md Phase 2).
+// every audit-log entry a mutation writes. Every handler calls
+// assertSuperAdmin() as its literal first line, before touching any
+// collection/query — so a non-admin caller is rejected before the handler
+// ever needs the Firestore query/aggregation features (composite indexes,
+// .count()) that a hand-rolled fake can't faithfully reproduce; that lets the
+// authorization check itself be tested here even for listUsers/getUser/
+// dashboardStats, whose full query behavior is exercised manually against
+// the emulator/console instead, same call as the deferred firestore.rules
+// emulator suite (see docs/USER_INTEGRATION_PLAN.md Phase 2).
 // Run: node tests/admin-handlers.test.mjs
 
 let failures = 0
@@ -27,7 +31,7 @@ async function assertThrows(fn, codeIncludes, msg) {
 }
 
 const {
-  assertSuperAdmin, createUser, setAccess, sendReset, deleteUser,
+  assertSuperAdmin, listUsers, getUser, dashboardStats, createUser, setAccess, sendReset, deleteUser,
 } = await import('../functions/handlers/admin.js')
 
 // ── fakes ────────────────────────────────────────────────────────────────────
@@ -107,6 +111,25 @@ console.log('\n[assertSuperAdmin]')
   let threw = false
   try { await assertSuperAdmin(db, 'super1') } catch { threw = true }
   assert(!threw, 'superadmin → passes')
+}
+
+console.log('\n[listUsers / getUser / dashboardStats: authorization]')
+{
+  // These three lean on Firestore query/count features the fake below
+  // deliberately doesn't implement — proving the point: a denied caller must
+  // never reach that code. If assertSuperAdmin ever moved to a non-first
+  // line, these calls would blow up on a missing fake method instead of
+  // throwing permission-denied, and the test would fail loudly either way.
+  const db = makeFakeDb(seedDocs)
+  const auth = makeFakeAuth()
+  await assertThrows(() => listUsers({ db, auth }, {}, PLAIN),
+    'permission-denied', 'listUsers denies a non-superadmin before any query runs')
+  await assertThrows(() => getUser({ db, auth }, { uid: 'target1' }, PLAIN),
+    'permission-denied', 'getUser denies a non-superadmin before any query runs')
+  await assertThrows(() => dashboardStats({ db, auth }, {}, PLAIN),
+    'permission-denied', 'dashboardStats denies a non-superadmin before any query runs')
+  await assertThrows(() => listUsers({ db, auth }, {}, {}),
+    'unauthenticated', 'listUsers denies a caller with no uid at all')
 }
 
 console.log('\n[setAccess: authorization]')

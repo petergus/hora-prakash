@@ -1,6 +1,6 @@
 # User Integration & SaaS Plan
 
-**Status:** Proposal — v1, 2026-07-18
+**Status:** v1, 2026-07-18 — Phases 1–2 implemented on `claude/user-integration-saas-plan-xbsms8` (sign-up, `users/{uid}` + claims, rules v2, cache hygiene, backfill script); Phases 3–6 open
 **Scope:** Self-service sign-up, super-admin backend (`/buro`), per-user data isolation, entitlements
 prepared for Stripe subscription tiers, and the surrounding modern-SaaS table stakes.
 

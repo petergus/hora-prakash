@@ -2484,6 +2484,40 @@ h3 {
   font-weight: 600;
 }
 
+#verify-banner {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 2rem);
+  background: var(--surface, #fff);
+  color: var(--text, #1e293b);
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  z-index: var(--z-toast);
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+#verify-banner button {
+  background: var(--accent, #b91c1c);
+  color: #fff;
+  border: none;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+#verify-banner #verify-dismiss {
+  background: transparent;
+  color: var(--muted, #64748b);
+  font-weight: 400;
+  padding: 0.2rem 0.3rem;
+}
+
 #btn-install {
   background: var(--accent, #b91c1c);
   color: #fff;

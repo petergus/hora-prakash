@@ -1,8 +1,37 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function signedIn() { return request.auth != null; }
+    // Missing claims fold to safe defaults so tokens minted before the claims
+    // rollout (or before onUserCreated ran) keep working as plain active users.
+    function claim(k, dflt) {
+      return (k in request.auth.token) ? request.auth.token[k] : dflt;
     }
+    function isOwner(uid)     { return signedIn() && request.auth.uid == uid; }
+    function isSuper()        { return signedIn() && claim('role', 'user') == 'superadmin'; }
+    function activeOwner(uid) { return isOwner(uid) && claim('status', 'active') == 'active'; }
+
+    match /users/{uid} {
+      // Superadmin reads everything (the /buro backend); mutations of other
+      // users' data go through audited callables only — no rules-write here.
+      allow read: if isOwner(uid) || isSuper();
+      // Owners may edit only benign fields on their own doc. The authority
+      // fields are written exclusively by Cloud Functions (Admin SDK bypasses
+      // rules) — a client must never be able to set its own plan or role.
+      allow update: if activeOwner(uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+             ['role', 'plan', 'planSource', 'planUntil', 'status',
+              'stripeCustomerId', 'claimsSyncedAt', 'email', 'createdAt']);
+      allow create, delete: if false;   // functions only
+
+      match /profiles/{pid}   { allow read: if isOwner(uid) || isSuper(); allow write: if activeOwner(uid); }
+      match /horoscopes/{pid} { allow read: if isOwner(uid) || isSuper(); allow write: if activeOwner(uid); }
+      match /settings/{doc}   { allow read: if isOwner(uid) || isSuper(); allow write: if activeOwner(uid); }
+      match /usage/{period}   { allow read: if isOwner(uid) || isSuper(); allow write: if false; }  // aiProxy quota counters
+      match /billing/{doc}    { allow read: if isOwner(uid) || isSuper(); allow write: if false; }  // Stripe webhook mirror
+    }
+
+    match /auditLogs/{id} { allow read: if isSuper(); allow write: if false; }  // admin callables only
+    match /config/{doc}   { allow read: if signedIn(); allow write: if false; } // plan matrix, flags
   }
 }

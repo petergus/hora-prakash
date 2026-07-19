@@ -85,3 +85,35 @@ exports.aiProxy = onRequest(
     }
   },
 )
+
+// ── User provisioning ────────────────────────────────────────────────────────
+// Every new Auth account gets a users/{uid} authority doc (role/plan/status)
+// whose fields are mirrored into custom claims (see claims.js). The doc is
+// written ONLY by functions — Firestore rules forbid clients touching the
+// authority fields. v1 API: background auth.onCreate has no v2 equivalent.
+
+const functionsV1 = require('firebase-functions/v1')
+const { syncClaims } = require('./claims')
+
+exports.onUserCreated = functionsV1
+  .region('europe-west6')
+  .auth.user()
+  .onCreate(async (user) => {
+    const ref = admin.firestore().doc(`users/${user.uid}`)
+    try {
+      await ref.create({
+        email: user.email || null,
+        displayName: user.displayName || null,
+        role: 'user',
+        plan: 'free',
+        planSource: 'default',
+        status: 'active',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+    } catch (err) {
+      // ALREADY_EXISTS (gRPC code 6): pre-provisioned by the backfill script or
+      // a future admin-create callable — keep whatever it wrote.
+      if (err?.code !== 6 && err?.code !== 'already-exists') throw err
+    }
+    await syncClaims(user.uid)
+  })

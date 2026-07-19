@@ -8,7 +8,9 @@ import { createSession, switchSession, loadPersistedSessions, getSessions, commi
 import { initShell, renderSidebar } from './ui/app-shell.js'
 import { state } from './state.js'
 import { updateFavicon } from './ui/favicon.js'
-import { requireAuth } from './auth-ui.js'
+import { requireAuth, showVerifyBanner, logout } from './auth-ui.js'
+import { reconcileUserScope } from './user-scope.js'
+import { initAuthz, onAccessChanged } from './core/authz.js'
 import { fetchProfiles } from './cloud-store.js'
 
 const PROFILES_KEY = 'hora-prakash-profiles'
@@ -65,6 +67,21 @@ async function main() {
 
   // Block the app behind authentication. Nothing — profiles, charts — is shown until signed in.
   const user = await requireAuth()
+
+  // Shared-browser hygiene: a different account than last time wipes that
+  // account's local caches (settings included) before anything reads them.
+  if (reconcileUserScope(user.uid)) {
+    loadSettings()
+    const wiped = getSettings().theme || 'crimson'
+    document.documentElement.dataset.theme = wiped
+    updateFavicon(wiped)
+  }
+
+  // Claims tracking: users/{uid}.claimsSyncedAt bumps force a token refresh so
+  // plan/role changes land mid-session; a mid-session disable signs out.
+  initAuthz(user).catch(() => {})
+  onAccessChanged(a => { if (a.status === 'disabled') logout() })
+  showVerifyBanner(user)
 
   // Pull profiles for this user from Firestore into localStorage so the existing
   // sync read paths (loadProfiles in input.js) stay working without refactor.

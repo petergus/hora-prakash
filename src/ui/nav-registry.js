@@ -15,6 +15,8 @@ export const PAGE_MAP = {
               render: () => import('../tabs/reading.js').then(m => m.renderReading()) },
   dasha:    { label: 'Dasha',    scope: 'person', requiresData: true,
               render: () => import('../tabs/dasha.js').then(m => m.renderDasha()) },
+  timeline: { label: 'Timeline', scope: 'person', requiresData: true,
+              render: () => import('../tabs/timeline.js').then(m => m.renderTimeline()) },
   transit:  { label: 'Transit',  scope: 'person', requiresData: true,
               render: () => import('../tabs/transit.js').then(m => m.renderTransit()) },
   calendar: { label: 'Calendar', scope: 'person', requiresData: true,
@@ -32,7 +34,7 @@ export const PAGE_MAP = {
 }
 
 /** Person pages in visual/swipe order. */
-export const PERSON_PAGES = ['input', 'chart', 'reading', 'dasha', 'transit', 'calendar', 'panchang', 'strength', 'export']
+export const PERSON_PAGES = ['input', 'chart', 'reading', 'dasha', 'timeline', 'transit', 'calendar', 'panchang', 'strength', 'export']
 
 /** Route segment → page id (and back). */
 export const ROUTE_ALIAS = { edit: 'input' }

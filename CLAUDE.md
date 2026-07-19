@@ -11,7 +11,7 @@ npm test          # Node smoke test (tests/export-payload.test.mjs) — no brows
 npm run preview   # Preview the production build locally
 ```
 
-No linter is configured. `npm test` runs seventeen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
+No linter is configured. `npm test` runs nineteen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
 - `tests/export-payload.test.mjs` — divisional transforms, dasha tree, sandhi, yogas, Export-tab payload
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
 - `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
@@ -29,12 +29,15 @@ No linter is configured. `npm test` runs seventeen Node suites (no browser/WASM 
 - `tests/interpret.test.mjs` — corpus exhaustiveness (all 108 placements, 144 house-lord pairs, every yoga key the **real** detector emits), the A6 strength layer, the depth dial, and a 144-combination render sweep
 - `tests/ai.test.mjs` — AI config gating (BYOK key stored apart from the synced settings), the chart-context grounding builder, tool definitions, prompt builders (no SDK/network/Firebase — those are browser-only)
 - `tests/reading-tools.test.mjs` — the chat tool executor's dispatch + data-shaping for the ephemeris-free tools, and graceful degradation when the WASM ephemeris isn't up
+- `tests/timeline.test.mjs` — dasha/Sade-Sati lane builders, the ingress/return scanners against a synthetic ephemeris, and functional-nature/dasha-synchrony classification (incl. the six classic single-planet yogakarakas)
+- `tests/timeline-svg.test.mjs` — the pure SVG layout: axis tick selection, band clipping/marker culling at the window edge, the now-line, and the dasha spiral ring
 
-`npm run test:ephemeris` runs the four suites that load the real Swiss Ephemeris WASM (Node-native) and check against documented real-world values. Kept out of `npm test` because of the 12 MB ephemeris load:
+`npm run test:ephemeris` runs the five suites that load the real Swiss Ephemeris WASM (Node-native) and check against documented real-world values. Kept out of `npm test` because of the 12 MB ephemeris load:
 - `tests/lunar-birthday.ephemeris.test.mjs` — lunar-date/Adhika logic vs documented festival dates. Run after touching `src/core/lunar-birthday.js`.
 - `tests/upagraha.ephemeris.test.mjs` — the full Gulika/Mandi/special-lagna pipeline vs JHora's Indira Gandhi values (all 7 points land within ~1.7 arcmin; the residual is our sunrise sitting ~2 s from JHora's, which Ghati Lagna's 1.25°/min rate amplifies). Run after touching `src/core/upagraha.js` or the sunrise code in `panchang.js`.
 - `tests/sadesati.ephemeris.test.mjs` — Saturn's Lahiri ingress dates 2020–2025, the 7.5-year window shape, and the scan-step resolution guarantee. Run after touching `src/core/sadesati.js`.
 - `tests/calendar.ephemeris.test.mjs` — the Calendar pipeline end to end (real chart → forecast + dasha + Sade Sati + birthdays → merged events → valid .ics), and the **only** coverage of `findNextEvents` itself. Run after touching `transitForecast.js`, `calendar-events.js` or `ics.js`.
+- `tests/timeline.ephemeris.test.mjs` — Saturn/Rahu ingresses vs published Lahiri dates, and the return scanner's cluster-collapsing (a real return crosses the natal degree up to 3× on the retrograde loop — only one marker per event must survive). Run after touching `src/core/timeline.js`.
 
 Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yogas.js`, or `src/tabs/export.js`. The deploy workflow runs `npm test` before build.
 
@@ -132,7 +135,17 @@ Chart tab also has a per-table "Copy positions as JSON" button (`buildPlanetJSON
 
 ### Compare tab (`src/tabs/compare.js`)
 
-Synastry between two **saved profiles** (selectors, not open sessions): side-by-side D1 charts, a Guna Milan card, whole-sign house overlays both directions, inter-chart sign aspects. Charts are computed on demand from the profile record and memoised in a module-level `compareCache` keyed by profile+ayanamsa+observer.
+Synastry between two **saved profiles** (selectors, not open sessions): side-by-side D1 charts, a Guna Milan card, a dasha-synchrony card, whole-sign house overlays both directions, inter-chart sign aspects. Charts are computed on demand from the profile record (now including each person's Vimshottari tree, for synchrony) and memoised in a module-level `compareCache` keyed by profile+ayanamsa+observer.
+
+### Life Timeline (`src/tabs/timeline.js`, `src/core/timeline.js`, `src/ui/timeline-svg.js`) & dasha synchrony
+
+The Timeline page renders a whole life on one zoomable axis. `src/core/timeline.js` builds the lane/marker data (pure where possible, ephemeris-backed where not); `src/ui/timeline-svg.js` is a pure DOM-free SVG layout engine (Node-safe, tested) consumed by both the Timeline page and the Compare synchrony card; the tab owns pan/zoom state and click wiring.
+
+- **Lanes**: `buildDashaLanes(dasha)` → MD/AD bands (pure); `buildSadeSatiLane(report)` → Sade Sati/Kantaka/Ashtama bands from `calcSadeSati` (pure); `buildTransitMarkers(planets, fromJd, toJd, swe)` → Saturn/Rahu sign ingresses + Jupiter/Saturn returns (ephemeris-backed, via `scanIngresses`/`planetaryReturns`).
+- ⚠️ **`planetaryReturns` collapses retrograde clusters.** A real return crosses the natal degree up to three times (out, back, forward again) because of the retrograde loop — without clustering that's three markers for one event, plus a spurious birth-adjacent crossing. `clusterDays` (default 400) merges crossings closer together than that; it's sized well above the widest retrograde re-crossing span (~9 months for Saturn) and well below the shortest return period marked (Jupiter, ~12y), so it can never merge two genuinely different returns. Verified against real Saturn/Jupiter return spacing in `tests/timeline.ephemeris.test.mjs`.
+- **Lifetime data is cached per chart+ayanamsa** in the tab (`lifetime()`/`resetTimelineCache()`), same pattern as the Sade Sati card and the Calendar's extras cache — the transit scan is lifetime-scale (~150–300 ms).
+- **Spiral view (E3)**: `renderDashaSpiral(dasha, { now, colorOf })` — the 120-year Vimshottari cycle as a ring: outer arcs are Mahadashas, the inner ring is the *current* MD's Antardashas (only rendered if that level is already computed), a radial line marks now.
+- **Dasha synchrony (D2, `dashaSynchrony` in timeline.js)**: for two people's dasha trees, partitions a shared window at every MD boundary from either tree and classifies each interval by **both people's own functional nature** for their own lagna (`src/content/functional-nature.js` — composed from Parashari kendra/trikona/dusthana rules, not hand-written; verified against all six classic single-planet yogakarakas). `harmonious` (both functional benefic) / `mixed` / `stormy` (both functional malefic). Rendered in Compare as a 5-lane mini-timeline (each person's MD+AD plus the "Together" tone strip) via the same `renderTimelineSVG`.
 
 ### Guna Milan (`src/core/gunamilan.js`)
 

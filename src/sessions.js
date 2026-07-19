@@ -55,6 +55,14 @@ export function defaultChartUI() {
   }
 }
 
+export function defaultTimelineUI() {
+  return {
+    view:   'lanes',   // 'lanes' | 'spiral'
+    fromMs: null,      // window start (ms); null → whole life
+    toMs:   null,      // window end (ms);   null → whole life
+  }
+}
+
 export function defaultReadingUI() {
   return {
     subTab:  'overview',   // 'overview' | 'ai' | 'ask'
@@ -142,7 +150,7 @@ export function createSession(label = 'New Profile', id = genId()) {
     snap:    emptySnap(),
     innerTab: 'input',
     uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI(),
-               calendar: defaultCalendarUI(), reading: defaultReadingUI() },
+               calendar: defaultCalendarUI(), reading: defaultReadingUI(), timeline: defaultTimelineUI() },
   })
   persistSessions()
   return id

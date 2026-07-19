@@ -5,6 +5,9 @@ import { state } from '../state.js'
 import { renderChartSVG } from '../ui/chart-svg.js'
 import { getAspectedSigns } from '../core/aspects.js'
 import { calcGunaMilan, calcMangalDosha, mangalDoshaMatch } from '../core/gunamilan.js'
+import { calcDasha } from '../core/dasha.js'
+import { dashaSynchrony, SYNCHRONY_COLOR, buildDashaLanes, planetColor } from '../core/timeline.js'
+import { renderTimelineSVG } from '../ui/timeline-svg.js'
 import { orderedProfiles } from './profile-store.js'
 import { initSwissEph } from '../core/swisseph.js'
 import { getSettings, applyAyanamsa } from '../core/settings.js'
@@ -35,11 +38,17 @@ async function getCompareChartData(p) {
   applyAyanamsa()
   const jd = toJulianDay(p.dob, p.tob, p.timezone)
   const { planets, lagna } = calcBirthChart(jd, p.lat, p.lon, settings)
+  let dasha = null
+  try {
+    const moon = planets.find(x => x.name === 'Moon')
+    if (moon) dasha = await calcDasha(moon, p.dob, { settings, jd })
+  } catch (e) { console.error('compare: dasha', e) }
   const result = {
     label: p.name,
     data: {
       planets,
       lagna,
+      dasha,
       birth: {
         dob: p.dob,
         tob: p.tob,
@@ -157,6 +166,65 @@ function gunaMilanCard(a, b) {
     </div>`
 }
 
+// Dasha synchrony (D2): both people's MD/AD lanes on one axis + a "relationship
+// weather" strip classifying each overlap by both lords' functional nature.
+function synchronyCard(a, b) {
+  const dA = a.data.dasha, dB = b.data.dasha
+  if (!Array.isArray(dA) || !Array.isArray(dB)) return ''
+
+  // Window: a shared adult stretch around now (now − 8y … now + 22y), clipped
+  // to where both dasha trees are defined.
+  const now = Date.now()
+  const lo = Math.max(dA[0].start.getTime(), dB[0].start.getTime())
+  const hi = Math.min(dA[dA.length - 1].end.getTime(), dB[dB.length - 1].end.getTime())
+  let from = Math.max(lo, now - 8 * 365.25 * 86400000)
+  let to   = Math.min(hi, now + 22 * 365.25 * 86400000)
+  if (!(to > from)) { from = lo; to = hi }
+  const fromD = new Date(from), toD = new Date(to)
+
+  const lanesA = buildDashaLanes(dA)
+  const lanesB = buildDashaLanes(dB)
+  const sync = dashaSynchrony(dA, a.data.lagna.sign, dB, b.data.lagna.sign, fromD, toD)
+  const syncBand = sync.map(s => ({
+    start: s.start, end: s.end, color: SYNCHRONY_COLOR[s.tone],
+    label: s.tone, sub: `${s.p1Lord} / ${s.p2Lord}`,
+  }))
+
+  const lanes = [
+    { id: 'a-md', label: `${a.label} MD`, kind: 'band', items: lanesA.md },
+    { id: 'a-ad', label: `${a.label} AD`, kind: 'band', items: lanesA.ad },
+    { id: 'sync', label: 'Together', kind: 'band', items: syncBand },
+    { id: 'b-md', label: `${b.label} MD`, kind: 'band', items: lanesB.md },
+    { id: 'b-ad', label: `${b.label} AD`, kind: 'band', items: lanesB.ad },
+  ]
+  const svg = renderTimelineSVG({ lanes, from: fromD, to: toD, now: new Date(), width: 940 })
+
+  // Current tone, for a headline.
+  const cur = sync.find(s => s.start.getTime() <= now && s.end.getTime() > now)
+  const TONE_TEXT = {
+    harmonious: 'Right now both of you run periods that support your charts — a favourable stretch.',
+    mixed: 'Right now one of you is in a supportive period and the other a testing one — uneven, but workable.',
+    stormy: 'Right now both of you run testing periods at once — a stretch that asks for patience.',
+  }
+
+  return `
+    <div class="card" style="margin-top:1rem">
+      <h3 class="section-label">Dasha synchrony — relationship weather</h3>
+      ${cur ? `<p style="font-size:0.85rem;line-height:1.55;margin:0 0 0.6rem">${esc(TONE_TEXT[cur.tone])}</p>` : ''}
+      <div class="tl-scroll" style="cursor:default">${svg}</div>
+      <div class="sync-legend">
+        <span><i style="background:${SYNCHRONY_COLOR.harmonious}"></i> both supportive</span>
+        <span><i style="background:${SYNCHRONY_COLOR.mixed}"></i> mixed</span>
+        <span><i style="background:${SYNCHRONY_COLOR.stormy}"></i> both testing</span>
+      </div>
+      <p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0;line-height:1.5">
+        Each person's running Mahadasha lord is judged by <em>their own</em> lagna's functional nature
+        (a planet benefic for one chart can be malefic for the other), then combined. A guide to the
+        overall tone of a shared stretch, not a verdict on the relationship.
+      </p>
+    </div>`
+}
+
 // Inter-chart aspects: which of `to`'s planets sit in signs aspected by `from`'s planets
 function interAspects(from, to) {
   const items = []
@@ -255,6 +323,7 @@ export async function renderCompare() {
         </div>
       </div>
       ${gunaMilanCard(a, b)}
+      ${synchronyCard(a, b)}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin-top:1rem">
         ${overlayTable(b, a)}
         ${overlayTable(a, b)}

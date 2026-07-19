@@ -167,8 +167,9 @@ repo's style. Decision point noted in §9.
    auth-ui.js, meaningfully lowers sign-up friction. Flagged as decision §9.
 
 **Migration:** one-off script `scripts/backfill-users.js` (Admin SDK, run locally with a service
-account): iterate existing Auth users → create their user docs → grant `superadmin` to
-`gustafsonpw@gmail.com`. Superadmin bootstrap lives **only** in this script — never an HTTP endpoint.
+account): iterate existing Auth users → create their user docs → grant `superadmin` to whichever
+email is passed via `--super <email>` at invocation time (not hardcoded — see the Ops note below).
+Superadmin bootstrap lives **only** in this script — never an HTTP endpoint.
 
 **Tests:** `tests/authz.test.mjs` — pure claim→entitlement resolution, disabled/unverified states
 (no Firebase imports, same style as `tests/ai.test.mjs`).

@@ -13,6 +13,7 @@ import { _setCurrent } from './nav-state.js'
 import { getSessions, getActiveId, switchSession, setSessionInnerTab } from '../sessions.js'
 import { state } from '../state.js'
 import { switchTab, syncPageNav } from './tabs.js'
+import { getAccess, isSuperAdmin } from '../core/authz.js'
 
 let _navToken = 0
 
@@ -74,6 +75,12 @@ async function handleRoute() {
   const session = getSessions().find(s => s.id === sid) ?? null
 
   if (!page) page = state.planets ? 'chart' : 'input'
+
+  // Guard: /buro is UI convenience only — the actual security boundary is
+  // Firestore rules + each admin callable re-checking superadmin server-side
+  // (see docs/USER_INTEGRATION_PLAN.md D3) — but a non-admin should never
+  // even see the page render.
+  if (PAGE_MAP[page].adminOnly && !isSuperAdmin(getAccess())) page = 'people'
 
   // Guard: data pages need a computed chart. While a reload-restore is still
   // recalculating, stay on the requested page and show a placeholder instead

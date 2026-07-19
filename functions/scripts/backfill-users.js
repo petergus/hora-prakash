@@ -53,7 +53,7 @@ async function run() {
         await ref.set({ role: 'superadmin' }, { merge: true })
         granted++
       }
-      const claims = await syncClaims(u.uid)
+      const claims = await syncClaims({ db, auth: admin.auth() }, u.uid)
       console.log(`✓ ${u.email || u.uid}  role=${claims.role} plan=${claims.plan} status=${claims.status}`)
     }
     pageToken = page.pageToken

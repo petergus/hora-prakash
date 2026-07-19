@@ -29,6 +29,8 @@ export const PAGE_MAP = {
               render: () => import('../tabs/people.js').then(m => m.renderPeople()) },
   compare:  { label: 'Compare',  scope: 'global', requiresData: false,
               render: () => import('../tabs/compare.js').then(m => m.renderCompare()) },
+  buro:     { label: 'Admin',    scope: 'global', requiresData: false, adminOnly: true,
+              render: () => import('../tabs/buro.js').then(m => m.renderBuro()) },
 }
 
 /** Person pages in visual/swipe order. */

@@ -1,11 +1,13 @@
 # User Integration & SaaS Plan
 
-**Status:** v1, 2026-07-18 — Phases 1–2 implemented on `claude/user-integration-saas-plan-xbsms8` (sign-up, `users/{uid}` + claims, rules v2, cache hygiene, backfill script); Phases 3–6 open
+**Status:** v1, 2026-07-19 — Phases 1–3 implemented on `claude/user-integration-saas-plan-xbsms8`
+(sign-up, `users/{uid}` + claims, rules v2, cache hygiene, backfill script, and the `/buro` admin
+backend: dashboard stats, users table, per-user detail + actions, account creation, audit log).
+Phases 4–6 (entitlements/quota enforcement, Stripe, GDPR + polish) open.
 **Scope:** Self-service sign-up, super-admin backend (`/buro`), per-user data isolation, entitlements
 prepared for Stripe subscription tiers, and the surrounding modern-SaaS table stakes.
 
 This plan is grounded in the code as it exists today. Every phase lists the real files it touches.
-Nothing here is implemented yet; this document is the agreement on *what* and *in which order*.
 
 ---
 
@@ -258,6 +260,31 @@ under a persistent red banner. No token impersonation, ever — it's rules-read 
 Handlers are extracted pure (`functions/handlers/*.js`, injected `{ db, auth }`), so
 `tests/admin-handlers.test.mjs` can cover authorization denials and audit-writing without the
 emulator — mirroring the injectable-`swe` pattern the core modules use.
+
+> **Implementation notes (v1, shipped):** a few deltas from the design above, all deliberate scope
+> cuts rather than gaps —
+> - Added a 7th callable, **`adminDashboardStats`**, not in the original inventory list — the
+>   Dashboard's totals needed a dedicated endpoint using Firestore's `.count()` aggregation.
+> - **Audit log reads bypass a callable** — `auditLogs` is already superadmin-readable under rules
+>   v2, so `/buro`'s audit view queries Firestore directly instead of adding an 8th callable. Writes
+>   still go through `functions/lib/audit.js#writeAudit`, called by every mutating handler.
+> - **"AI usage this month" is not in the v1 Dashboard or Users table** — that data comes from the
+>   `usage/{period}` counters Phase 4's `aiProxy` quota enforcement will start writing. Showing the
+>   column now would mean showing zeroes for everyone; it plugs in once Phase 4 ships.
+> - **`setAccess` refuses to let a superadmin change their own role or disable their own account** —
+>   not in the original design, added because the alternative (a misclick locking out the only
+>   superadmin) needs a service-account script to recover from.
+> - **"Mark verified" is not a separate action** — `email_verified` is a native Firebase Auth flag,
+>   not one of our custom claims; it isn't in v1's action set. (An admin can still resolve a stuck
+>   verification by sending a new reset/sign-in link.)
+> - **Composite Firestore indexes are required and declared** (`firestore.indexes.json`): the users
+>   table's plan/status/role filters each pair with an `orderBy(createdAt)`, which Firestore can't
+>   serve from single-field indexes alone. To avoid needing a 3-way composite per filter
+>   combination, the client and server both restrict list queries to **one filter dimension at a
+>   time** (search XOR plan XOR status XOR role) — documented in the UI as "filters apply one at a
+>   time" rather than hidden as a silent limitation.
+> - `PLAN_IDS = ['free', 'plus', 'pro']` is hardcoded identically in `buro.js` and
+>   `handlers/admin.js` — this is D4's provisional plan list, not yet the real Phase 4 config.
 
 ---
 

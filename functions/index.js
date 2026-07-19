@@ -13,7 +13,7 @@
 // Deploy with:
 //   firebase deploy --only functions
 
-const { onRequest } = require('firebase-functions/v2/https')
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
 const admin = require('firebase-admin')
 const { Readable } = require('node:stream')
@@ -115,5 +115,35 @@ exports.onUserCreated = functionsV1
       // a future admin-create callable — keep whatever it wrote.
       if (err?.code !== 6 && err?.code !== 'already-exists') throw err
     }
-    await syncClaims(user.uid)
+    await syncClaims({ db: admin.firestore(), auth: admin.auth() }, user.uid)
   })
+
+// ── /buro admin backend ──────────────────────────────────────────────────────
+// Every callable re-verifies superadmin status server-side against Firestore
+// (see handlers/admin.js#assertSuperAdmin) — the client-side nav guard is
+// convenience only, never the security boundary. All are invoked via the
+// Firebase SDK (httpsCallable), which handles CORS/auth transport itself —
+// no `cors` option needed here (unlike aiProxy's raw onRequest).
+
+const adminHandlers = require('./handlers/admin')
+
+function adminCallable(handler) {
+  return onCall({ region: 'europe-west6' }, async request => {
+    const actor = { uid: request.auth?.uid, email: request.auth?.token?.email || null }
+    try {
+      return await handler({ db: admin.firestore(), auth: admin.auth() }, request.data || {}, actor)
+    } catch (err) {
+      if (err instanceof adminHandlers.HttpsLikeError) throw new HttpsError(err.code, err.message)
+      console.error(`${handler.name} failed:`, err)
+      throw new HttpsError('internal', 'Something went wrong.')
+    }
+  })
+}
+
+exports.adminDashboardStats = adminCallable(adminHandlers.dashboardStats)
+exports.adminListUsers      = adminCallable(adminHandlers.listUsers)
+exports.adminGetUser        = adminCallable(adminHandlers.getUser)
+exports.adminCreateUser     = adminCallable(adminHandlers.createUser)
+exports.adminSetAccess      = adminCallable(adminHandlers.setAccess)
+exports.adminSendReset      = adminCallable(adminHandlers.sendReset)
+exports.adminDeleteUser     = adminCallable(adminHandlers.deleteUser)

@@ -6,13 +6,17 @@
 // Every sync bumps `claimsSyncedAt` on the doc — the client (src/core/authz.js)
 // watches that field and force-refreshes its token, so changes land in live
 // sessions in seconds instead of the ~1 h token lifetime.
+//
+// { db, auth } is injected (not the global `admin` app) so this — like
+// handlers/admin.js — can run against a lightweight in-memory fake in
+// tests/admin-handlers.test.mjs without touching a real Firebase project.
 
 const admin = require('firebase-admin')
 
 const CLAIM_DEFAULTS = { role: 'user', plan: 'free', status: 'active' }
 
-async function syncClaims(uid) {
-  const ref = admin.firestore().doc(`users/${uid}`)
+async function syncClaims({ db, auth }, uid) {
+  const ref = db.doc(`users/${uid}`)
   const snap = await ref.get()
   const d = snap.exists ? snap.data() : {}
   const claims = {
@@ -20,7 +24,7 @@ async function syncClaims(uid) {
     plan:   d.plan   || CLAIM_DEFAULTS.plan,
     status: d.status || CLAIM_DEFAULTS.status,
   }
-  await admin.auth().setCustomUserClaims(uid, claims)
+  await auth.setCustomUserClaims(uid, claims)
   await ref.set({ claimsSyncedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
   return claims
 }

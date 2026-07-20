@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs && node tests/places-timezone.test.mjs && node tests/moon-info.test.mjs && node tests/sadesati.test.mjs && node tests/activation.test.mjs && node tests/avastha.test.mjs && node tests/upagraha.test.mjs && node tests/gunamilan.test.mjs && node tests/ics.test.mjs && node tests/muhurta.test.mjs && node tests/calendar-events.test.mjs && node tests/interpret.test.mjs && node tests/ai.test.mjs && node tests/reading-tools.test.mjs && node tests/timeline.test.mjs && node tests/timeline-svg.test.mjs",
+    "test": "node tests/export-payload.test.mjs && node tests/jhora-golden.test.mjs && node tests/lunar-birthday.test.mjs && node tests/timezone-dst.test.mjs && node tests/places-timezone.test.mjs && node tests/moon-info.test.mjs && node tests/sadesati.test.mjs && node tests/activation.test.mjs && node tests/avastha.test.mjs && node tests/upagraha.test.mjs && node tests/gunamilan.test.mjs && node tests/ics.test.mjs && node tests/muhurta.test.mjs && node tests/calendar-events.test.mjs && node tests/interpret.test.mjs && node tests/ai.test.mjs && node tests/reading-tools.test.mjs && node tests/timeline.test.mjs && node tests/timeline-svg.test.mjs && node tests/authz.test.mjs",
     "test:ephemeris": "node tests/lunar-birthday.ephemeris.test.mjs && node tests/upagraha.ephemeris.test.mjs && node tests/sadesati.ephemeris.test.mjs && node tests/calendar.ephemeris.test.mjs && node tests/timeline.ephemeris.test.mjs",
+    "test:functions": "node tests/admin-handlers.test.mjs",
     "preview": "vite preview",
     "parse-places": "node scripts/parse-places.js",
     "enrich-places": "node scripts/enrich-places-tz.js",

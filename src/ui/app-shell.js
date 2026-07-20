@@ -10,6 +10,7 @@ import { getCurrentPage } from './nav-state.js'
 import { logout } from '../auth-ui.js'
 import { openSettingsModal } from './settings-modal.js'
 import { renderPersonHeader } from './person-header.js'
+import { getAccess, isSuperAdmin, onAccessChanged } from '../core/authz.js'
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
 
@@ -20,6 +21,7 @@ const PLUS_ICON   = `<svg width="13" height="13" viewBox="0 0 14 14" fill="none"
 const CLOSE_ICON  = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>`
 const MENU_ICON   = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="5.5" x2="17" y2="5.5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="14.5" x2="17" y2="14.5"/></svg>`
 const GEAR_ICON   = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>`
+const SHIELD_ICON = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l5 1.8v3.9c0 3.5-2.1 6-5 7-2.9-1-5-3.5-5-7V3.3z"/></svg>`
 const SIGNOUT_ICON = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2H3.5A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14H6"/><path d="M10.5 11.5 14 8l-3.5-3.5"/><line x1="14" y1="8" x2="6" y2="8"/></svg>`
 
 /** Wire the static shell chrome. Call once after auth. */
@@ -31,6 +33,16 @@ export function initShell(user) {
   if (addBtn) addBtn.innerHTML = PLUS_ICON
   document.querySelector('.side-item[data-nav="people"] .side-item-icon')?.insertAdjacentHTML('afterbegin', PEOPLE_ICON)
   document.querySelector('.side-item[data-nav="compare"] .side-item-icon')?.insertAdjacentHTML('afterbegin', COMPARE_ICON)
+  document.querySelector('.side-item[data-nav="buro"] .side-item-icon')?.insertAdjacentHTML('afterbegin', SHIELD_ICON)
+
+  // The Admin item is superadmin-only. This is convenience, not the security
+  // boundary (router.js redirects non-admins away from #/buro regardless, and
+  // every /buro Cloud Function re-verifies server-side) — but a plain user
+  // should never see it in the first place. Re-synced on every access change
+  // (a live plan/role update, or a disable) so a demotion hides it immediately
+  // and bounces the user out if they're on the page right now.
+  syncAdminNav(getAccess())
+  onAccessChanged(syncAdminNav)
 
   // Drawer
   drawerBtn?.addEventListener('click', openDrawer)
@@ -65,6 +77,14 @@ export function initShell(user) {
   }
 
   renderSidebar()
+}
+
+function syncAdminNav(access) {
+  const item = document.querySelector('.side-item[data-nav="buro"]')
+  if (!item) return
+  const allowed = isSuperAdmin(access)
+  item.hidden = !allowed
+  if (!allowed && getCurrentPage() === 'buro') navigate(routeFor('people'))
 }
 
 /** Render the open-people list. (Successor of profile-tabs' renderProfileTabs.) */

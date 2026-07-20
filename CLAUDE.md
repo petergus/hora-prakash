@@ -11,7 +11,9 @@ npm test          # Node smoke test (tests/export-payload.test.mjs) — no brows
 npm run preview   # Preview the production build locally
 ```
 
-No linter is configured. `npm test` runs nineteen Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
+`npm run test:functions` runs `tests/admin-handlers.test.mjs` (the `/buro` Cloud Functions handlers, against in-memory fakes). Kept out of `npm test` because it needs `functions/`' own dependencies — a normal `npm install` at the repo root does **not** install them (`functions/` is a separate CommonJS package, not an npm workspace). One-time setup: `cd functions && npm install`. After that, `npm run test:functions` works from the repo root (Node resolves `require('firebase-admin')` from the requiring file's own directory, not `cwd`).
+
+No linter is configured. `npm test` runs twenty Node suites (no browser/WASM — core modules take an injectable `swe`, so tests pass a synthetic ephemeris; follow that pattern in new core modules):
 - `tests/export-payload.test.mjs` — divisional transforms, dasha tree, sandhi, yogas, Export-tab payload
 - `tests/jhora-golden.test.mjs` — golden fixtures against JHora reference output in `jhora/Indira_Gandhi.md` (D1/D9 placements, nakshatra/pada, Vimshottari balance)
 - `tests/lunar-birthday.test.mjs` — Purnimanta lunar-date logic (tithi, sankranti month naming, Adhika detection, birthday finder) against a synthetic ephemeris
@@ -31,6 +33,7 @@ No linter is configured. `npm test` runs nineteen Node suites (no browser/WASM �
 - `tests/reading-tools.test.mjs` — the chat tool executor's dispatch + data-shaping for the ephemeris-free tools, and graceful degradation when the WASM ephemeris isn't up
 - `tests/timeline.test.mjs` — dasha/Sade-Sati lane builders, the ingress/return scanners against a synthetic ephemeris, and functional-nature/dasha-synchrony classification (incl. the six classic single-planet yogakarakas)
 - `tests/timeline-svg.test.mjs` — the pure SVG layout: axis tick selection, band clipping/marker culling at the window edge, the now-line, and the dasha spiral ring
+- `tests/authz.test.mjs` — claims→access parsing (role/plan/status defaults, never-invent-privileges) + the per-account local-cache hygiene in `user-scope.js` (sign-out vs account-switch wipes)
 
 `npm run test:ephemeris` runs the five suites that load the real Swiss Ephemeris WASM (Node-native) and check against documented real-world values. Kept out of `npm test` because of the 12 MB ephemeris load:
 - `tests/lunar-birthday.ephemeris.test.mjs` — lunar-date/Adhika logic vs documented festival dates. Run after touching `src/core/lunar-birthday.js`.
@@ -53,12 +56,24 @@ Run after touching `src/core/divisional.js`, `src/core/dasha.js`, `src/core/yoga
 ### Startup sequence (`src/main.js`)
 
 1. `loadSettings()` + theme; `loadBranding()`
-2. `await requireAuth()` — Firebase login gate (blocks everything)
+2. `await requireAuth()` — login/sign-up gate (blocks everything; rejects `status:'disabled'` claims), then `reconcileUserScope(uid)` wipes another account's local caches (re-loads settings/theme when it does), `await initAuthz(user)` resolves real access before routing starts
 3. `fetchProfiles()` — mirrors Firestore profiles into localStorage (`hora-prakash-profiles`) so existing sync read paths work
 4. `initTabs()`, `initShell(user)` (sidebar/drawer + settings gear + account row), create + switch sessions, `renderSidebar()`, then `initRouter()` (the hash route drives the first render)
 5. `initSwissEph()` preloads WASM in background; form submit awaits it
 
 **SwissEph must be initialized before calculation calls.** `getSwe()` throws before init.
+
+### Accounts, roles & access (`src/core/authz.js`, `src/user-scope.js`, `src/auth-ui.js`, `functions/`)
+
+Multi-user foundation (full roadmap: `docs/USER_INTEGRATION_PLAN.md`; Phases 1–3 implemented):
+
+- **`users/{uid}` is the authority doc** — `role` (`user`|`superadmin`), `plan` (`free`|…), `status` (`active`|`disabled`), `planSource`, `email`, `createdAt`, `claimsSyncedAt`. Written **only by Cloud Functions**: `functions/index.js#onUserCreated` provisions it on sign-up (`.create()`, so pre-provisioned docs win) and `functions/claims.js#syncClaims` mirrors it into **custom claims**. `syncClaims({db, auth}, uid)` takes injected Admin SDK instances (not the global `admin` app) so it — and everything that calls it — runs against a fake in `tests/admin-handlers.test.mjs`. ⚠️ Never add a client-side write of `role`/`plan`/`status` — rules block them, and the design depends on it.
+- **`authz.js`**: pure `accessFrom(claims)` (Node-tested; unknown roles/statuses fold to `user`/`active`, never upward) + `initAuthz(user)`, which watches `users/{uid}.claimsSyncedAt` and force-refreshes the ID token when a function bumps it — access changes reach live sessions in seconds instead of the ~1 h token lifetime. `onAccessChanged` → main.js signs out on a mid-session disable; `app-shell.js` separately subscribes to show/hide the Admin nav item and bounce a demoted user off `/buro`. Firebase is lazily imported (same pattern as ai.js) so the module stays in the Node test graph.
+- **Auth overlay** (`auth-ui.js`): sign-in AND sign-up (min-8 password, optional display name). `requireAuth()` signs out `status:'disabled'` claims; the native Auth `disabled` flag only blocks *new* sign-ins. ⚠️ **No email-verification nag or auto-send** — a prior version sent `sendEmailVerification` on sign-up and showed a dismissible banner; both were removed (undeployed/unconfigured project email caused more confusion than value, see `docs/USER_INTEGRATION_PLAN.md` Phase 1 note). `accessFrom(...).verified` still tracks the Auth `emailVerified` flag and `/buro`'s user list still shows it — only the proactive UI nag is gone. Reintroduce deliberately if/when a feature actually gates on it (Phase 4).
+- **Cache hygiene** (`user-scope.js`): localStorage is per-browser, accounts aren't. A different-uid sign-in wipes ALL user-scoped keys (`hora-prakash-last-uid` marker); sign-out wipes personal data + the BYOK key but keeps preferences. ⚠️ **When adding a user-scoped localStorage key, add it to `PERSONAL_KEYS` or `PREFERENCE_KEYS`** or it leaks to the next account on a shared browser.
+- **Rules v2** (`firestore.rules`): owner-only CRUD on own subtree; superadmin (`request.auth.token.role`) reads everything but has **no rules-write** — admin mutations go through audited callables (below); `usage`/`billing`/`auditLogs`/`config` are function-write-only. Missing claims fold to `user/free/active` so pre-claims tokens keep working.
+- **`/buro` admin backend** (`src/tabs/buro.js`, `src/admin-api.js`, `functions/handlers/admin.js`): a `PAGE_MAP` entry with `adminOnly: true` — `router.js#handleRoute` redirects non-admins to `people` before rendering, and `app-shell.js` hides the sidebar item for non-admins, but **neither is the security boundary**: every callable (`adminDashboardStats`/`adminListUsers`/`adminGetUser`/`adminCreateUser`/`adminSetAccess`/`adminSendReset`/`adminDeleteUser`) re-verifies `role == 'superadmin'` against the Firestore doc itself (`assertSuperAdmin`, not the token claim, which can lag a demotion). Every mutation writes an `auditLogs` entry (`functions/lib/audit.js`); the `/buro` UI reads that collection directly via Firestore (rules already grant superadmin read) rather than through a callable. Admin-created accounts get no password — `adminCreateUser` returns a `generatePasswordResetLink` for the admin to send manually (no transactional email wired up yet, see Phase 6). `setAccess` refuses to let a superadmin demote or disable **themselves** (a real lockout risk — recovery would need re-running the backfill script). Client-side plan IDs (`PLAN_IDS` in both `buro.js` and `handlers/admin.js`) are a provisional hardcoded list pending Phase 4's real entitlements config. Composite Firestore indexes for the users list (`plan`/`status`/`role` × `createdAt`) are declared in `firestore.indexes.json` — **must be deployed** (`firebase deploy --only firestore:indexes`) before the users table/search works; the client and server both restrict filtering to one dimension at a time to avoid needing 3-way composites.
+- **Ops**: `firebase deploy --only functions,firestore:rules,firestore:indexes`, then once: `cd functions && node scripts/backfill-users.js --super <email>` (service-account creds; idempotent) to provision docs for pre-existing users and grant superadmin. Superadmin bootstrap lives only in that script.
 
 ### State (`src/state.js`)
 

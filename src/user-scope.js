@@ -18,6 +18,7 @@ const SESSIONS_KEY = 'hora-prakash-sessions'   // sessionStorage: open person ta
 /** Account data + personal traces — cleared on sign-out AND account switch. */
 export const PERSONAL_KEYS = [
   'hora-prakash-profiles',        // Firestore mirror (main.js / profile-store.js)
+  'hora-prakash-sessions',        // open person tabs (sessions.js)
   'hora-prakash-ai-key',          // BYOK Anthropic key (ai.js)
   'hora-prakash-location-cache',  // geocoding lookups (location-cache.js)
   'hora-prakash-today-location',  // Panchang "today" location (panchang.js)
@@ -36,7 +37,10 @@ function drop(keys) {
   for (const k of keys) { try { localStorage.removeItem(k) } catch { /* storage unavailable */ } }
 }
 function dropSessions() {
-  try { sessionStorage.removeItem(SESSIONS_KEY) } catch { /* storage unavailable */ }
+  try {
+    sessionStorage.removeItem(SESSIONS_KEY)
+    localStorage.removeItem(SESSIONS_KEY)
+  } catch { /* storage unavailable */ }
 }
 
 /**

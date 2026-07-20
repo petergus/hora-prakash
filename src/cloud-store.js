@@ -1,7 +1,7 @@
 // src/cloud-store.js — per-user Firestore CRUD for profiles + horoscopes.
 import { auth, db } from './firebase.js'
 import {
-  collection, doc, getDocs, setDoc, deleteDoc, serverTimestamp, writeBatch,
+  collection, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 
 function uid() {
@@ -60,3 +60,31 @@ export async function saveHoroscope(profileId, snapshot) {
     savedAt: serverTimestamp(),
   })
 }
+
+const sessionsDoc = () => doc(db, 'users', uid(), 'settings', 'sessions')
+
+export async function fetchSessionsCloud() {
+  if (!auth.currentUser) return null
+  try {
+    const snap = await getDoc(sessionsDoc())
+    if (!snap.exists()) return null
+    return snap.data()
+  } catch (err) {
+    console.error('Failed to fetch cloud sessions:', err)
+    return null
+  }
+}
+
+export async function saveSessionsCloud(data) {
+  if (!auth.currentUser) return
+  try {
+    await setDoc(sessionsDoc(), {
+      entries: data.entries || [],
+      activeIndex: data.activeIndex ?? 0,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+  } catch (err) {
+    console.error('Failed to save cloud sessions:', err)
+  }
+}
+

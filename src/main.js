@@ -4,16 +4,17 @@ import { initRouter, refresh as refreshRoute } from './ui/router.js'
 import { initSwissEph } from './core/swisseph.js'
 import { loadSettings, applyAyanamsa, getSettings } from './core/settings.js'
 import { loadBranding } from './config/branding.js'
-import { createSession, switchSession, loadPersistedSessions, getSessions, commitActive } from './sessions.js'
+import { createSession, switchSession, loadPersistedSessions, getSessions, commitActive, clearSessionsInMemory } from './sessions.js'
 import { initShell, renderSidebar } from './ui/app-shell.js'
 import { state } from './state.js'
 import { updateFavicon } from './ui/favicon.js'
 import { requireAuth, logout } from './auth-ui.js'
 import { reconcileUserScope } from './user-scope.js'
 import { initAuthz, onAccessChanged } from './core/authz.js'
-import { fetchProfiles } from './cloud-store.js'
+import { fetchProfiles, fetchSessionsCloud } from './cloud-store.js'
 
 const PROFILES_KEY = 'hora-prakash-profiles'
+const SESSIONS_KEY = 'hora-prakash-sessions'
 
 // Capture install prompt and show install button when available.
 let _installPrompt = null
@@ -89,13 +90,21 @@ async function main() {
   await initAuthz(user).catch(() => {})
   onAccessChanged(a => { if (a.status === 'disabled') logout() })
 
-  // Pull profiles for this user from Firestore into localStorage so the existing
-  // sync read paths (loadProfiles in input.js) stay working without refactor.
+  // Pull profiles & open sessions for this user from Firestore into localStorage
   try {
-    const cloudProfiles = await fetchProfiles()
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(cloudProfiles))
+    const [cloudProfiles, cloudSessions] = await Promise.all([
+      fetchProfiles(),
+      fetchSessionsCloud(),
+    ])
+    if (cloudProfiles) localStorage.setItem(PROFILES_KEY, JSON.stringify(cloudProfiles))
+    if (cloudSessions?.entries?.length) {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify({
+        entries: cloudSessions.entries,
+        activeIndex: cloudSessions.activeIndex ?? 0,
+      }))
+    }
   } catch (err) {
-    console.error('Failed to load profiles from Firestore:', err)
+    console.error('Failed to load user data from Firestore:', err)
   }
 
   // Show UI immediately — don't block on 12MB ephemeris download
@@ -105,13 +114,15 @@ async function main() {
   initTabs()
   initShell(user)
 
-  // Recreate profile tabs persisted from this browser tab (sessionStorage);
+  // Recreate profile tabs persisted across reloads and devices (localStorage / Firestore);
   // chart data is recalculated below once the ephemeris is ready. Persisted
   // ids are reused so #/p/<id>/… deep links survive the reload.
+  clearSessionsInMemory()
   const persisted = loadPersistedSessions()
   const entries = persisted?.entries ?? [{}]
-  const ids = entries.map(e => createSession(e.label ?? 'New Profile', e.id || undefined))
-  switchSession(ids[0])
+  const ids = entries.map(e => createSession(e.label ?? 'New Profile', e.id || undefined, e.innerTab || 'input'))
+  const initialActiveIndex = (persisted?.activeIndex != null && persisted.activeIndex < ids.length) ? persisted.activeIndex : 0
+  switchSession(ids[initialActiveIndex] ?? ids[0])
 
   // Sessions that will be recalculated below get a `restoring` flag so the
   // router shows a placeholder instead of bouncing data-page routes to /edit.

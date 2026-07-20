@@ -3,6 +3,7 @@
 
 import { state } from './state.js'
 import { PERSON_PAGES } from './ui/nav-registry.js'
+import { saveSessionsCloud } from './cloud-store.js'
 
 function genId() {
   return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
@@ -101,8 +102,17 @@ export function defaultTransitUI() {
 
 let sessions = []
 let activeId  = null
+let cloudTimer = null
 
-// ── Persistence across reloads ────────────────────────────────────────────────
+function scheduleCloudSave(data) {
+  if (cloudTimer) clearTimeout(cloudTimer)
+  cloudTimer = setTimeout(() => {
+    cloudTimer = null
+    saveSessionsCloud(data).catch(err => console.error('Cloud sessions save failed:', err))
+  }, 1000)
+}
+
+// ── Persistence across reloads & devices ──────────────────────────────────────
 // Full snapshots contain Dates, Sets and WASM-derived trees — too lossy to
 // serialize. Persist only the birth inputs + labels; main.js recalculates
 // each restored session once SwissEph is ready.
@@ -113,19 +123,23 @@ export function persistSessions() {
     const entries = sessions.map(s => ({
       id: s.id,   // stable across reloads so #/p/<id>/… deep links survive
       label: s.label,
+      innerTab: s.innerTab ?? 'input',
       // Active session: state is the source of truth (its snap may be stale).
       // Fall back to the snap so a momentarily-null state.birth can't wipe a
       // persisted chart (e.g. mid-restore, before state.birth is re-assigned).
       birth: s.id === activeId ? (state.birth ?? s.snap.birth) : s.snap.birth,
     }))
-    sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ entries, activeIndex: sessions.findIndex(s => s.id === activeId) }))
+    const activeIndex = sessions.findIndex(s => s.id === activeId)
+    const payload = { entries, activeIndex: activeIndex >= 0 ? activeIndex : 0 }
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(payload))
+    scheduleCloudSave(payload)
   } catch { /* storage full / unavailable — persistence is best-effort */ }
 }
 
-/** @returns {{ entries: {label, birth}[], activeIndex: number } | null} */
+/** @returns {{ entries: {label, birth, innerTab}[], activeIndex: number } | null} */
 export function loadPersistedSessions() {
   try {
-    const raw = sessionStorage.getItem(PERSIST_KEY)
+    const raw = localStorage.getItem(PERSIST_KEY)
     if (!raw) return null
     const data = JSON.parse(raw)
     if (!Array.isArray(data.entries) || data.entries.length === 0) return null
@@ -135,12 +149,17 @@ export function loadPersistedSessions() {
   }
 }
 
-export function createSession(label = 'New Profile', id = genId()) {
+export function clearSessionsInMemory() {
+  sessions = []
+  activeId = null
+}
+
+export function createSession(label = 'New Profile', id = genId(), innerTab = 'input') {
   sessions.push({
     id,
     label,
     snap:    emptySnap(),
-    innerTab: 'input',
+    innerTab,
     uiState: { dasha: defaultDashaUI(), chart: defaultChartUI(), transit: defaultTransitUI(),
                calendar: defaultCalendarUI(), reading: defaultReadingUI() },
   })

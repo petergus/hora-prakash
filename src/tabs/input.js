@@ -606,7 +606,11 @@ async function onSuggestionClick(e) {
   const lat = parseFloat(li.dataset.lat)
   const lon = parseFloat(li.dataset.lon)
   try {
-    const tz = li.dataset.tz || await getTimezone(lat, lon)
+    // Derive the zone from coordinates (bundled DB, offline + deterministic) so
+    // a stale cached tz can't shadow the correct one and flip the offset between
+    // selections. Only if resolution fails do we fall back to the stored tz.
+    const tz = (await getTimezone(lat, lon).catch(() => null)) || li.dataset.tz
+    if (!tz) throw new Error('timezone unresolved')
     selectedLocation = { displayName: li.dataset.name, lat, lon, timezone: tz }
     addToCache({ displayName: li.dataset.name, lat, lon, tz })
     document.getElementById('inp-location').value = li.dataset.name

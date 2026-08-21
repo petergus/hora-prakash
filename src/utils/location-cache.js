@@ -1,6 +1,9 @@
 // src/utils/location-cache.js
 
-const CACHE_KEY = 'hora-prakash-location-cache'
+// v2: earlier versions cached a timezone that could be a stale/mislabelled
+// value (e.g. an online lookup returning the wrong zone). Bumping the key drops
+// those poisoned entries so a bad cached tz can never shadow the corrected DB.
+const CACHE_KEY = 'hora-prakash-location-cache-v2'
 const MAX_ENTRIES = 20
 
 export function getCache() {
